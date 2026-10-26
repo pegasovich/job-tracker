@@ -1,6 +1,6 @@
 """
 Djinni.co Scraper for QA / SDET Remote positions.
-Extracts structured JobPostings via Schema.org JSON-LD.
+Extracts structured JobPostings via Schema.org JSON-LD with multi-page support.
 """
 
 import urllib.request
@@ -8,6 +8,7 @@ import urllib.parse
 import json
 import re
 import html
+import time
 import logging
 from typing import List, Dict, Optional
 
@@ -42,65 +43,94 @@ class DjinniJobScraper:
             logger.error(f"Error fetching Djinni {url}: {e}")
         return None
 
-    def search_jobs(self, keyword: str = "QA Automation", limit: int = 15) -> List[Dict[str, str]]:
-        params = {"primary_keyword": keyword}
-        url = f"{self.BASE_SEARCH_URL}?{urllib.parse.urlencode(params)}"
-        html_content = self._make_request(url)
-        if not html_content:
-            return []
-
+    def search_jobs(self, keyword: str = "QA Automation", max_pages: int = 5, limit: int = 60) -> List[Dict[str, str]]:
         jobs = []
-        scripts = re.findall(r'<script\s+type="application/ld\+json">(.*?)</script>', html_content, re.DOTALL)
-        for s in scripts:
-            try:
-                data = json.loads(s.strip())
-                items = data if isinstance(data, list) else data.get("itemListElement", [data])
-                for item in items:
-                    if not isinstance(item, dict) or item.get("@type") != "JobPosting":
+        for page in range(1, max_pages + 1):
+            params = {"primary_keyword": keyword}
+            if page > 1:
+                params["page"] = page
+
+            url = f"{self.BASE_SEARCH_URL}?{urllib.parse.urlencode(params)}"
+            html_content = self._make_request(url)
+            if not html_content:
+                break
+
+            page_jobs_count = 0
+            scripts = re.findall(r'<script\s+type="application/ld\+json">(.*?)</script>', html_content, re.DOTALL)
+            for s in scripts:
+                try:
+                    data = json.loads(s.strip())
+                    if isinstance(data, list):
+                        items = data
+                    elif isinstance(data, dict):
+                        items = data.get("itemListElement") or [data]
+                        if not isinstance(items, list):
+                            items = [items]
+                    else:
                         continue
 
-                    job_id = f"djinni_{item.get('identifier')}"
-                    title = item.get("title", "Untitled")
+                    for item in items:
+                        if not isinstance(item, dict) or item.get("@type") != "JobPosting":
+                            continue
 
-                    # Title relevance filter (ensure it's actually a QA/testing job)
-                    title_lower = title.lower()
-                    if not any(k in title_lower for k in ["qa", "test", "sdet", "quality"]):
-                        continue
+                        job_id = f"djinni_{item.get('identifier')}"
+                        title = item.get("title", "Untitled")
 
-                    company = item.get("hiringOrganization", {}).get("name", "Unknown Company")
-                    job_url = item.get("url", "")
-                    date_posted = item.get("datePosted", "")
-                    description = item.get("description", "")
-                    is_remote = item.get("jobLocationType") == "TELECOMMUTE" or "remote" in description.lower()
+                        # Title relevance filter (ensure it's actually a QA/testing job)
+                        title_lower = title.lower()
+                        if not any(k in title_lower for k in ["qa", "test", "sdet", "quality"]):
+                            continue
 
-                    # Region / Location
-                    req_loc = item.get("applicantLocationRequirements", {}).get("address", {})
-                    loc_region = req_loc.get("addressRegion") or req_loc.get("addressCountry") or "Remote"
-                    location_label = f"Remote ({loc_region})" if is_remote else loc_region
+                        company = item.get("hiringOrganization", {}).get("name", "Unknown Company")
+                        job_url = item.get("url", "")
+                        date_posted = item.get("datePosted", "")
+                        description = item.get("description", "")
+                        is_remote = item.get("jobLocationType") == "TELECOMMUTE" or "remote" in description.lower()
 
-                    # Look for salary in description or HTML
-                    salary = ""
-                    sal_m = re.search(r'(\$[\d,\s–-]+\b|\b\d+k\b)', title + " " + description[:200])
-                    if sal_m:
-                        salary = sal_m.group(1).strip()
+                        # Region / Location (safely extract from dict or list)
+                        loc_requirements = item.get("applicantLocationRequirements")
+                        if isinstance(loc_requirements, list) and loc_requirements:
+                            loc_requirements = loc_requirements[0]
+                        if not isinstance(loc_requirements, dict):
+                            loc_requirements = {}
 
-                    jobs.append({
-                        "id": job_id,
-                        "title": title,
-                        "company": company,
-                        "location": location_label,
-                        "url": job_url,
-                        "posted_date": date_posted,
-                        "description": description,
-                        "salary": salary,
-                        "source": "Djinni.co",
-                        "keyword": keyword,
-                        "workplace_type": "remote" if is_remote else "hybrid",
-                    })
+                        address = loc_requirements.get("address")
+                        if isinstance(address, list) and address:
+                            address = address[0]
+                        if not isinstance(address, dict):
+                            address = {}
 
-                    if len(jobs) >= limit:
-                        break
-            except Exception as e:
-                logger.error(f"Error parsing Djinni JSON-LD: {e}")
+                        loc_region = address.get("addressRegion") or address.get("addressCountry") or "Remote"
+                        location_label = f"Remote ({loc_region})" if is_remote else loc_region
+
+                        # Look for salary in description or HTML
+                        salary = ""
+                        sal_m = re.search(r'(\$[\d,\s–-]+\b|\b\d+k\b)', title + " " + description[:200])
+                        if sal_m:
+                            salary = sal_m.group(1).strip()
+
+                        jobs.append({
+                            "id": job_id,
+                            "title": title,
+                            "company": company,
+                            "location": location_label,
+                            "url": job_url,
+                            "posted_date": date_posted,
+                            "description": description,
+                            "salary": salary,
+                            "source": "Djinni.co",
+                            "keyword": keyword,
+                            "workplace_type": "remote" if is_remote else "hybrid",
+                        })
+                        page_jobs_count += 1
+
+                        if len(jobs) >= limit:
+                            return jobs
+                except Exception as e:
+                    logger.error(f"Error parsing Djinni JSON-LD: {e}", exc_info=True)
+
+            if page_jobs_count == 0:
+                break
+            time.sleep(1.0)
 
         return jobs
