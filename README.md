@@ -1,13 +1,17 @@
-# LinkedIn Remote QA/SDET Job Tracker (Ireland 🇮🇪)
+# QA/SDET Job Tracker 🇮🇪🇬🇧🌍
 
-Автоматический трекер вакансий **QA Engineer** / **SDET** (Manual, Automation, API, Python, JS/TS, Java) с фильтром **Remote в Ирландии** и отправкой новых предложений в **Telegram**.
+Автоматический трекер вакансий **QA Engineer** / **SDET** (Manual, Automation, API, Python, JS/TS, Java) с поиском по **Ireland, UK, Europe, Worldwide** и умной фильтрацией формата работы. Новые вакансии отправляются в **Telegram**.
 
 ---
 
 ## ⚡ Особенности
-- **Безопасно для аккаунта:** использует публичный гостевой API LinkedIn (без ввода вашего логина и пароля, без риска банов и капчи).
+- **Два источника:** парсит вакансии с **LinkedIn** (Guest API) и **Djinni.co** (JSON-LD).
+- **Безопасно для аккаунта:** использует публичный гостевой API LinkedIn (без ввода логина и пароля, без риска банов и капчи).
 - **Дедупликация:** сохраняет найденные вакансии в локальную базу SQLite (`jobs_seen.db`), чтобы не присылать одну и ту же вакансию дважды.
-- **Детектор формата работы:** анализирует описание вакансии и предупреждает, если компания под видом Remote требует гибрид (например, "Hybrid: 2 days in office").
+- **Умный фильтр формата работы:**
+  - ✅ **Remote** — пропускает всегда
+  - ⚠️ **Hybrid** — пропускает только если локация рядом с домом (Kerry, Cork и окрестности Cahersiveen)
+  - 🚫 **On-site** — блокирует всегда
 - **Краткая выжимка:** извлекает превью описания вакансии прямо в карточку Telegram.
 
 ---
@@ -34,6 +38,11 @@ TELEGRAM_CHAT_ID=987654321
 python main.py --dry-run
 ```
 
+### Быстрый тест (один ключевик, один регион):
+```powershell
+python main.py --test
+```
+
 ### Боевой запуск (разовая проверка и отправка в Telegram):
 ```powershell
 python main.py
@@ -49,7 +58,10 @@ python main.py --interval 60
 
 ## ⚙️ Настройки поиска (`config.py`)
 В файле [`config.py`](config.py) вы можете отредактировать:
-- `SEARCH_KEYWORDS` — список ключевых фраз (по умолчанию: QA Engineer, SDET, Quality Assurance Engineer, Automation QA, Test Automation Engineer).
-- `TARGET_LOCATION` — страна/регион поиска (по умолчанию: `Ireland`).
-- `REMOTE_ONLY` — включение удаленного режима (`True`).
+- `TARGET_LOCATIONS` — регионы поиска (по умолчанию: Ireland, United Kingdom, Europe, Worldwide).
+- `SEARCH_KEYWORDS` — ключевые фразы для LinkedIn (QA Engineer, SDET, Automation QA, Test Automation).
+- `DJINNI_KEYWORDS` — ключевые фразы для Djinni.co (QA Automation, SDET, QA Manual).
+- `REMOTE_ONLY` — фильтр Remote на LinkedIn (`True`).
+- `ALLOW_HYBRID` — глобальный допуск гибридных вакансий (`False` — заблокированы по умолчанию).
+- `HYBRID_ALLOWED_LOCATIONS` — список локаций, для которых Hybrid разрешён (Kerry, Cork и т.д.).
 - `FETCH_SNIPPETS` — скачивание превью описания для Telegram (`True`).
