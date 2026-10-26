@@ -29,7 +29,26 @@ REMOTE_ONLY = True  # LinkedIn filter f_WT=2
 
 # Strict Remote Filters
 ALLOW_ONSITE = False
-ALLOW_HYBRID = True  # Allows hybrid if mentioned; False = 100% remote only
+ALLOW_HYBRID = False  # Global hybrid: False = block by default, allowed only for nearby locations
+
+# Hybrid exception — allow hybrid jobs if their location matches
+# any of these patterns (case-insensitive substring match).
+# Cahersiveen (V23 DP40), County Kerry and nearby areas.
+HYBRID_ALLOWED_LOCATIONS = [
+    "kerry",
+    "cahersiveen",
+    "cahirciveen",
+    "cahirsiveen",
+    "killarney",
+    "tralee",
+    "kenmare",
+    "killorglin",
+    "dingle",
+    "listowel",
+    "iveragh",
+    "ring of kerry",
+    "cork",          # ~2h drive, still reasonable for hybrid
+]
 
 # Target keywords to monitor for QA/SDET
 SEARCH_KEYWORDS = [

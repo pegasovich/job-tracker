@@ -45,6 +45,18 @@ logging.basicConfig(
 logger = logging.getLogger("Tracker")
 
 
+def is_hybrid_nearby(job_location: str) -> bool:
+    """
+    Check if a hybrid job's location is close enough to Cahersiveen, Co. Kerry.
+    Returns True if the location matches any pattern in HYBRID_ALLOWED_LOCATIONS.
+    """
+    loc_lower = job_location.lower()
+    for pattern in config.HYBRID_ALLOWED_LOCATIONS:
+        if pattern in loc_lower:
+            return True
+    return False
+
+
 def run_tracker(dry_run: bool = False, test_mode: bool = False):
     locations = config.TARGET_LOCATIONS if not test_mode else [config.TARGET_LOCATIONS[0]]
     logger.info(f"--- Запуск трекера вакансий (Регионы: {', '.join(locations)}, Remote={config.REMOTE_ONLY}) ---")
@@ -89,11 +101,17 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                     continue
 
                 if workplace_type == "hybrid" and not config.ALLOW_HYBRID:
-                    logger.info(
-                        f"🚫 [СТРОГИЙ ФИЛЬТР] Отклонена Hybrid вакансия: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                    )
-                    db.add_job(job)
-                    continue
+                    # Проверяем, может это рядом с Cahersiveen?
+                    if is_hybrid_nearby(job["location"]):
+                        logger.info(
+                            f"✅ [ГИБРИД РЯДОМ] Пропущена через фильтр: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                        )
+                    else:
+                        logger.info(
+                            f"🚫 [СТРОГИЙ ФИЛЬТР] Отклонена Hybrid вакансия (далеко): {job['title']} @ {job['company']} (Локация: {job['location']})"
+                        )
+                        db.add_job(job)
+                        continue
 
                 total_new += 1
                 logger.info(f"✨ Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
@@ -136,11 +154,25 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 if db.is_seen(job_id):
                     continue
 
+                workplace_type = job.get("workplace_type", "remote")
+
+                # Фильтрация гибридных вакансий на Djinni
+                if workplace_type == "hybrid" and not config.ALLOW_HYBRID:
+                    if is_hybrid_nearby(job.get("location", "")):
+                        logger.info(
+                            f"✅ [ГИБРИД РЯДОМ / Djinni] Пропущена через фильтр: {job['title']} @ {job['company']} (Локация: {job.get('location', '')})"
+                        )
+                    else:
+                        logger.info(
+                            f"🚫 [СТРОГИЙ ФИЛЬТР / Djinni] Отклонена Hybrid вакансия (далеко): {job['title']} @ {job['company']} (Локация: {job.get('location', '')})"
+                        )
+                        db.add_job(job)
+                        continue
+
                 total_new += 1
                 snippet = job.get("description", "")[:350]
                 if len(job.get("description", "")) > 350:
                     snippet = snippet.rstrip() + "..."
-                workplace_type = job.get("workplace_type", "remote")
 
                 logger.info(f"✨ [Djinni] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
 
