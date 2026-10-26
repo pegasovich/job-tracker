@@ -50,12 +50,15 @@ HYBRID_ALLOWED_LOCATIONS = [
     "cork",          # ~2h drive, still reasonable for hybrid
 ]
 
-# Target keywords to monitor for QA/SDET
+# Target keywords to monitor for QA/SDET (Manual & Automation)
 SEARCH_KEYWORDS = [
     "QA Engineer",
     "SDET",
     "Automation QA",
     "Test Automation",
+    "Manual QA",
+    "QA Tester",
+    "Software Tester",
 ]
 
 # Djinni.co Settings
