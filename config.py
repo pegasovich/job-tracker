@@ -31,12 +31,13 @@ REMOTE_ONLY = True  # LinkedIn filter f_WT=2
 ALLOW_ONSITE = False
 ALLOW_HYBRID = False  # Global hybrid: False = block by default, allowed only for nearby locations
 
-# Hybrid exception — allow hybrid jobs if their location matches
-# any of these patterns (case-insensitive substring match).
-# Cahersiveen (V23 DP40), County Kerry and nearby areas.
+# Allowed locations for hybrid roles (reasonable commute from Cahersiveen, Co. Kerry)
 HYBRID_ALLOWED_LOCATIONS = [
     "kerry",
-    "cahersiveen",
+    "county kerry",
+    "co. kerry",
+    "co kerry",
+    "caherciveen",
     "cahirciveen",
     "cahirsiveen",
     "killarney",
@@ -61,11 +62,10 @@ SEARCH_KEYWORDS = [
     "Software Tester",
 ]
 
-# Djinni.co Settings
+# Djinni.co Settings (Официальные категории Djinni для QA)
 ENABLE_DJINNI = True
 DJINNI_KEYWORDS = [
     "QA Automation",
-    "SDET",
     "QA Manual",
 ]
 

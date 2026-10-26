@@ -61,6 +61,12 @@ class DjinniJobScraper:
 
                     job_id = f"djinni_{item.get('identifier')}"
                     title = item.get("title", "Untitled")
+
+                    # Title relevance filter (ensure it's actually a QA/testing job)
+                    title_lower = title.lower()
+                    if not any(k in title_lower for k in ["qa", "test", "sdet", "quality"]):
+                        continue
+
                     company = item.get("hiringOrganization", {}).get("name", "Unknown Company")
                     job_url = item.get("url", "")
                     date_posted = item.get("datePosted", "")
