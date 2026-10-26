@@ -10,7 +10,7 @@ import re
 import html
 import time
 import logging
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 
 logger = logging.getLogger(__name__)
 
@@ -87,21 +87,38 @@ class DjinniJobScraper:
                         description = item.get("description", "")
                         is_remote = item.get("jobLocationType") == "TELECOMMUTE" or "remote" in description.lower()
 
-                        # Region / Location (safely extract from dict or list)
+                        # Region / Countries parsing (safely extract from dict or list)
                         loc_requirements = item.get("applicantLocationRequirements")
-                        if isinstance(loc_requirements, list) and loc_requirements:
-                            loc_requirements = loc_requirements[0]
-                        if not isinstance(loc_requirements, dict):
-                            loc_requirements = {}
+                        allowed_countries = []
+                        allowed_regions = []
 
-                        address = loc_requirements.get("address")
-                        if isinstance(address, list) and address:
-                            address = address[0]
-                        if not isinstance(address, dict):
-                            address = {}
+                        if loc_requirements:
+                            req_items = loc_requirements if isinstance(loc_requirements, list) else [loc_requirements]
+                            for req in req_items:
+                                if not isinstance(req, dict):
+                                    continue
+                                addr = req.get("address")
+                                if isinstance(addr, list) and addr:
+                                    addr = addr[0]
+                                if isinstance(addr, dict):
+                                    c = addr.get("addressCountry")
+                                    r = addr.get("addressRegion")
+                                    if c:
+                                        allowed_countries.append(str(c).upper())
+                                    if r:
+                                        allowed_regions.append(str(r))
 
-                        loc_region = address.get("addressRegion") or address.get("addressCountry") or "Remote"
-                        location_label = f"Remote ({loc_region})" if is_remote else loc_region
+                        # Format descriptive location label
+                        if not loc_requirements or (not allowed_countries and not allowed_regions):
+                            loc_summary = "Worldwide"
+                        elif allowed_regions and not allowed_countries:
+                            loc_summary = ", ".join(allowed_regions)
+                        elif allowed_countries and not allowed_regions:
+                            loc_summary = ", ".join(allowed_countries)
+                        else:
+                            loc_summary = f"{', '.join(allowed_regions)} ({', '.join(allowed_countries)})"
+
+                        location_label = f"Remote ({loc_summary})" if is_remote else loc_summary
 
                         # Look for salary in description or HTML
                         salary = ""
@@ -121,6 +138,8 @@ class DjinniJobScraper:
                             "source": "Djinni.co",
                             "keyword": keyword,
                             "workplace_type": "remote" if is_remote else "hybrid",
+                            "applicant_countries": allowed_countries,
+                            "applicant_regions": allowed_regions,
                         })
                         page_jobs_count += 1
 
@@ -134,3 +153,40 @@ class DjinniJobScraper:
             time.sleep(1.0)
 
         return jobs
+
+
+def is_djinni_country_eligible(
+    job: Dict[str, Any],
+    user_countries: Optional[List[str]] = None,
+    user_regions: Optional[List[str]] = None,
+) -> bool:
+    """
+    Checks if candidate in user_countries/user_regions is accepted by Djinni job.
+    If the job does not restrict location (worldwide), returns True.
+    """
+    if user_countries is None:
+        user_countries = ["IE", "IRL", "IRELAND"]
+    if user_regions is None:
+        user_regions = ["EUROPE", "EU", "WORLDWIDE", "ANY", "ALL"]
+
+    user_countries_upper = {c.upper() for c in user_countries}
+    user_regions_upper = {r.upper() for r in user_regions}
+
+    allowed_countries = job.get("applicant_countries", [])
+    allowed_regions = job.get("applicant_regions", [])
+
+    # If Djinni specified no restrictions -> open Worldwide
+    if not allowed_countries and not allowed_regions:
+        return True
+
+    # If any broad region matches (e.g. Europe, Worldwide)
+    for reg in allowed_regions:
+        if reg.upper() in user_regions_upper:
+            return True
+
+    # If candidate's specific country is listed (e.g. IE / IRL)
+    for country in allowed_countries:
+        if country.upper() in user_countries_upper:
+            return True
+
+    return False

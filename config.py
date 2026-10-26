@@ -70,6 +70,10 @@ DJINNI_KEYWORDS = [
 ]
 DJINNI_MAX_PAGES = 5
 DJINNI_LIMIT = 60
+# Djinni Country Filter (кандидат в Ирландии)
+DJINNI_COUNTRY_FILTER = True
+DJINNI_USER_COUNTRIES = ["IE", "IRL", "IRELAND"]
+DJINNI_USER_REGIONS = ["EUROPE", "EU", "WORLDWIDE", "ANY", "ALL"]
 
 # Database file
 DATABASE_FILE = str(Path(__file__).parent / "jobs_seen.db")
