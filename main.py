@@ -154,7 +154,9 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         djinni_keywords = config.DJINNI_KEYWORDS if not test_mode else [config.DJINNI_KEYWORDS[0]]
         for kw in djinni_keywords:
             logger.info(f"🟢 Поиск на Djinni.co по слову: '{kw}'...")
-            djinni_jobs = djinni.search_jobs(keyword=kw, limit=15)
+            max_pages = getattr(config, "DJINNI_MAX_PAGES", 5)
+            limit = getattr(config, "DJINNI_LIMIT", 60)
+            djinni_jobs = djinni.search_jobs(keyword=kw, max_pages=max_pages, limit=limit)
             logger.info(f"[Djinni / {kw}] Найдено карточек: {len(djinni_jobs)}")
 
             for job in djinni_jobs:

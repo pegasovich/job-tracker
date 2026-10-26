@@ -68,6 +68,8 @@ DJINNI_KEYWORDS = [
     "QA Automation",
     "QA Manual",
 ]
+DJINNI_MAX_PAGES = 5
+DJINNI_LIMIT = 60
 
 # Database file
 DATABASE_FILE = str(Path(__file__).parent / "jobs_seen.db")
