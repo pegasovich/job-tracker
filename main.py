@@ -6,6 +6,7 @@ import argparse
 import sys
 import io
 import time
+import random
 import logging
 from typing import List, Dict
 
@@ -145,8 +146,13 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 # Сохраняем в базу данных, чтобы не дублировать
                 db.add_job(job)
 
-            time.sleep(2.0)  # Пауза между запросами по разным ключевым словам
-        time.sleep(2.0)  # Пауза между регионами
+            # Пауза между запросами по разным ключевым словам
+            if scraper.last_hit_rate_limit:
+                scraper.last_hit_rate_limit = False
+                time.sleep(random.uniform(12.0, 18.0))
+            else:
+                time.sleep(random.uniform(4.0, 6.5))
+        time.sleep(random.uniform(7.0, 12.0))  # Пауза между регионами
 
     # --- Djinni.co ---
     if config.ENABLE_DJINNI:

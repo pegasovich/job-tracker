@@ -5,19 +5,46 @@ Uses LinkedIn Guest API (no login, no cookies, no risk of ban).
 
 import urllib.request
 import urllib.parse
+import urllib.error
 import re
 import html
 import time
+import random
 import logging
 from typing import List, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/122.0.0.0 Safari/537.36"
-)
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
+]
+
+
+def get_random_headers(referer: Optional[str] = None) -> dict:
+    ua = random.choice(USER_AGENTS)
+    headers = {
+        "User-Agent": ua,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
+    }
+    if "Windows" in ua:
+        headers["Sec-Ch-Ua-Platform"] = '"Windows"'
+    elif "Macintosh" in ua:
+        headers["Sec-Ch-Ua-Platform"] = '"macOS"'
+    if referer:
+        headers["Referer"] = referer
+    return headers
 
 
 class LinkedInJobScraper:
@@ -27,21 +54,47 @@ class LinkedInJobScraper:
     def __init__(self, location: str = "Ireland", remote_only: bool = True):
         self.location = location
         self.remote_only = remote_only
+        self.last_hit_rate_limit = False
 
-    def _make_request(self, url: str) -> Optional[str]:
-        headers = {
-            "User-Agent": USER_AGENT,
-            "Accept-Language": "en-US,en;q=0.9",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        }
-        req = urllib.request.Request(url, headers=headers)
-        try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                if resp.status == 200:
-                    return resp.read().decode("utf-8", errors="ignore")
-                logger.warning(f"Unexpected status {resp.status} for {url}")
-        except Exception as e:
-            logger.error(f"Error fetching {url}: {e}")
+    def _make_request(self, url: str, max_retries: int = 3, referer: Optional[str] = None) -> Optional[str]:
+        if not referer:
+            referer = "https://www.linkedin.com/jobs/search"
+
+        for attempt in range(max_retries + 1):
+            headers = get_random_headers(referer=referer)
+            req = urllib.request.Request(url, headers=headers)
+            try:
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    if resp.status == 200:
+                        return resp.read().decode("utf-8", errors="ignore")
+                    logger.warning(f"Неожиданный статус ответа {resp.status} для {url}")
+                    return None
+            except urllib.error.HTTPError as e:
+                if e.code == 429:
+                    self.last_hit_rate_limit = True
+                    if attempt < max_retries:
+                        retry_after = e.headers.get("Retry-After") if e.headers else None
+                        # Прогрессивное ожидание: ~35с на 1-й попытке, ~65с на 2-й, ~95с на 3-й
+                        wait_seconds = 35 * (attempt + 1) + random.uniform(2.0, 6.0)
+                        if retry_after and retry_after.isdigit():
+                            wait_seconds = max(wait_seconds, int(retry_after) + 3)
+                        logger.warning(
+                            f"⏳ LinkedIn Rate Limit (429 Too Many Requests) для {url}. "
+                            f"Пауза {int(wait_seconds)} сек перед повтором (попытка {attempt + 1}/{max_retries})..."
+                        )
+                        time.sleep(wait_seconds)
+                        continue
+                    else:
+                        logger.warning(
+                            f"⚠️ LinkedIn временно ограничил частоту запросов (429). "
+                            f"Запрос пропущен, он будет повторен при следующем запуске: {url}"
+                        )
+                else:
+                    logger.error(f"HTTP ошибка {e.code} при запросе {url}: {e.reason}")
+                return None
+            except Exception as e:
+                logger.error(f"Ошибка запроса {url}: {e}")
+                return None
         return None
 
     def search_jobs(self, keyword: str, limit: int = 25) -> List[Dict[str, str]]:
@@ -59,7 +112,8 @@ class LinkedInJobScraper:
             params["f_WT"] = "2"  # 2 = Remote in LinkedIn filter
 
         url = f"{self.BASE_SEARCH_URL}?{urllib.parse.urlencode(params)}"
-        html_content = self._make_request(url)
+        search_referer = f"https://www.linkedin.com/jobs/search?{urllib.parse.urlencode({'keywords': keyword, 'location': self.location})}"
+        html_content = self._make_request(url, referer=search_referer)
         if not html_content:
             return []
 
@@ -112,7 +166,8 @@ class LinkedInJobScraper:
     def get_job_description(self, job_id: str) -> str:
         """Fetch full job description text."""
         url = self.BASE_DETAIL_URL.format(job_id)
-        html_content = self._make_request(url)
+        job_referer = f"https://www.linkedin.com/jobs/view/{job_id}"
+        html_content = self._make_request(url, referer=job_referer)
         if not html_content:
             return ""
 
