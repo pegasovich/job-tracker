@@ -133,40 +133,71 @@ class LinkedInJobScraper:
         return full_desc
 
     def detect_workplace_type(self, title: str, location: str, description: str) -> str:
-        """
-        Classifies workplace type as 'remote', 'hybrid', or 'onsite'.
-        Improved detection to avoid false positives from 'remote access',
-        'remote monitoring' etc.
-        """
         t = title.lower()
         loc = location.lower()
         d = description.lower()
 
-        # --- On-site explicit markers (check FIRST) ---
+        # 1. Domestic Remote Restrictions (must be checked early!)
+        # E.g. "nur innerhalb Ungarns", "only within Germany", "must reside in Poland"
+        domestic_restrictions = [
+            r'nur\s+innerhalb\s+(?!irland|europa|eu\b)',
+            r'only\s+(?:available\s+)?(?:within|in)\s+(?!ireland|europe|eu\b|uk\b|the\s+eu\b|the\s+uk\b)[a-z]+',
+            r'must\s+be\s+(?:located|based|resident|living)\s+in\s+(?!ireland|europe|eu\b|uk\b|the\s+eu\b|the\s+uk\b)[a-z]+',
+            r'residents?\s+of\s+(?!ireland|europe|eu\b|uk\b|the\s+eu\b|the\s+uk\b)[a-z]+\s+only',
+            r'tax\s+residen(?:cy|t)\s+in\s+(?!ireland|europe|eu\b|uk\b)[a-z]+',
+            r'remote\s+(?:work\s+)?is\s+only\s+(?:possible|permitted|allowed)\s+(?:within|in)',
+        ]
+        for pattern in domestic_restrictions:
+            if re.search(pattern, d):
+                return "onsite"  # Restricted to another country -> effectively onsite/unusable for Ireland
+
+        # 2. Explicit On-site markers (multi-language)
         onsite_markers = [
             "on-site", "on site", "onsite",
             "office-based", "office based",
-            "in-office", "in office position",
-            "work from the office", "working from the office",
-            "based in our office", "based at our office",
+            "in-office", "in office",
+            "work from the office", "working from the office", "work from office",
+            "based in our office", "based at our office", "based in the office",
+            "relocation required", "must relocate", "relocation package",
+            # German
+            "vor ort", "im büro", "präsenzpflicht", "an unserem standort",
+            # Hungarian
+            "irodai munkavégzés", "személyes jelenlét", "helyszíni munkavégzés",
         ]
         has_onsite_marker = any(m in d for m in onsite_markers) or any(m in t for m in ["on-site", "onsite", "on site"])
 
-        # --- Hybrid check ---
+        # 3. Hybrid check
         hybrid_markers = [
             "hybrid", "days in office", "days a week in office",
-            "days per week from", "days per week in",
+            "days per week from", "days per week in", "days per week office",
             "days/week in office", "days on-site", "days onsite",
             "partial remote", "mix of remote and office",
+            # German
+            "hybrides arbeiten", "hybrid-modell", "tage im büro",
+            # Hungarian
+            "hibrid",
         ]
         if any(h in d for h in hybrid_markers) or "hybrid" in t:
             return "hybrid"
 
-        # --- Explicit remote work phrases (high confidence) ---
+        # 4. Explicit International Remote Work (highest confidence for candidates in Ireland)
+        international_remote = [
+            "anywhere in europe", "anywhere in the eu", "anywhere in eu",
+            "work from anywhere", "remote across europe", "remote in europe",
+            "pan-european", "b2b contractor", "b2b contract", "contractor role",
+            "worldwide remote", "fully remote worldwide", "fully remote europe",
+            "remote throughout europe", "remote - europe", "remote (europe)",
+            "anywhere in ireland", "remote in ireland", "fully remote ireland",
+        ]
+        if any(r in d for r in international_remote):
+            if has_onsite_marker:
+                return "onsite"
+            return "remote"
+
+        # 5. High-confidence explicit remote phrases
         explicit_remote = [
             "fully remote", "100% remote", "completely remote",
             "work from home", "work from anywhere", "wfh",
-            "anywhere in ireland", "anywhere in europe",
             "home-based", "home based",
             "virtual role", "virtual position",
             "remote-first", "remote first",
@@ -176,46 +207,51 @@ class LinkedInJobScraper:
             "this is a remote", "this role is remote",
             "location: remote", "location remote",
         ]
-        if any(r in d for r in explicit_remote):
-            # But if on-site markers are also present, it's suspicious — mark as onsite
-            if has_onsite_marker:
-                return "onsite"
-            return "remote"
+        has_explicit_remote = any(r in d for r in explicit_remote) or "remote" in t
 
-        # --- "remote" in title is a strong signal ---
-        if "remote" in t:
-            if has_onsite_marker:
-                return "onsite"
-            return "remote"
-
-        # --- General "remote" in description — BUT exclude false positives ---
-        # Words like "remote access", "remote monitoring", "remote support" don't mean remote work
+        # 6. Clean false positives for standalone "remote"
         false_positive_patterns = [
             "remote access", "remote monitoring", "remote support",
             "remote desktop", "remote connection", "remote server",
             "remote infrastructure", "remote troubleshoot",
             "remote diagnos", "remote debug", "remote control",
-            "remote execution", "remote management of",
+            "remote execution", "remote management",
             "remote locations", "remote areas", "remote sites",
-            "remote teams",  # can be ambiguous, but usually means distributed teams not remote work
+            "remote teams", "remote team", "remote colleagues",
+            "remote interview", "remote onboarding", "interviews remotely",
+            "not a remote", "no remote", "not remote",
+            "remote device", "remote testing",
         ]
-        if "remote" in d:
-            # Check if ALL occurrences of "remote" are false positives
-            d_check = d
-            for fp in false_positive_patterns:
-                d_check = d_check.replace(fp, "")
-            # If "remote" still present after removing false positives → likely remote work
-            if "remote" in d_check:
-                if has_onsite_marker:
-                    return "onsite"
-                return "remote"
+        d_clean = d
+        for fp in false_positive_patterns:
+            d_clean = d_clean.replace(fp, "")
 
-        # --- If explicit on-site markers found and no remote signals ---
+        has_general_remote = "remote" in d_clean
+
+        # 7. Decision logic considering location
+        is_foreign_specific_city = bool(loc and not any(k in loc for k in ["ireland", "remote", "worldwide", "united kingdom", "uk"]))
+
         if has_onsite_marker:
             return "onsite"
 
-        # --- If location is a specific city/town (not generic "Ireland") → on-site ---
-        if loc and loc != "ireland":
+        if has_explicit_remote:
+            # If location is a specific foreign city (e.g. Budapest, Hungary) and NOT Ireland,
+            # but says "fully remote", it might be domestic remote within that country
+            # unless it explicitly says Europe / Worldwide.
+            if is_foreign_specific_city:
+                if any(k in d for k in ["europe", "worldwide", "b2b", "contract"]):
+                    return "remote"
+                # Otherwise foreign city + remote usually means domestic remote within that country
+                return "onsite"
+            return "remote"
+
+        if has_general_remote:
+            if is_foreign_specific_city:
+                # Standalone "remote" for a foreign city is almost always onsite/domestic
+                return "onsite"
+            return "remote"
+
+        if is_foreign_specific_city:
             return "onsite"
 
         if loc == "ireland":
