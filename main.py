@@ -122,6 +122,14 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                         db.add_job(job)
                         continue
 
+                # Отклоняем сомнительные вакансии (unclear) вдали от Керри
+                if workplace_type == "unclear" and not is_hybrid_nearby(job.get("location", "")):
+                    logger.info(
+                        f"🚫 [СТРОГИЙ ФИЛЬТР] Отклонена вакансия с неясным форматом: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                    )
+                    db.add_job(job)
+                    continue
+
                 total_new += 1
                 logger.info(f"✨ Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
 

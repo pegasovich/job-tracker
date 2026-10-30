@@ -193,26 +193,37 @@ class LinkedInJobScraper:
         d = description.lower()
 
         # 1. Domestic Remote Restrictions (must be checked early!)
-        # E.g. "nur innerhalb Ungarns", "only within Germany", "must reside in Poland"
+        # E.g. "nur innerhalb Ungarns", "only within Germany", "must reside in Poland", "residents of UK only"
         domestic_restrictions = [
             r'nur\s+innerhalb\s+(?!irland|europa|eu\b)',
-            r'only\s+(?:available\s+)?(?:within|in)\s+(?!ireland|europe|eu\b|uk\b|the\s+eu\b|the\s+uk\b)[a-z]+',
-            r'must\s+be\s+(?:located|based|resident|living)\s+in\s+(?!ireland|europe|eu\b|uk\b|the\s+eu\b|the\s+uk\b)[a-z]+',
-            r'residents?\s+of\s+(?!ireland|europe|eu\b|uk\b|the\s+eu\b|the\s+uk\b)[a-z]+\s+only',
-            r'tax\s+residen(?:cy|t)\s+in\s+(?!ireland|europe|eu\b|uk\b)[a-z]+',
+            r'only\s+(?:available\s+)?(?:within|in)\s+(?!ireland|europe|eu\b|the\s+eu\b)[a-z]+',
+            r'must\s+be\s+(?:located|based|resident|living)\s+in\s+(?!ireland|europe|eu\b|the\s+eu\b)[a-z]+',
+            r'residents?\s+of\s+(?!ireland|europe|eu\b|the\s+eu\b)[a-z]+\s+only',
+            r'tax\s+residen(?:cy|t)\s+in\s+(?!ireland|europe|eu\b)[a-z]+',
             r'remote\s+(?:work\s+)?is\s+only\s+(?:possible|permitted|allowed)\s+(?:within|in)',
+            r'remote\s+(?:within|from)\s+(?!ireland|europe|eu\b)[a-z]+',
         ]
         for pattern in domestic_restrictions:
             if re.search(pattern, d):
-                return "onsite"  # Restricted to another country -> effectively onsite/unusable for Ireland
+                return "onsite"  # Restricted to another country -> unusable for candidate in Ireland
 
-        # 2. Explicit On-site markers (multi-language)
+        # 2. Explicit On-site markers (multi-language & client-site markers)
         onsite_markers = [
             "on-site", "on site", "onsite",
             "office-based", "office based",
             "in-office", "in office",
+            "client site", "client's site", "on client site", "on client's site",
+            "working directly on client", "work directly on client", "directly on client",
+            "on-site work", "onsite work", "work on-site", "work onsite",
+            "working on-site", "working onsite",
             "work from the office", "working from the office", "work from office",
             "based in our office", "based at our office", "based in the office",
+            "attendance required", "present on site", "present onsite",
+            "physical presence", "presence required",
+            "attend the office", "attending the office",
+            "presence in the office", "presence in office",
+            "visiting the office", "travel to client site", "travel to client",
+            "travel to the office",
             "relocation required", "must relocate", "relocation package",
             # German
             "vor ort", "im büro", "präsenzpflicht", "an unserem standort",
@@ -227,6 +238,10 @@ class LinkedInJobScraper:
             "days per week from", "days per week in", "days per week office",
             "days/week in office", "days on-site", "days onsite",
             "partial remote", "mix of remote and office",
+            "flexible working model", "flexible working policy",
+            "split between home and office", "split between office and home",
+            "split between remote and office",
+            "occasional office", "regular office visits", "time split between",
             # German
             "hybrides arbeiten", "hybrid-modell", "tage im büro",
             # Hungarian
@@ -243,6 +258,9 @@ class LinkedInJobScraper:
             "worldwide remote", "fully remote worldwide", "fully remote europe",
             "remote throughout europe", "remote - europe", "remote (europe)",
             "anywhere in ireland", "remote in ireland", "fully remote ireland",
+            "remote within ireland", "remote across ireland",
+            "work from anywhere in europe", "work from anywhere in the eu",
+            "ireland or uk", "uk or ireland",
         ]
         if any(r in d for r in international_remote):
             if has_onsite_marker:
@@ -283,33 +301,39 @@ class LinkedInJobScraper:
 
         has_general_remote = "remote" in d_clean
 
-        # 7. Decision logic considering location
-        is_foreign_specific_city = bool(loc and not any(k in loc for k in ["ireland", "remote", "worldwide", "united kingdom", "uk"]))
+        # 7. Decision logic considering location and candidate in Ireland
+        is_generic_remote = loc in ["remote", "worldwide", "anywhere", "europe"] or "remote" in loc
+        is_ireland_generic = (loc.strip() == "ireland")
+        is_irish_city = bool("ireland" in loc and loc.strip() != "ireland")
+
+        is_uk = any(k in loc for k in ["united kingdom", "uk", "england", "scotland", "wales", "northern ireland"])
+        is_uk_generic = (loc.strip() in ["united kingdom", "uk"])
+        is_uk_city = bool(is_uk and not is_uk_generic)
+
+        is_foreign_specific_city = bool(
+            loc and not any(k in loc for k in ["ireland", "remote", "worldwide", "anywhere"]) and not is_uk
+        )
 
         if has_onsite_marker:
             return "onsite"
 
         if has_explicit_remote:
-            # If location is a specific foreign city (e.g. Budapest, Hungary) and NOT Ireland,
-            # but says "fully remote", it might be domestic remote within that country
-            # unless it explicitly says Europe / Worldwide.
-            if is_foreign_specific_city:
-                if any(k in d for k in ["europe", "worldwide", "b2b", "contract"]):
-                    return "remote"
-                # Otherwise foreign city + remote usually means domestic remote within that country
-                return "onsite"
-            return "remote"
-
-        if has_general_remote:
-            if is_foreign_specific_city:
-                # Standalone "remote" for a foreign city is almost always onsite/domestic
-                return "onsite"
-            return "remote"
-
-        if is_foreign_specific_city:
+            if is_irish_city or is_ireland_generic or is_generic_remote:
+                return "remote"
+            # UK or foreign city without explicit international remote is domestic remote for that country
             return "onsite"
 
-        if loc == "ireland":
-            return "remote"
+        if has_general_remote:
+            if is_ireland_generic or is_generic_remote:
+                return "remote"
+            return "onsite"
+
+        # If location is a specific city anywhere without confirmed remote in description -> onsite
+        if is_irish_city or is_uk_city or is_foreign_specific_city:
+            return "onsite"
+
+        if is_ireland_generic:
+            return "unclear"
 
         return "unclear"
+

@@ -67,7 +67,7 @@ class TelegramNotifier:
         elif workplace_type == "hybrid":
             work_type_badge = "⚠️ <b>Формат:</b> <b>Hybrid (Дни в офисе)</b>"
         else:
-            work_type_badge = "ℹ️ <b>Формат:</b> Удалёнка"
+            work_type_badge = "❓ <b>Формат:</b> Не подтверждён"
 
         region = html.escape(job.get("region", ""))
         region_badge = f"\n🌍 <b>Регион поиска:</b> {region}" if region else ""
