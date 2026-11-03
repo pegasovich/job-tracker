@@ -210,6 +210,7 @@ class LinkedInJobScraper:
         # 2. Explicit On-site markers (multi-language & client-site markers)
         onsite_markers = [
             "on-site", "on site", "onsite",
+            "100% on-site", "100% onsite", "fully on-site", "fully onsite",
             "office-based", "office based",
             "in-office", "in office",
             "client site", "client's site", "on client site", "on client's site",
@@ -225,6 +226,7 @@ class LinkedInJobScraper:
             "visiting the office", "travel to client site", "travel to client",
             "travel to the office",
             "relocation required", "must relocate", "relocation package",
+            "must be able to commute", "ability to commute",
             # German
             "vor ort", "im büro", "präsenzpflicht", "an unserem standort",
             # Hungarian
@@ -235,19 +237,39 @@ class LinkedInJobScraper:
         # 3. Hybrid check
         hybrid_markers = [
             "hybrid", "days in office", "days a week in office",
-            "days per week from", "days per week in", "days per week office",
-            "days/week in office", "days on-site", "days onsite",
-            "partial remote", "mix of remote and office",
+            "days in the office", "days a week in the office",
+            "days per week in the office", "days per week at the office",
+            "days/week in the office", "days per week from", "days per week in",
+            "days per week office", "days/week in office", "days on-site", "days onsite",
+            "days from home", "days a week from home", "days per week from home",
+            "partial remote", "partially remote", "part-remote", "part remote",
+            "mix of remote and office",
             "flexible working model", "flexible working policy",
+            "flexible hybrid", "hybrid working", "hybrid work",
+            "hybrid arrangement", "hybrid setup", "hybrid role", "hybrid model",
             "split between home and office", "split between office and home",
-            "split between remote and office",
+            "split between remote and office", "split between office and remote",
+            "blend of home and office", "blend of office and home",
+            "blend of remote and office", "blended working",
+            "smart working",
             "occasional office", "regular office visits", "time split between",
+            "office days", "core office days",
             # German
             "hybrides arbeiten", "hybrid-modell", "tage im büro",
             # Hungarian
             "hibrid",
         ]
-        if any(h in d for h in hybrid_markers) or "hybrid" in t:
+        hybrid_regex = [
+            r'\b\d+\s*(?:-\s*\d+)?\s*days?\s+(?:a|per)?\s*week\s+(?:in|from|at)\s+(?:the\s+)?office\b',
+            r'\b\d+\s*(?:-\s*\d+)?\s*days?\s+(?:in|at)\s+(?:the\s+)?office\b',
+            r'\b\d+\s*(?:-\s*\d+)?\s*days?\s+(?:on-site|onsite)\b',
+            r'\b\d+\s*(?:-\s*\d+)?\s*days?\s+(?:wfh|from\s+home)\b',
+            r'commutable\s+(?:to|from)\b',
+            r'within\s+(?:a\s+)?commuting\s+distance\b',
+            r'commute\s+to\s+(?:our\s+)?office\b',
+        ]
+        has_hybrid_regex = any(re.search(p, d) for p in hybrid_regex)
+        if any(h in d for h in hybrid_markers) or "hybrid" in t or has_hybrid_regex:
             return "hybrid"
 
         # 4. Explicit International Remote Work (highest confidence for candidates in Ireland)
