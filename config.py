@@ -52,7 +52,6 @@ HYBRID_ALLOWED_LOCATIONS = [
     "listowel",
     "iveragh",
     "ring of kerry",
-    "cork",          # ~2h drive, still reasonable for hybrid
 ]
 
 # Target keywords to monitor for QA/SDET (Manual & Automation)
