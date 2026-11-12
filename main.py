@@ -127,13 +127,23 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                         db.add_job(job)
                         continue
 
-                # Отклоняем сомнительные вакансии (unclear) вдали от Керри
-                if workplace_type == "unclear" and not is_hybrid_nearby(job.get("location", "")):
-                    logger.info(
-                        f"🚫 [СТРОГИЙ ФИЛЬТР] Отклонена вакансия с неясным форматом: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                    )
-                    db.add_job(job)
-                    continue
+                # Вакансии с неясным форматом (unclear):
+                # - Generic Ireland (без города) — пропускаем, скорее всего remote
+                # - Рядом с Керри — пропускаем
+                # - Всё остальное — отклоняем
+                if workplace_type == "unclear":
+                    loc_stripped = job.get("location", "").strip().lower()
+                    is_generic_ireland = loc_stripped in ("ireland", "")
+                    if not is_generic_ireland and not is_hybrid_nearby(job.get("location", "")):
+                        logger.info(
+                            f"🚫 [СТРОГИЙ ФИЛЬТР] Отклонена вакансия с неясным форматом: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                        )
+                        db.add_job(job)
+                        continue
+                    else:
+                        logger.info(
+                            f"🟡 [UNCLEAR → ПРОПУСК] Вакансия с неясным форматом, но generic Ireland/nearby: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                        )
 
                 total_new += 1
                 logger.info(f"✨ Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
