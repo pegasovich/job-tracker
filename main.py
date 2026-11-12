@@ -101,6 +101,14 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 if db.is_seen(job_id):
                     continue
 
+                # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны сразу, не делая HTTP-запрос за деталями)
+                if scraper.is_location_blocked(job.get("location", "")):
+                    logger.info(
+                        f"🚫 [ГЕО-БЛОКИРОВКА] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                    )
+                    db.add_job(job)
+                    continue
+
                 time.sleep(1.0)  # Вежливая задержка перед запросом деталей
                 full_desc = scraper.get_job_description(job_id)
                 snippet = full_desc[:350].rstrip() + "..." if len(full_desc) > 350 else full_desc

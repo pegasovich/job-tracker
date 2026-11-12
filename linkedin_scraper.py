@@ -13,6 +13,11 @@ import random
 import logging
 from typing import List, Dict, Optional
 
+try:
+    import config
+except ImportError:
+    config = None
+
 logger = logging.getLogger(__name__)
 
 USER_AGENTS = [
@@ -220,13 +225,35 @@ class LinkedInJobScraper:
             return full_desc[:max_chars].rstrip() + "..."
         return full_desc
 
+    @staticmethod
+    def is_location_blocked(location: str) -> bool:
+        """
+        Check if a job card's location string points to a region incompatible with a candidate in Ireland.
+        E.g. Argentina, Brazil, India, USA, etc.
+        """
+        if not config or not getattr(config, "ENABLE_LINKEDIN_GEO_FILTER", True):
+            return False
+        loc = (location or "").strip()
+        if not loc:
+            return False
+        blocked_list = getattr(config, "LINKEDIN_BLOCKED_LOCATIONS", [])
+        for pattern in blocked_list:
+            regex = pattern if pattern.startswith(r"\b") else r"\b" + re.escape(pattern) + r"\b"
+            if re.search(regex, loc, re.IGNORECASE):
+                return True
+        return False
+
     def detect_workplace_type(self, title: str, location: str, description: str) -> str:
         t = title.lower()
         loc = location.lower()
         d = description.lower()
 
-        # 1. Domestic Remote Restrictions (must be checked early!)
-        # E.g. "nur innerhalb Ungarns", "only within Germany", "must reside in Poland", "residents of UK only"
+        # 0. Check against explicit blocked location first
+        if self.is_location_blocked(location):
+            return "onsite"  # Blocked region -> unusable for candidate in Ireland
+
+        # 1. Domestic & Regional Remote Restrictions (must be checked early!)
+        # E.g. "for Latam", "US only", "only within Germany", "must reside in Poland", "residents of UK only"
         domestic_restrictions = [
             r'nur\s+innerhalb\s+(?!irland|europa|eu\b)',
             r'only\s+(?:available\s+)?(?:within|in)\s+(?!ireland|europe|eu\b|the\s+eu\b)[a-z]+',
@@ -236,9 +263,10 @@ class LinkedInJobScraper:
             r'remote\s+(?:work\s+)?is\s+only\s+(?:possible|permitted|allowed)\s+(?:within|in)',
             r'remote\s+(?:within|from)\s+(?!ireland|europe|eu\b)[a-z]+',
         ]
-        for pattern in domestic_restrictions:
-            if re.search(pattern, d):
-                return "onsite"  # Restricted to another country -> unusable for candidate in Ireland
+        config_patterns = getattr(config, "LINKEDIN_DESCRIPTION_STOP_PATTERNS", []) if config else []
+        for pattern in domestic_restrictions + config_patterns:
+            if re.search(pattern, d, re.IGNORECASE):
+                return "onsite"  # Restricted to another country/region -> unusable for candidate in Ireland
 
         # 2. Explicit On-site markers (multi-language & client-site markers)
         onsite_markers = [
@@ -360,16 +388,17 @@ class LinkedInJobScraper:
         has_general_remote = "remote" in d_clean
 
         # 7. Decision logic considering location and candidate in Ireland
-        is_generic_remote = loc in ["remote", "worldwide", "anywhere", "europe"] or "remote" in loc
-        is_ireland_generic = (loc.strip() == "ireland")
-        is_irish_city = bool("ireland" in loc and loc.strip() != "ireland")
+        loc_clean = re.sub(r'\(?\s*remote\s*\)?', '', loc, flags=re.IGNORECASE).strip(' ,-')
+        is_generic_remote = loc_clean in ["", "remote", "worldwide", "anywhere", "europe", "european union", "eu"]
+        is_ireland_generic = (loc_clean == "ireland")
+        is_irish_city = bool("ireland" in loc_clean and loc_clean != "ireland")
 
-        is_uk = any(k in loc for k in ["united kingdom", "uk", "england", "scotland", "wales", "northern ireland"])
-        is_uk_generic = (loc.strip() in ["united kingdom", "uk"])
+        is_uk = any(k in loc_clean for k in ["united kingdom", "uk", "england", "scotland", "wales", "northern ireland"])
+        is_uk_generic = (loc_clean in ["united kingdom", "uk"])
         is_uk_city = bool(is_uk and not is_uk_generic)
 
         is_foreign_specific_city = bool(
-            loc and not any(k in loc for k in ["ireland", "remote", "worldwide", "anywhere"]) and not is_uk
+            loc_clean and not any(k in loc_clean for k in ["ireland", "remote", "worldwide", "anywhere"]) and not is_uk
         )
 
         if has_onsite_marker:

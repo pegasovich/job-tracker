@@ -54,6 +54,44 @@ HYBRID_ALLOWED_LOCATIONS = [
     "ring of kerry",
 ]
 
+# Geo & Region Filters for LinkedIn (кандидат в Ирландии / ЕС)
+ENABLE_LINKEDIN_GEO_FILTER = True
+
+# Disallowed countries/regions in job location (e.g. Argentina, Brazil, India, USA)
+# Even if marked "Remote", these are domestic remote roles for local residents
+LINKEDIN_BLOCKED_LOCATIONS = [
+    # Latin America
+    "argentina", "brazil", "brasil", "colombia", "mexico", "chile", "peru",
+    "uruguay", "paraguay", "venezuela", "ecuador", "bolivia", "costa rica",
+    "panama", "guatemala", "el salvador", "honduras", "nicaragua",
+    "latam", "latin america", "south america",
+    # North America (domestic US/Canada roles)
+    "united states", r"\busa\b", r"\bu\.s\.a?\b", "canada",
+    # Asia & Pacific
+    "india", "pakistan", "bangladesh", "philippines", "vietnam", "indonesia",
+    "malaysia", "singapore", "thailand", "china", "japan", "korea", "taiwan",
+    "sri lanka", "nepal", "australia", "new zealand", "apac",
+    # Africa
+    "nigeria", "kenya", "south africa", "egypt", "ghana", "morocco", "uganda",
+    # Middle East
+    r"\buae\b", "united arab emirates", "dubai", "saudi arabia", "qatar", "israel", "turkey", "türkiye",
+]
+
+# Stop-phrases in description indicating regional restriction incompatible with Europe/Ireland
+LINKEDIN_DESCRIPTION_STOP_PATTERNS = [
+    r'\b(?:role|position|job|opportunity)\s+(?:is\s+)?(?:strictly\s+)?for\s+(?:latam|latin\s+america|apac|north\s+america|south\s+america)\b',
+    r'\b(?:only\s+)?for\s+(?:latam|latin\s+america)\b',
+    r'\b(?:remote\s+(?:role|position|opportunity)\s+)?for\s+latam\b',
+    r'\b(?:fully\s+)?remote\s+role\s+for\s+(?!ireland|europe|eu\b|uk\b)[a-z\s]+',
+    r'\b(?:must\s+be\s+)?(?:located|based|residing|living)\s+in\s+(?:latam|latin\s+america|south\s+america|north\s+america|apac|argentina|brazil|colombia|mexico|chile|india|philippines|pakistan|usa?|united\s+states|canada)\b',
+    r'\b(?:latam|latin\s+america|south\s+america|apac|us|usa|canada)\s+only\b',
+    r'\b(?:latam|latin\s+america)\s+candidates?\s+only\b',
+    r'\bopen\s+only\s+to\s+(?:latam|latin\s+america|apac|us|usa)\b',
+    r'\bresidents?\s+of\s+(?:latam|latin\s+america|argentina|brazil|colombia|mexico|usa?|united\s+states|india)\s+only\b',
+    r'\btime\s*zones?\s*:\s*(?:est|pst|cst|mst|gmt-3|utc-3|utc-5)\s+only\b',
+    r'\b(?:must\s+work\s+in|aligned\s+with)\s+(?:latam|est|pst|cst)\s+hours?\b',
+]
+
 # Target keywords to monitor for QA/SDET (Manual & Automation)
 # Boolean targeted B2B/Contract queries + standard role titles
 SEARCH_KEYWORDS = [
