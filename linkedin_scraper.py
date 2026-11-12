@@ -51,9 +51,17 @@ class LinkedInJobScraper:
     BASE_SEARCH_URL = "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
     BASE_DETAIL_URL = "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{}"
 
-    def __init__(self, location: str = "Ireland", remote_only: bool = True):
+    def __init__(
+        self,
+        location: str = "Ireland",
+        remote_only: bool = True,
+        time_filter: Optional[str] = None,
+        sort_by: Optional[str] = None,
+    ):
         self.location = location
         self.remote_only = remote_only
+        self.time_filter = time_filter
+        self.sort_by = sort_by
         self.last_hit_rate_limit = False
 
     def _make_request(self, url: str, max_retries: int = 3, referer: Optional[str] = None) -> Optional[str]:
@@ -101,65 +109,90 @@ class LinkedInJobScraper:
         """
         Search jobs by keyword.
         f_WT=2 sets filter to Remote.
-        f_TPR=r86400 (past 24h) or r604800 (past week) can also be used if needed.
+        f_TPR=r86400 (past 24h) or r604800 (past week) sets time range.
+        sortBy=DD sets sort to most recent date descending.
         """
-        params = {
-            "keywords": keyword,
-            "location": self.location,
-            "start": 0,
-        }
-        if self.remote_only:
-            params["f_WT"] = "2"  # 2 = Remote in LinkedIn filter
-
-        url = f"{self.BASE_SEARCH_URL}?{urllib.parse.urlencode(params)}"
-        search_referer = f"https://www.linkedin.com/jobs/search?{urllib.parse.urlencode({'keywords': keyword, 'location': self.location})}"
-        html_content = self._make_request(url, referer=search_referer)
-        if not html_content:
-            return []
-
         jobs = []
-        # Each job is enclosed in an <li> with a base-card
-        card_blocks = re.findall(
-            r'(<div class="base-card[^"]*".*?data-entity-urn="urn:li:jobPosting:(\d+)".*?</li>)',
-            html_content,
-            re.DOTALL,
-        )
+        seen_ids = set()
+        start = 0
 
-        for block_html, job_id in card_blocks:
-            # Title
-            title_m = re.search(r'<h3 class="base-search-card__title">\s*([^<]+?)\s*</h3>', block_html)
-            title = html.unescape(title_m.group(1).strip()) if title_m else "Unknown Title"
+        while len(jobs) < limit:
+            params = {
+                "keywords": keyword,
+                "location": self.location,
+                "start": start,
+            }
+            if self.remote_only:
+                params["f_WT"] = "2"  # 2 = Remote in LinkedIn filter
+            if self.time_filter:
+                params["f_TPR"] = self.time_filter
+            if self.sort_by:
+                params["sortBy"] = self.sort_by
 
-            # Company
-            company_m = re.search(r'<h4 class="base-search-card__subtitle">.*?<a[^>]*>\s*([^<]+?)\s*</a>', block_html, re.DOTALL)
-            if not company_m:
-                company_m = re.search(r'<h4 class="base-search-card__subtitle">\s*([^<]+?)\s*</h4>', block_html)
-            company = html.unescape(company_m.group(1).strip()) if company_m else "Unknown Company"
-
-            # Location
-            loc_m = re.search(r'<span class="job-search-card__location">\s*([^<]+?)\s*</span>', block_html)
-            job_loc = html.unescape(loc_m.group(1).strip()) if loc_m else self.location
-
-            # Post date / relative time
-            date_m = re.search(r'<time class="job-search-card__listdate[^"]*"\s+datetime="([^"]+)"', block_html)
-            posted_date = date_m.group(1) if date_m else ""
-
-            # Link
-            link_m = re.search(r'<a class="base-card__full-link[^"]*"\s+href="([^"?]+)', block_html)
-            link = link_m.group(1) if link_m else f"https://www.linkedin.com/jobs/view/{job_id}"
-
-            jobs.append({
-                "id": job_id,
-                "title": title,
-                "company": company,
-                "location": job_loc,
-                "posted_date": posted_date,
-                "url": link,
-                "keyword": keyword,
-            })
-
-            if len(jobs) >= limit:
+            url = f"{self.BASE_SEARCH_URL}?{urllib.parse.urlencode(params)}"
+            search_referer = f"https://www.linkedin.com/jobs/search?{urllib.parse.urlencode({'keywords': keyword, 'location': self.location})}"
+            html_content = self._make_request(url, referer=search_referer)
+            if not html_content:
                 break
+
+            # Each job is enclosed in an <li> with a base-card
+            card_blocks = re.findall(
+                r'(<div class="base-card[^"]*".*?data-entity-urn="urn:li:jobPosting:(\d+)".*?</li>)',
+                html_content,
+                re.DOTALL,
+            )
+            if not card_blocks:
+                break
+
+            new_on_page = 0
+            for block_html, job_id in card_blocks:
+                if job_id in seen_ids:
+                    continue
+                seen_ids.add(job_id)
+
+                # Title
+                title_m = re.search(r'<h3 class="base-search-card__title">\s*([^<]+?)\s*</h3>', block_html)
+                title = html.unescape(title_m.group(1).strip()) if title_m else "Unknown Title"
+
+                # Company
+                company_m = re.search(r'<h4 class="base-search-card__subtitle">.*?<a[^>]*>\s*([^<]+?)\s*</a>', block_html, re.DOTALL)
+                if not company_m:
+                    company_m = re.search(r'<h4 class="base-search-card__subtitle">\s*([^<]+?)\s*</h4>', block_html)
+                company = html.unescape(company_m.group(1).strip()) if company_m else "Unknown Company"
+
+                # Location
+                loc_m = re.search(r'<span class="job-search-card__location">\s*([^<]+?)\s*</span>', block_html)
+                job_loc = html.unescape(loc_m.group(1).strip()) if loc_m else self.location
+
+                # Post date / relative time
+                date_m = re.search(r'<time class="job-search-card__listdate[^"]*"\s+datetime="([^"]+)"', block_html)
+                posted_date = date_m.group(1) if date_m else ""
+
+                # Link
+                link_m = re.search(r'<a class="base-card__full-link[^"]*"\s+href="([^"?]+)', block_html)
+                link = link_m.group(1) if link_m else f"https://www.linkedin.com/jobs/view/{job_id}"
+
+                jobs.append({
+                    "id": job_id,
+                    "title": title,
+                    "company": company,
+                    "location": job_loc,
+                    "posted_date": posted_date,
+                    "url": link,
+                    "keyword": keyword,
+                })
+                new_on_page += 1
+
+                if len(jobs) >= limit:
+                    break
+
+            if new_on_page == 0 or len(card_blocks) < 5:
+                # No more new jobs or reached end of results
+                break
+
+            start += len(card_blocks)
+            if len(jobs) < limit:
+                time.sleep(1.0)  # Gentle delay between page fetches
 
         return jobs
 
@@ -277,12 +310,15 @@ class LinkedInJobScraper:
             "anywhere in europe", "anywhere in the eu", "anywhere in eu",
             "work from anywhere", "remote across europe", "remote in europe",
             "pan-european", "b2b contractor", "b2b contract", "contractor role",
+            "full-time contractor", "independent contractor",
             "worldwide remote", "fully remote worldwide", "fully remote europe",
             "remote throughout europe", "remote - europe", "remote (europe)",
             "anywhere in ireland", "remote in ireland", "fully remote ireland",
             "remote within ireland", "remote across ireland",
             "work from anywhere in europe", "work from anywhere in the eu",
             "ireland or uk", "uk or ireland",
+            "applicants worldwide", "candidates worldwide", "open worldwide",
+            "open to worldwide", "worldwide considered",
         ]
         if any(r in d for r in international_remote):
             if has_onsite_marker:

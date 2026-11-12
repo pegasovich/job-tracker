@@ -27,6 +27,10 @@ TARGET_LOCATIONS = [
 ]
 REMOTE_ONLY = True  # LinkedIn filter f_WT=2
 
+# LinkedIn Search Time & Sort Settings
+LINKEDIN_TIME_FILTER = "r86400"  # r86400 = Past 24 hours, None = All time
+LINKEDIN_SORT_BY = "DD"          # DD = Most recent (date descending), None = Most relevant
+
 # Strict Remote Filters
 ALLOW_ONSITE = False
 ALLOW_HYBRID = False  # Global hybrid: False = block by default, allowed only for nearby locations
@@ -52,7 +56,10 @@ HYBRID_ALLOWED_LOCATIONS = [
 ]
 
 # Target keywords to monitor for QA/SDET (Manual & Automation)
+# Boolean targeted B2B/Contract queries + standard role titles
 SEARCH_KEYWORDS = [
+    '("SDET" OR "QA Automation") AND ("Contract" OR "B2B" OR "Deel")',
+    '("QA Engineer" OR "Software Tester") AND ("Contract" OR "B2B" OR "Deel")',
     "QA Engineer",
     "SDET",
     "Automation QA",

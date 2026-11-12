@@ -84,10 +84,15 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
     keywords = config.SEARCH_KEYWORDS if not test_mode else [config.SEARCH_KEYWORDS[0]]
 
     for loc in locations:
-        scraper = LinkedInJobScraper(location=loc, remote_only=config.REMOTE_ONLY)
+        scraper = LinkedInJobScraper(
+            location=loc,
+            remote_only=config.REMOTE_ONLY,
+            time_filter=getattr(config, "LINKEDIN_TIME_FILTER", "r86400"),
+            sort_by=getattr(config, "LINKEDIN_SORT_BY", "DD"),
+        )
         for kw in keywords:
             logger.info(f"🔍 Поиск в регионе '{loc}' по слову: '{kw}'...")
-            jobs = scraper.search_jobs(keyword=kw, limit=12)
+            jobs = scraper.search_jobs(keyword=kw, limit=15)
             logger.info(f"[{loc} / {kw}] Найдено карточек: {len(jobs)}")
 
             for job in jobs:
