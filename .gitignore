@@ -1,6 +1,23 @@
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Runtime & Lock files
 tracker.lock
 tracker.log
+
+# Databases & local state
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment variables & local profiles
 .env
+*.local.json
+*.local.js
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
