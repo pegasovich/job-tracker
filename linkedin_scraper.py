@@ -256,12 +256,12 @@ class LinkedInJobScraper:
         # E.g. "for Latam", "US only", "only within Germany", "must reside in Poland", "residents of UK only"
         domestic_restrictions = [
             r'nur\s+innerhalb\s+(?!irland|europa|eu\b)',
-            r'only\s+(?:available\s+)?(?:within|in)\s+(?!ireland|europe|eu\b|the\s+eu\b)[a-z]+',
-            r'must\s+be\s+(?:located|based|resident|living)\s+in\s+(?!ireland|europe|eu\b|the\s+eu\b)[a-z]+',
-            r'residents?\s+of\s+(?!ireland|europe|eu\b|the\s+eu\b)[a-z]+\s+only',
-            r'tax\s+residen(?:cy|t)\s+in\s+(?!ireland|europe|eu\b)[a-z]+',
+            r'only\s+(?:available\s+)?(?:within|in)\s+(?!ireland|europe|eu\b|the\s+eu\b)(?:the\s+)?[a-z]+(?:\s+[a-z]+)?\b',
+            r'must\s+be\s+(?:located|based|resident|living)\s+in\s+(?!ireland|europe|eu\b|the\s+eu\b)(?:the\s+)?[a-z]+(?:\s+[a-z]+)?\b',
+            r'residents?\s+of\s+(?!ireland|europe|eu\b|the\s+eu\b)(?:the\s+)?[a-z]+(?:\s+[a-z]+)?\s+only\b',
+            r'tax\s+residen(?:cy|t)\s+in\s+(?!ireland|europe|eu\b)(?:the\s+)?[a-z]+(?:\s+[a-z]+)?\b',
             r'remote\s+(?:work\s+)?is\s+only\s+(?:possible|permitted|allowed)\s+(?:within|in)',
-            r'remote\s+(?:within|from)\s+(?!ireland|europe|eu\b)[a-z]+',
+            r'remote\s+(?:within|from)\s+(?!ireland|europe|eu\b)(?:the\s+)?[a-z]+(?:\s+[a-z]+)?\b',
         ]
         config_patterns = getattr(config, "LINKEDIN_DESCRIPTION_STOP_PATTERNS", []) if config else []
         for pattern in domestic_restrictions + config_patterns:
