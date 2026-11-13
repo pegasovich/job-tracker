@@ -256,12 +256,12 @@ class LinkedInJobScraper:
         # E.g. "for Latam", "US only", "only within Germany", "must reside in Poland", "residents of UK only"
         domestic_restrictions = [
             r'nur\s+innerhalb\s+(?!irland|europa|eu\b)',
-            r'only\s+(?:available\s+)?(?:within|in)\s+(?!ireland|europe|eu\b|the\s+eu\b)(?:the\s+)?[a-z]+(?:\s+[a-z]+)?\b',
-            r'must\s+be\s+(?:located|based|resident|living)\s+in\s+(?!ireland|europe|eu\b|the\s+eu\b)(?:the\s+)?[a-z]+(?:\s+[a-z]+)?\b',
-            r'residents?\s+of\s+(?!ireland|europe|eu\b|the\s+eu\b)(?:the\s+)?[a-z]+(?:\s+[a-z]+)?\s+only\b',
-            r'tax\s+residen(?:cy|t)\s+in\s+(?!ireland|europe|eu\b)(?:the\s+)?[a-z]+(?:\s+[a-z]+)?\b',
+            r'only\s+(?:available\s+)?(?:within|in)\s+(?!ireland|europe|eu\b|the\s+eu\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\b',
+            r'must\s+(?:already\s+|currently\s+)?(?:be\s+)?(?:living|live|residing|reside|located|based|resident)\s+in\s+(?!ireland|europe\b|eu\b|the\s+eu\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\b',
+            r'residents?\s+of\s+(?!ireland|europe|eu\b|the\s+eu\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\s+only\b',
+            r'tax\s+residen(?:cy|t)\s+in\s+(?!ireland|europe|eu\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\b',
             r'remote\s+(?:work\s+)?is\s+only\s+(?:possible|permitted|allowed)\s+(?:within|in)',
-            r'remote\s+(?:within|from)\s+(?!ireland|europe|eu\b)(?:the\s+)?[a-z]+(?:\s+[a-z]+)?\b',
+            r'remote\s+(?:within|from)\s+(?!ireland|europe|eu\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\b',
         ]
         config_patterns = getattr(config, "LINKEDIN_DESCRIPTION_STOP_PATTERNS", []) if config else []
         for pattern in domestic_restrictions + config_patterns:
@@ -337,7 +337,8 @@ class LinkedInJobScraper:
         international_remote = [
             "anywhere in europe", "anywhere in the eu", "anywhere in eu",
             "work from anywhere", "remote across europe", "remote in europe",
-            "pan-european", "b2b contractor", "b2b contract", "contractor role",
+            "pan-european remote", "pan-european role", "pan-european position",
+            "b2b contractor", "b2b contract", "contractor role",
             "full-time contractor", "independent contractor",
             "worldwide remote", "fully remote worldwide", "fully remote europe",
             "remote throughout europe", "remote - europe", "remote (europe)",

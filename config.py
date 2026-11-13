@@ -79,11 +79,11 @@ LINKEDIN_BLOCKED_LOCATIONS = [
 
 # Stop-phrases in description indicating regional restriction incompatible with Europe/Ireland
 LINKEDIN_DESCRIPTION_STOP_PATTERNS = [
-    # Explicit domestic role/candidate location restrictions (e.g. Jobgether country-specific clones)
-    r'\blooking\s+for\s+(?:an?|the)\s+.*?\s+based\s+in\s+(?!ireland|europe|the\s+eu\b|eu\b)(?:the\s+)?[a-z]+(?:\s+[a-z]+)?\b',
-    r'\b(?:role|position|job|engineer|tester|sdet|developer|candidate|applicant|someone|you|individual|person)\b[^\.\n;]{0,40}\bbased\s+in\s+(?!ireland|europe|the\s+eu\b|eu\b)(?:the\s+)?[a-z]+(?:\s+[a-z]+)?\b',
-    r'\b(?:must|should|need\s+to|required\s+to)\s+be\s+(?:based|located|resident|living|residing)\s+in\s+(?!ireland|europe|the\s+eu\b|eu\b)(?:the\s+)?[a-z]+(?:\s+[a-z]+)?\b',
-    r'\b(?:remotely|remote[\s,-]+)\s*based\s+in\s+(?!ireland|europe|the\s+eu\b|eu\b)(?:the\s+)?[a-z]+(?:\s+[a-z]+)?\b',
+    # Explicit domestic role/candidate location restrictions (e.g. Jobgether country-specific clones, Expleo PT only, etc.)
+    r'\blooking\s+for\s+(?:an?|the)\s+.*?\s+(?:based|living|residing|located)\s+in\s+(?!ireland|europe|the\s+eu\b|eu\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\b',
+    r'\b(?:role|position|job|engineer|tester|sdet|developer|candidate|applicant|someone|you|individual|person)\b[^\.\n;]{0,40}\b(?:based|living|residing|located)\s+in\s+(?!ireland|europe|the\s+eu\b|eu\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\b',
+    r'\b(?:must|should|need\s+to|required\s+to)\s+(?:already\s+|currently\s+)?(?:be\s+)?(?:based|located|resident|living|residing|live|reside)\s+in\s+(?!ireland|europe|the\s+eu\b|eu\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\b',
+    r'\b(?:remotely|remote[\s,-]+)\s*(?:based|located)\s+in\s+(?!ireland|europe|the\s+eu\b|eu\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\b',
     r'\bbased\s+in\s+(?:germany|netherlands|romania|united\s+kingdom|uk\b|poland|france|spain|italy|portugal|sweden|denmark|norway|finland|austria|switzerland|belgium|czech(?:\s+republic)?|hungary|bulgaria|croatia|greece|slovakia)\s*[\(\[]?\s*remote',
     # Specific regional restrictions (Americas, Asia, Africa)
     r'\b(?:role|position|job|opportunity)\s+(?:is\s+)?(?:strictly\s+)?for\s+(?:latam|latin\s+america|apac|north\s+america|south\s+america)\b',
