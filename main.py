@@ -24,15 +24,25 @@ import os
 from pathlib import Path
 os.chdir(Path(__file__).parent.resolve())
 
-# Prevent duplicate concurrent executions using a file lock
-import msvcrt
-lock_file_path = Path(__file__).parent / "tracker.lock"
-try:
-    _lock_handle = open(lock_file_path, "w")
-    msvcrt.locking(_lock_handle.fileno(), msvcrt.LK_NBLCK, 1)
-except OSError:
-    if sys.stdout: print("⚠️ Другой экземпляр трекера уже запущен. Пропуск запуска.")
-    sys.exit(0)
+def acquire_lock():
+    """Prevent duplicate concurrent executions using a file lock (Windows msvcrt / POSIX fcntl)."""
+    lock_file_path = Path(__file__).parent / "tracker.lock"
+    try:
+        lock_handle = open(lock_file_path, "w")
+        if sys.platform == "win32":
+            import msvcrt
+            msvcrt.locking(lock_handle.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            try:
+                import fcntl
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except (ImportError, AttributeError):
+                pass
+        return lock_handle
+    except OSError:
+        if sys.stdout:
+            print("⚠️ Другой экземпляр трекера уже запущен. Пропуск запуска.")
+        sys.exit(0)
 
 import config
 from linkedin_scraper import LinkedInJobScraper
@@ -266,6 +276,7 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
 
 
 def main():
+    _lock_handle = acquire_lock()
     parser = argparse.ArgumentParser(description="LinkedIn Remote QA/SDET Job Tracker (Ireland)")
     parser.add_argument("--dry-run", action="store_true", help="Только показать найденное в консоли, не слать в Telegram")
     parser.add_argument("--test", action="store_true", help="Быстрый тест (только один поисковый запрос)")
