@@ -226,6 +226,37 @@ class LinkedInJobScraper:
         return full_desc
 
     @staticmethod
+    def is_qa_title(title: str) -> bool:
+        """
+        Check if the job title represents a QA / SDET / Testing role.
+        Rejects pure developer, DevOps, PM, data engineering, etc. positions.
+        """
+        if not config or not getattr(config, "ENABLE_TITLE_FILTER", True):
+            return True
+        t = (title or "").strip()
+        if not t:
+            return False
+
+        # 1. Non-QA Overrides (e.g. "Software Engineer, Backend", "DevOps Engineer")
+        overrides = getattr(config, "NON_QA_OVERRIDE_PATTERNS", [])
+        for neg in overrides:
+            if re.search(neg, t, re.IGNORECASE):
+                # Allow only if title specifically includes explicit QA/SDET markers like "in Test", "SDET", "QA"
+                if not re.search(r'\b(?:in\s+test|sdet|qa)\b', t, re.IGNORECASE):
+                    return False
+
+        # 2. Positive QA patterns
+        patterns = getattr(config, "QA_TITLE_PATTERNS", [])
+        has_qa = any(re.search(p, t, re.IGNORECASE) for p in patterns)
+
+        # 3. Allow "Automation Engineer" unless it's hardware/PLC/marketing
+        if not has_qa and re.search(r'\bautomation\s+engineers?\b', t, re.IGNORECASE):
+            if not re.search(r'\b(?:plc|hardware|industrial|marketing|sales|network)\b', t, re.IGNORECASE):
+                has_qa = True
+
+        return has_qa
+
+    @staticmethod
     def is_location_blocked(location: str) -> bool:
         """
         Check if a job card's location string points to a region incompatible with a candidate in Ireland.

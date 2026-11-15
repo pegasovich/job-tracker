@@ -111,6 +111,14 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 if db.is_seen(job_id):
                     continue
 
+                # Level 0: Валидация названия роли (отсекаем разработчиков, DevOps, PM и т.д. без QA)
+                if not scraper.is_qa_title(job.get("title", "")):
+                    logger.info(
+                        f"🚫 [НЕ QA РОЛЬ] Отклонена по названию: '{job['title']}' @ {job['company']}"
+                    )
+                    db.add_job(job)
+                    continue
+
                 # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны сразу, не делая HTTP-запрос за деталями)
                 if scraper.is_location_blocked(job.get("location", "")):
                     logger.info(
@@ -209,6 +217,14 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
             for job in djinni_jobs:
                 job_id = job["id"]
                 if db.is_seen(job_id):
+                    continue
+
+                # Level 0: Валидация названия роли
+                if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
+                    logger.info(
+                        f"🚫 [НЕ QA РОЛЬ / Djinni] Отклонена по названию: '{job['title']}' @ {job['company']}"
+                    )
+                    db.add_job(job)
                     continue
 
                 workplace_type = job.get("workplace_type", "remote")

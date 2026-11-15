@@ -138,3 +138,59 @@ class TestDjinniCountryEligibility:
         """Jobs restricted to specific other countries must be rejected for candidate in Ireland."""
         job = {"applicant_countries": ["UA", "PL"], "applicant_regions": []}
         assert is_djinni_country_eligible(job) is False
+
+
+class TestQATitleFilter:
+    """Tests title validation ensuring developer, DevOps, PM, etc. positions are rejected."""
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "Software Engineer, Backend - Engineering Operations",
+            "Senior Backend Developer",
+            "Frontend Engineer (React / TypeScript)",
+            "DevOps Engineer",
+            "Site Reliability Engineer (SRE)",
+            "Full Stack Developer (Java + Vue)",
+            "Data Engineer - ETL / Pipelines",
+            "Product Manager - Core Platform",
+            "Scrum Master / Agile Coach",
+            "Engineering Operations Specialist",
+            "Java Developer",
+            "Cloud Infrastructure Architect",
+            "Backend Developer (TDD)",
+            "Software Engineer, Backend (Unit Testing)",
+            "PLC Automation Engineer",
+        ],
+    )
+    def test_non_qa_titles_rejected(self, linkedin_scraper, title):
+        """Pure developer, ops, and management titles must be rejected."""
+        assert linkedin_scraper.is_qa_title(title) is False
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "QA Analyst",
+            "QA Engineer",
+            "Senior QA Engineer",
+            "SDET",
+            "Senior SDET",
+            "Software Development Engineer in Test (SDET)",
+            "Software Engineer in Test",
+            "Test Automation Engineer",
+            "Automation QA Lead",
+            "Manual QA Tester",
+            "Software Tester",
+            "Quality Assurance Engineer",
+            "Lead Quality Engineer",
+            "Performance Test Engineer",
+            "QA / Automation Engineer",
+            "Backend QA Automation Engineer",
+            "AQA Engineer (Python)",
+            "SQA Specialist",
+            "Automation Engineer",
+        ],
+    )
+    def test_valid_qa_titles_accepted(self, linkedin_scraper, title):
+        """Legitimate QA, SDET, Tester, and Quality Engineering titles must be accepted."""
+        assert linkedin_scraper.is_qa_title(title) is True

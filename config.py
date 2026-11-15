@@ -99,6 +99,37 @@ LINKEDIN_DESCRIPTION_STOP_PATTERNS = [
     r'\b(?:must\s+work\s+in|aligned\s+with)\s+(?:latam|est|pst|cst)\s+hours?\b',
 ]
 
+# Title & Role Validation (отсекаем вакансии девелоперов, DevOps, PM и т.д.)
+ENABLE_TITLE_FILTER = True
+
+QA_TITLE_PATTERNS = [
+    r'\bqa\b',
+    r'\bsdet\b',
+    r'\bqe\b',
+    r'\bsqa\b',
+    r'\baqa\b',
+    r'\btests?\b',
+    r'\btesters?\b',
+    r'\btesting\b',
+    r'\bquality\s+assurance\b',
+    r'\bquality\s+engineers?\b',
+    r'\bquality\s+analyst\b',
+    r'\bquality\s+specialist\b',
+    r'\bquality\s+lead\b',
+    r'\bquality\s+manager\b',
+    r'\bquality\s+control\b',
+]
+
+# Explicit non-QA overrides (чистые dev/ops роли, даже если в тексте заголовка случайно попалось слово вроде "testing")
+NON_QA_OVERRIDE_PATTERNS = [
+    r'\btest[\s-]driven\s+dev',
+    r'\b(?:software\s+engineer|developer|programmer)\s*[,-]?\s*(?:backend|frontend|full[\s-]?stack|devops|sre|platform|mobile|ios|android|embedded|cloud)\b',
+    r'\b(?:backend|frontend|full[\s-]?stack|devops|sre|site\s+reliability|data|platform|systems?|infrastructure|firmware|hardware|cloud)\s+(?:engineer|developer|architect|lead)\b',
+    r'\b(?:product|project|program|release|delivery)\s+manager\b',
+    r'\b(?:scrum\s+master|agile\s+coach)\b',
+    r'\bengineering\s+operations\b',
+]
+
 # Target keywords to monitor for QA/SDET (Manual & Automation)
 # Boolean targeted B2B/Contract queries + standard role titles
 SEARCH_KEYWORDS = [
