@@ -87,6 +87,9 @@ class TestLinkedInWorkplaceTypeDetection:
             "We offer a flexible hybrid working model.",
             "Split between home and office with core office days.",
             "Candidate must be commutable to our office hub.",
+            "We will require you to access the office in Dublin 3 x a week, and 2 days remote working from home.",
+            "Expectation of 2 days remote and 3 days in office.",
+            "Requires attending the office 2 times a week.",
         ],
     )
     def test_hybrid_markers_detected(self, linkedin_scraper, description):
