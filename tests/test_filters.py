@@ -90,6 +90,8 @@ class TestLinkedInWorkplaceTypeDetection:
             "We will require you to access the office in Dublin 3 x a week, and 2 days remote working from home.",
             "Expectation of 2 days remote and 3 days in office.",
             "Requires attending the office 2 times a week.",
+            "Flexible/remote working, Version 1 is understanding of life events.",
+            "Employees work in a hybrid mode across all locations.",
         ],
     )
     def test_hybrid_markers_detected(self, linkedin_scraper, description):
@@ -115,6 +117,25 @@ class TestLinkedInWorkplaceTypeDetection:
             title="Automation QA",
             location="Dublin",
             description=description,
+        )
+        assert detected == "onsite"
+
+    @pytest.mark.parametrize(
+        "location",
+        [
+            "Belfast, Northern Ireland, United Kingdom",
+            "London, England, United Kingdom",
+            "Manchester, United Kingdom",
+            "Edinburgh, Scotland, United Kingdom",
+            "Berlin, Germany",
+        ],
+    )
+    def test_uk_and_foreign_cities_treated_as_onsite_for_domestic_remote(self, linkedin_scraper, location):
+        """Domestic remote roles in UK/foreign cities without pan-European/Ireland remote markers are onsite."""
+        detected = linkedin_scraper.detect_workplace_type(
+            title="QA Engineer",
+            location=location,
+            description="We offer remote work for our UK-based team with great benefits.",
         )
         assert detected == "onsite"
 

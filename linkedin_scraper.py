@@ -339,6 +339,9 @@ class LinkedInJobScraper:
             "flexible working model", "flexible working policy",
             "flexible hybrid", "hybrid working", "hybrid work",
             "hybrid arrangement", "hybrid setup", "hybrid role", "hybrid model",
+            "hybrid mode", "hybrid working mode", "work in a hybrid mode",
+            "flexible/remote", "flexible / remote", "flexible or remote",
+            "hybrid/remote", "hybrid / remote", "hybrid or remote",
             "split between home and office", "split between office and home",
             "split between remote and office", "split between office and remote",
             "blend of home and office", "blend of office and home",
@@ -425,16 +428,17 @@ class LinkedInJobScraper:
 
         # 7. Decision logic considering location and candidate in Ireland
         loc_clean = re.sub(r'\(?\s*remote\s*\)?', '', loc, flags=re.IGNORECASE).strip(' ,-')
+        loc_clean_no_ni = loc_clean.replace("northern ireland", "").strip(' ,-')
         is_generic_remote = loc_clean in ["", "remote", "worldwide", "anywhere", "europe", "european union", "eu"]
         is_ireland_generic = (loc_clean == "ireland")
-        is_irish_city = bool("ireland" in loc_clean and loc_clean != "ireland")
+        is_irish_city = bool("ireland" in loc_clean_no_ni and loc_clean_no_ni != "ireland")
 
         is_uk = any(k in loc_clean for k in ["united kingdom", "uk", "england", "scotland", "wales", "northern ireland"])
         is_uk_generic = (loc_clean in ["united kingdom", "uk"])
         is_uk_city = bool(is_uk and not is_uk_generic)
 
         is_foreign_specific_city = bool(
-            loc_clean and not any(k in loc_clean for k in ["ireland", "remote", "worldwide", "anywhere"]) and not is_uk
+            loc_clean and not any(k in loc_clean_no_ni for k in ["ireland", "remote", "worldwide", "anywhere"]) and not is_uk
         )
 
         if has_onsite_marker:
