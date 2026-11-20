@@ -242,6 +242,8 @@
       field.textarea.value = text;
       field.textarea.dispatchEvent(new Event("input", { bubbles: true }));
       field.textarea.dispatchEvent(new Event("change", { bubbles: true }));
+      // Notify autosize.js (used by DOU and similar portals) to adjust height
+      field.textarea.dispatchEvent(new Event("autosize:update", { bubbles: true }));
 
       // Auto-resize: ensure field expands to show the generated letter
       field.textarea.style.setProperty("min-height", "180px", "important");
