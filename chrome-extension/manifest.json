@@ -1,0 +1,63 @@
+{
+  "manifest_version": 3,
+  "name": "Job Apply AI Assistant (Gemini)",
+  "version": "1.0.0",
+  "description": "Автоматическая генерация персонализированных откликов на вакансии (DOU, Djinni, LinkedIn и др.) через бесплатный Gemini API",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://generativelanguage.googleapis.com/*",
+    "*://jobs.dou.ua/*",
+    "*://*.dou.ua/*",
+    "*://djinni.co/*",
+    "*://*.linkedin.com/*",
+    "*://*.robota.ua/*",
+    "*://*.work.ua/*",
+    "*://*.peopleforce.io/*",
+    "*://*.greenhouse.io/*",
+    "*://*.lever.co/*",
+    "*://*.workable.com/*",
+    "*://*.breezy.hr/*",
+    "*://*.recruitee.com/*",
+    "*://*.smartrecruiters.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://jobs.dou.ua/*",
+        "*://*.dou.ua/*",
+        "*://djinni.co/*",
+        "*://*.linkedin.com/*",
+        "*://*.robota.ua/*",
+        "*://*.work.ua/*",
+        "*://*.peopleforce.io/*",
+        "*://*.greenhouse.io/*",
+        "*://*.lever.co/*",
+        "*://*.workable.com/*",
+        "*://*.breezy.hr/*",
+        "*://*.recruitee.com/*",
+        "*://*.smartrecruiters.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
