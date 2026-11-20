@@ -191,7 +191,7 @@ The platform includes an automated cloud workflow (`.github/workflows/tracker_cr
    * `TELEGRAM_CHAT_ID`
    * `ADZUNA_APP_ID` *(optional)*
    * `ADZUNA_APP_KEY` *(optional)*
-5. **Manual Run:** Trigger anytime from the **Actions** tab ➔ **Hourly Remote QA Job Tracker** ➔ **Run workflow**.
+5. **Manual Run:** Trigger anytime from the **Actions** tab ➔ **Remote QA Job Tracker** ➔ **Run workflow**.
 
 ---
 
