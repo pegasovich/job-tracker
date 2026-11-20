@@ -198,6 +198,24 @@ ARBEITNOW_REMOTE_ONLY = True
 ARBEITNOW_MAX_PAGES = 2
 ARBEITNOW_LIMIT = 50
 
+# Greenhouse ATS Settings (https://boards-api.greenhouse.io)
+ENABLE_GREENHOUSE = True
+GREENHOUSE_COMPANIES = [
+    "canonical",
+    "gitlab",
+    "elastic",
+    "grafanalabs",
+    "cloudflare",
+    "mozilla",
+    "figma",
+    "stripe",
+    "reddit",
+    "cockroachlabs",
+    "airtable",
+]
+GREENHOUSE_REMOTE_ONLY = True
+GREENHOUSE_LIMIT_PER_COMPANY = 30
+
 # Database file
 DATABASE_FILE = str(Path(__file__).parent / "jobs_seen.db")
 

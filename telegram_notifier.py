@@ -69,6 +69,8 @@ class TelegramNotifier:
             source_badge = "🟧 <b>Источник:</b> Adzuna (api.adzuna.com)"
         elif "arbeitnow" in source.lower():
             source_badge = "🌐 <b>Источник:</b> Arbeitnow (arbeitnow.com)"
+        elif "greenhouse" in source.lower():
+            source_badge = "🌱 <b>Источник:</b> Greenhouse (Direct ATS)"
         else:
             source_badge = "🔵 <b>Источник:</b> LinkedIn"
 
@@ -108,6 +110,8 @@ class TelegramNotifier:
             link_text = "Открыть вакансию на Adzuna"
         elif "arbeitnow" in source.lower():
             link_text = "Открыть вакансию на Arbeitnow"
+        elif "greenhouse" in source.lower():
+            link_text = "Открыть вакансию на Greenhouse"
         else:
             link_text = "Открыть вакансию на LinkedIn"
         msg += f"\n🔗 <a href=\"{url}\">{link_text}</a>"

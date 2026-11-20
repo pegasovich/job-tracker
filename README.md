@@ -3,15 +3,15 @@
 [![Tests & Quality Gate](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml/badge.svg)](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml)
 ![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)
 ![Test Framework](https://img.shields.io/badge/tested_with-pytest-0A9EDC.svg)
-![Test Count](https://img.shields.io/badge/tests-115%20passed-brightgreen.svg)
+![Test Count](https://img.shields.io/badge/tests-120%20passed-brightgreen.svg)
 ![Code Coverage](https://img.shields.io/badge/coverage-core%2090%25%2B-brightgreen.svg)
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF.svg)
 
 An automated, multi-source job intelligence engine engineered for **QA & SDET professionals** seeking **Remote (Worldwide / Pan-European / Ireland)** and **B2B / Contractor** positions.
 
-The platform continuously aggregates, parses, filters, deduplicates, and alerts on verified openings across **7 major tech job boards and APIs**, eliminating recruiter noise, domestic residency restrictions, and misleading "remote" listings.
+The platform continuously aggregates, parses, filters, deduplicates, and alerts on verified openings across **8 major tech job boards, direct ATS systems, and APIs**, eliminating recruiter noise, domestic residency restrictions, and misleading "remote" listings.
 
-Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (115+ unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
+Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (120 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
 
 ---
 
@@ -24,7 +24,7 @@ Searching for genuine international remote QA roles is fraught with friction:
 4. **Duplicate Spam:** The same role reposted across different boards or multi-device tracker runs.
 
 **This application solves all of the above automatically:**
-* 📡 **Aggregates 7 Sources** simultaneously with zero authentication risk.
+* 📡 **Aggregates 8 Sources** simultaneously with zero authentication risk.
 * 🛡 **Applies Multi-Level Quality Filters** (Role Title Validation, Geo Eligibility, Strict Remote vs Commutable Hybrid Heuristics).
 * 💰 **Extracts Transparent Salaries & B2B Rates** directly from structured API payloads and descriptions.
 * 💾 **Deduplicates Across Runs** using an idempotent SQLite storage layer.
@@ -32,7 +32,7 @@ Searching for genuine international remote QA roles is fraught with friction:
 
 ---
 
-## 🌐 Integrated Job Providers (7 Sources)
+## 🌐 Integrated Job Providers (8 Sources)
 
 | Provider | Integration Type | Regional Focus | Highlights & Data Extracted |
 |---|---|---|---|
@@ -43,6 +43,7 @@ Searching for genuine international remote QA roles is fraught with friction:
 | 🟣 **JustJoin.it** | Candidate REST API (`api/candidate-api/offers`) | Europe, CEE & Global Remote | Poland & Europe's top tech board; multi-currency conversions (EUR/USD); seniority & skill levels. |
 | 🌐 **Arbeitnow** | Open REST API (`api/job-board-api`) | European Union & Remote | Free public European API; zero authentication/keys needed; 300 jobs/page; tag extraction. |
 | 🟧 **Adzuna** | Official REST API (`api.adzuna.com`) | Ireland (`ie`) & UK (`gb`) | Official developer API; EUR (€) and GBP (£) salary ranges; contract type tags; graceful fallback. |
+| 🌱 **Greenhouse** | Direct Company ATS (`boards-api.greenhouse.io`) | Worldwide & Remote-first | Direct carrier portal API for top tech companies (Canonical, Cloudflare, GitLab, Stripe, etc.); zero recruiter middleman. |
 
 ---
 
@@ -99,7 +100,8 @@ job-tracker/
 │   ├── test_nofluff.py      # No Fluff Jobs REST API parser & currency formatting tests
 │   ├── test_justjoin.py     # JustJoin.it Candidate API pagination & B2B salary tests
 │   ├── test_adzuna.py       # Adzuna API client, HTML stripping & unconfigured fallback tests
-│   └── test_arbeitnow.py    # Arbeitnow REST API parsing & remote filtering tests
+│   ├── test_arbeitnow.py    # Arbeitnow REST API parsing & remote filtering tests
+│   └── test_greenhouse.py   # Greenhouse direct company ATS parsing & remote tests
 ├── pytest.ini               # Pytest configuration & test discovery settings
 ├── requirements-dev.txt     # Test dependencies (pytest, pytest-cov, flake8)
 ├── database.py              # SQLite storage layer
@@ -110,6 +112,7 @@ job-tracker/
 ├── justjoin_scraper.py      # JustJoin.it candidate API scraper
 ├── adzuna_scraper.py        # Adzuna REST API scraper (IE & UK)
 ├── arbeitnow_scraper.py     # Arbeitnow open REST API scraper (EU & Remote)
+├── greenhouse_scraper.py    # Greenhouse Direct Company ATS scraper
 └── telegram_notifier.py     # Telegram Bot API notification engine
 ```
 
@@ -117,7 +120,7 @@ job-tracker/
 Every `git push` and Pull Request automatically triggers the test pipeline:
 1. Provisions an Ubuntu runner on Python 3.12.
 2. Installs runtime and testing dependencies with pip caching.
-3. Runs all **115 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
+3. Runs all **120 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
 4. Enforces the Quality Gate before merging.
 
 ---

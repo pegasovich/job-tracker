@@ -52,6 +52,7 @@ from nofluff_scraper import NoFluffJobScraper
 from justjoin_scraper import JustJoinJobScraper
 from adzuna_scraper import AdzunaJobScraper
 from arbeitnow_scraper import ArbeitnowJobScraper
+from greenhouse_scraper import GreenhouseJobScraper
 from database import JobDatabase
 from telegram_notifier import TelegramNotifier
 
@@ -554,6 +555,60 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
             if dry_run:
                 print("\n" + "=" * 60)
                 print(f"[DRY RUN / Arbeitnow] Новая вакансия ({workplace_type.upper()}):")
+                print(f"Позиция: {job['title']}")
+                print(f"Компания: {job['company']}")
+                print(f"Локация: {job['location']}")
+                if job.get("salary"):
+                    print(f"Зарплата: {job['salary']}")
+                print(f"Ссылка: {job['url']}")
+                if snippet:
+                    print(f"Фрагмент описания: {snippet[:200]}...")
+                print("=" * 60 + "\n")
+            else:
+                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
+                if sent:
+                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
+                else:
+                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
+                time.sleep(1.5)
+
+            db.add_job(job)
+
+    # --- Greenhouse (Direct Company ATS) ---
+    if getattr(config, "ENABLE_GREENHOUSE", True):
+        gh_companies = getattr(config, "GREENHOUSE_COMPANIES", ["canonical", "cloudflare"])
+        gh_remote = getattr(config, "GREENHOUSE_REMOTE_ONLY", True)
+        gh_limit = getattr(config, "GREENHOUSE_LIMIT_PER_COMPANY", 30) if not test_mode else 10
+        target_comps = gh_companies if not test_mode else [gh_companies[0]]
+        logger.info(f"🌱 Поиск в Greenhouse ATS (Компаний: {len(target_comps)}, Remote={gh_remote})...")
+        greenhouse = GreenhouseJobScraper(companies=target_comps)
+        gh_jobs = greenhouse.search_jobs(remote_only=gh_remote, limit_per_company=gh_limit)
+        logger.info(f"[Greenhouse] Найдено карточек: {len(gh_jobs)}")
+
+        for job in gh_jobs:
+            job_id = job["id"]
+            if db.is_seen(job_id):
+                continue
+
+            # Level 0: Валидация названия роли
+            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
+                logger.info(
+                    f"🚫 [НЕ QA РОЛЬ / Greenhouse] Отклонена по названию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
+            workplace_type = job.get("workplace_type", "remote")
+            total_new += 1
+            snippet = job.get("description", "")[:350]
+            if len(job.get("description", "")) > 350:
+                snippet = snippet.rstrip() + "..."
+
+            logger.info(f"✨ [Greenhouse] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
+
+            if dry_run:
+                print("\n" + "=" * 60)
+                print(f"[DRY RUN / Greenhouse] Новая вакансия ({workplace_type.upper()}):")
                 print(f"Позиция: {job['title']}")
                 print(f"Компания: {job['company']}")
                 print(f"Локация: {job['location']}")
