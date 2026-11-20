@@ -243,10 +243,11 @@
       field.textarea.dispatchEvent(new Event("input", { bubbles: true }));
       field.textarea.dispatchEvent(new Event("change", { bubbles: true }));
 
-      // Auto-resize
-      if (field.textarea.scrollHeight > field.textarea.clientHeight) {
-        field.textarea.style.height = `${Math.min(field.textarea.scrollHeight + 20, 400)}px`;
-      }
+      // Auto-resize: ensure field expands to show the generated letter
+      field.textarea.style.setProperty("min-height", "180px", "important");
+      const targetHeight = Math.min(Math.max(field.textarea.scrollHeight + 30, 200), 500);
+      field.textarea.style.setProperty("height", `${targetHeight}px`, "important");
+      field.textarea.style.setProperty("overflow-y", "auto", "important");
     }
 
     if (field.type === "richtext") {
