@@ -82,14 +82,14 @@ class TelegramNotifier:
         region = html.escape(job.get("region", ""))
         region_badge = f"\n🌍 <b>Регион поиска:</b> {region}" if region else ""
         salary_line = f"\n💰 <b>Зарплата:</b> {salary}" if salary else ""
+        keyword_line = f"\n🔎 <b>Поиск:</b> #{keyword.replace(' ', '_')}" if keyword else ""
 
         msg = (
             f"🎯 <b>{title}</b>\n\n"
             f"{source_badge}\n"
             f"🏢 <b>Компания:</b> {company}\n"
             f"📍 <b>Локация:</b> {location}\n"
-            f"{work_type_badge}{region_badge}{salary_line}\n"
-            f"🔎 <b>Поиск:</b> #{keyword.replace(' ', '_')}\n"
+            f"{work_type_badge}{region_badge}{salary_line}{keyword_line}\n"
         )
 
         if snippet:

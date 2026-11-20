@@ -1,5 +1,6 @@
 from unittest.mock import patch, MagicMock
 import urllib.error
+import json
 import pytest
 from dou_scraper import DouJobScraper
 from telegram_notifier import TelegramNotifier
@@ -114,6 +115,8 @@ class TestDouScraper:
 
             # Check sent payload contains DOU badge
             request_obj = mock_urlopen.call_args[0][0]
-            payload_str = request_obj.data.decode("utf-8")
-            assert "DOU (jobs.dou.ua)" in payload_str
-            assert "$3000" in payload_str
+            payload_data = json.loads(request_obj.data.decode("utf-8"))
+            text = payload_data["text"]
+            assert "DOU (jobs.dou.ua)" in text
+            assert "$3000" in text
+            assert "Открыть вакансию на DOU" in text
