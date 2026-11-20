@@ -69,10 +69,20 @@ class LinkedInJobScraper:
         self.sort_by = sort_by
         self.last_hit_rate_limit = False
 
-    def _make_request(self, url: str, max_retries: int = 3, referer: Optional[str] = None) -> Optional[str]:
+    def _make_request(
+        self,
+        url: str,
+        max_retries: Optional[int] = None,
+        referer: Optional[str] = None,
+    ) -> Optional[str]:
         if not referer:
             referer = "https://www.linkedin.com/jobs/search"
 
+        if max_retries is None:
+            max_retries = getattr(config, "LINKEDIN_MAX_RETRIES", 1) if config else 1
+        base_wait = getattr(config, "LINKEDIN_RETRY_BASE_WAIT", 10.0) if config else 10.0
+
+        self.last_hit_rate_limit = False
         for attempt in range(max_retries + 1):
             headers = get_random_headers(referer=referer)
             req = urllib.request.Request(url, headers=headers)
@@ -87,20 +97,20 @@ class LinkedInJobScraper:
                     self.last_hit_rate_limit = True
                     if attempt < max_retries:
                         retry_after = e.headers.get("Retry-After") if e.headers else None
-                        # Прогрессивное ожидание: ~35с на 1-й попытке, ~65с на 2-й, ~95с на 3-й
-                        wait_seconds = 35 * (attempt + 1) + random.uniform(2.0, 6.0)
+                        # Адаптивное быстрое ожидание: ~10-15 сек (вместо затяжных 40-110 сек)
+                        wait_seconds = base_wait * (attempt + 1) + random.uniform(1.0, 3.0)
                         if retry_after and retry_after.isdigit():
-                            wait_seconds = max(wait_seconds, int(retry_after) + 3)
+                            wait_seconds = min(max(wait_seconds, float(retry_after)), 25.0)
                         logger.warning(
-                            f"⏳ LinkedIn Rate Limit (429 Too Many Requests) для {url}. "
+                            f"⏳ LinkedIn Rate Limit (429) для {url}. "
                             f"Пауза {int(wait_seconds)} сек перед повтором (попытка {attempt + 1}/{max_retries})..."
                         )
                         time.sleep(wait_seconds)
                         continue
                     else:
                         logger.warning(
-                            f"⚠️ LinkedIn временно ограничил частоту запросов (429). "
-                            f"Запрос пропущен, он будет повторен при следующем запуске: {url}"
+                            f"⚠️ LinkedIn ограничил частоту запросов (429). "
+                            f"Запрос пропущен (будет повторен в следующем цикле): {url}"
                         )
                 else:
                     logger.error(f"HTTP ошибка {e.code} при запросе {url}: {e.reason}")
@@ -110,13 +120,15 @@ class LinkedInJobScraper:
                 return None
         return None
 
-    def search_jobs(self, keyword: str, limit: int = 25) -> List[Dict[str, str]]:
+    def search_jobs(self, keyword: str, limit: Optional[int] = None) -> List[Dict[str, str]]:
         """
         Search jobs by keyword.
         f_WT=2 sets filter to Remote.
         f_TPR=r86400 (past 24h) or r604800 (past week) sets time range.
         sortBy=DD sets sort to most recent date descending.
         """
+        if limit is None:
+            limit = getattr(config, "LINKEDIN_SEARCH_LIMIT", 6) if config else 6
         jobs = []
         seen_ids = set()
         start = 0

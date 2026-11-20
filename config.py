@@ -30,6 +30,9 @@ REMOTE_ONLY = True  # LinkedIn filter f_WT=2
 # LinkedIn Search Time & Sort Settings
 LINKEDIN_TIME_FILTER = "r86400"  # r86400 = Past 24 hours, None = All time
 LINKEDIN_SORT_BY = "DD"          # DD = Most recent (date descending), None = Most relevant
+LINKEDIN_SEARCH_LIMIT = int(os.getenv("LINKEDIN_SEARCH_LIMIT", "6"))
+LINKEDIN_MAX_RETRIES = int(os.getenv("LINKEDIN_MAX_RETRIES", "1"))
+LINKEDIN_RETRY_BASE_WAIT = float(os.getenv("LINKEDIN_RETRY_BASE_WAIT", "10.0"))
 
 # Strict Remote Filters
 ALLOW_ONSITE = False

@@ -107,8 +107,9 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
             sort_by=getattr(config, "LINKEDIN_SORT_BY", "DD"),
         )
         for kw in keywords:
+            search_limit = getattr(config, "LINKEDIN_SEARCH_LIMIT", 6) if not test_mode else 1
             logger.info(f"🔍 Поиск в регионе '{loc}' по слову: '{kw}'...")
-            jobs = scraper.search_jobs(keyword=kw, limit=15)
+            jobs = scraper.search_jobs(keyword=kw, limit=search_limit)
             logger.info(f"[{loc} / {kw}] Найдено карточек: {len(jobs)}")
 
             for job in jobs:
@@ -135,6 +136,12 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
 
                 time.sleep(1.0)  # Вежливая задержка перед запросом деталей
                 full_desc = scraper.get_job_description(job_id)
+                if not full_desc and getattr(scraper, "last_hit_rate_limit", False):
+                    logger.warning(
+                        f"⏳ Пропускаем вакансию '{job['title']}' @ {job['company']} из-за лимита запросов LinkedIn (будет проверена в следующем запуске)."
+                    )
+                    continue
+
                 snippet = full_desc[:350].rstrip() + "..." if len(full_desc) > 350 else full_desc
                 workplace_type = scraper.detect_workplace_type(job["title"], job["location"], full_desc)
 

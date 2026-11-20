@@ -3,7 +3,7 @@
 [![Tests & Quality Gate](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml/badge.svg)](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml)
 ![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)
 ![Test Framework](https://img.shields.io/badge/tested_with-pytest-0A9EDC.svg)
-![Test Count](https://img.shields.io/badge/tests-120%20passed-brightgreen.svg)
+![Test Count](https://img.shields.io/badge/tests-123%20passed-brightgreen.svg)
 ![Code Coverage](https://img.shields.io/badge/coverage-core%2090%25%2B-brightgreen.svg)
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF.svg)
 
@@ -11,7 +11,7 @@ An automated, multi-source job intelligence engine engineered for **QA & SDET pr
 
 The platform continuously aggregates, parses, filters, deduplicates, and alerts on verified openings across **8 major tech job boards, direct ATS systems, and APIs**, eliminating recruiter noise, domestic residency restrictions, and misleading "remote" listings.
 
-Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (120 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
+Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (123 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
 
 ---
 
@@ -36,7 +36,7 @@ Searching for genuine international remote QA roles is fraught with friction:
 
 | Provider | Integration Type | Regional Focus | Highlights & Data Extracted |
 |---|---|---|---|
-| 🔵 **LinkedIn** | Guest API (`seeMoreJobPostings`) | Ireland, UK, Europe, Worldwide | Zero login/cookie risk; searches multiple targeted regions; handles rate-limiting backoff. |
+| 🔵 **LinkedIn** | Guest API (`seeMoreJobPostings`) | Ireland, UK, Europe, Worldwide | Zero login/cookie risk; searches multiple targeted regions; cloud-optimized adaptive rate-limit backoff (10-15s) with non-destructive retry in next hourly cycle. |
 | 🟢 **Djinni.co** | Schema.org JSON-LD Parser | Pan-European & Worldwide | Structured Schema microdata; applicant location requirement validation; USD salary parsing. |
 | 🟡 **DOU** | Official RSS Feed (`feeds/?category=QA&remote`) | Europe, CEE, Remote & B2B | Real-time XML feed; full descriptions; automated B2B salary and country extraction. |
 | 🔴 **No Fluff Jobs** | Internal REST API (`api/search/posting`) | Central & Western Europe | 100% transparent B2B & Permanent salary brackets in EUR; tech stack tags and skill tiles. |
@@ -177,27 +177,32 @@ python main.py
 python main.py --interval 60
 ```
 
-### 5. ☁️ 24/7 Cloud Automation (GitHub Actions)
+### 5. ☁️ 24/7 Cloud Automation & Cloud Rate-Limit Optimization
 The platform includes an automated cloud workflow (`.github/workflows/tracker_cron.yml`) that executes every hour without keeping your computer on:
 1. **Zero Infrastructure Cost:** Runs on GitHub-hosted Ubuntu runners for 100% free.
-2. **State Persistence (Git Scraping):** Automatically commits and pushes the updated `jobs_seen.db` back to the repository so duplicate alerts are never sent.
-3. **Repository Secrets:** Add your credentials under **Settings ➔ Secrets and variables ➔ Actions ➔ New repository secret**:
+2. **State Persistence (Git Scraping):** Automatically commits and pushes the updated `jobs_seen.db` back to the repository so duplicate alerts are never sent across runs.
+3. **Cloud-Optimized Rate Limiting:**
+   * Unlike residential home IPs, cloud data centers (e.g. GitHub/Azure) encounter aggressive `429 Too Many Requests` thresholds from LinkedIn's guest API.
+   * The scraper employs an **adaptive fast backoff** (`LINKEDIN_MAX_RETRIES=1`, `LINKEDIN_RETRY_BASE_WAIT=10s`, `LINKEDIN_SEARCH_LIMIT=6`).
+   * When LinkedIn rate-limits a detail fetch, the job is **gracefully skipped without marking it as seen in SQLite**, preserving it to be inspected cleanly on the very next hourly cycle without blocking the run for 10+ minutes.
+   * The other 7 sources (DOU, No Fluff Jobs, JustJoin.it, Arbeitnow, Greenhouse ATS, Adzuna, Djinni) operate via open APIs / RSS feeds and run in seconds with zero rate-limit friction.
+4. **Repository Secrets:** Add your credentials under **Settings ➔ Secrets and variables ➔ Actions ➔ New repository secret**:
    * `TELEGRAM_BOT_TOKEN`
    * `TELEGRAM_CHAT_ID`
    * `ADZUNA_APP_ID` *(optional)*
    * `ADZUNA_APP_KEY` *(optional)*
-4. **Manual Run:** Trigger anytime from the **Actions** tab ➔ **Hourly Remote QA Job Tracker** ➔ **Run workflow**.
+5. **Manual Run:** Trigger anytime from the **Actions** tab ➔ **Hourly Remote QA Job Tracker** ➔ **Run workflow**.
 
 ---
 
 ## 🛠 Tech Stack
 
 * **Language:** Python 3.12
-* **Testing Framework:** Pytest 9, Pytest-Cov, Unittest.Mock (115 automated tests)
-* **CI/CD:** GitHub Actions Quality Gate
-* **Persistence:** SQLite3 (WAL mode, idempotent schemas)
+* **Testing Framework:** Pytest 9, Pytest-Cov, Unittest.Mock (123 automated tests)
+* **CI/CD:** GitHub Actions Quality Gate & Hourly Automated Cron Engine
+* **Persistence:** SQLite3 (WAL mode, idempotent schemas, Git-backed sync)
 * **Networking & Parsing:** Standard library (`urllib.request`), JSON, XML (`xml.etree.ElementTree`)
-* **Integrations:** Telegram Bot API, LinkedIn Guest API, Djinni Schema.org, DOU RSS, No Fluff Jobs API, JustJoin.it API, Adzuna API, Arbeitnow API
+* **Integrations:** Telegram Bot API, LinkedIn Guest API, Djinni Schema.org, DOU RSS, No Fluff Jobs API, JustJoin.it API, Adzuna API, Arbeitnow API, Greenhouse ATS
 * **Form Automation:** JavaScript (`autofill.js`)
 
 ---

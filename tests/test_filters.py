@@ -1,3 +1,5 @@
+from unittest.mock import patch, MagicMock
+import urllib.error
 import pytest
 from main import is_hybrid_nearby
 from djinni_scraper import is_djinni_country_eligible
@@ -218,3 +220,44 @@ class TestQATitleFilter:
     def test_valid_qa_titles_accepted(self, linkedin_scraper, title):
         """Legitimate QA, SDET, Tester, and Quality Engineering titles must be accepted."""
         assert linkedin_scraper.is_qa_title(title) is True
+
+
+class TestLinkedInRateLimitAndTuning:
+    """Tests rate limit 429 backoff handling and configuration limit tuning."""
+
+    @patch("time.sleep", return_value=None)
+    @patch("urllib.request.urlopen")
+    def test_rate_limit_sets_flag_and_retries(self, mock_urlopen, mock_sleep, linkedin_scraper):
+        mock_resp_429 = urllib.error.HTTPError(
+            url="http://test", code=429, msg="Too Many Requests", hdrs={}, fp=None
+        )
+        mock_resp_200 = MagicMock()
+        mock_resp_200.status = 200
+        mock_resp_200.read.return_value = b"<html>OK</html>"
+        mock_resp_200.__enter__.return_value = mock_resp_200
+
+        mock_urlopen.side_effect = [mock_resp_429, mock_resp_200]
+
+        res = linkedin_scraper._make_request("http://test", max_retries=1)
+        assert res == "<html>OK</html>"
+        assert mock_sleep.called
+        assert mock_urlopen.call_count == 2
+
+    @patch("time.sleep", return_value=None)
+    @patch("urllib.request.urlopen")
+    def test_exhausted_retries_returns_none_and_flags_rate_limit(self, mock_urlopen, mock_sleep, linkedin_scraper):
+        mock_resp_429 = urllib.error.HTTPError(
+            url="http://test", code=429, msg="Too Many Requests", hdrs={}, fp=None
+        )
+        mock_urlopen.side_effect = mock_resp_429
+
+        res = linkedin_scraper._make_request("http://test", max_retries=1)
+        assert res is None
+        assert linkedin_scraper.last_hit_rate_limit is True
+
+    @patch("linkedin_scraper.LinkedInJobScraper._make_request", return_value=None)
+    def test_search_jobs_respects_default_limit(self, mock_make_req, linkedin_scraper):
+        jobs = linkedin_scraper.search_jobs("SDET")
+        assert jobs == []
+        assert mock_make_req.called
+
