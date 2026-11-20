@@ -1,11 +1,10 @@
 // Service worker for Job Apply AI Assistant (Gemini)
 
-const DEFAULT_MODEL = "gemini-3.8-flash";
+const DEFAULT_MODEL = "gemini-2.0-flash";
 const FALLBACK_MODELS = [
-  "gemini-3.8-flash",
-  "gemini-2.5-flash",
   "gemini-2.0-flash",
-  "gemini-1.5-flash"
+  "gemini-1.5-flash",
+  "gemini-3.8-flash"
 ];
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -100,7 +99,7 @@ async function handleGenerateCoverLetter(params) {
     } catch (err) {
       lastError = err;
       const errLower = (err.message || "").toLowerCase();
-      // If error is related to model availability/deprecation/404, try next model
+      // If error is related to model availability, 404, or per-model quota exceeded (e.g. 20 RPD on 3.8-flash), try next model
       if (
         errLower.includes("no longer available") ||
         errLower.includes("not available") ||
@@ -108,11 +107,17 @@ async function handleGenerateCoverLetter(params) {
         errLower.includes("404") ||
         errLower.includes("deprecated") ||
         errLower.includes("invalid") ||
-        errLower.includes("supported")
+        errLower.includes("supported") ||
+        errLower.includes("quota") ||
+        errLower.includes("limit") ||
+        errLower.includes("rate") ||
+        errLower.includes("429") ||
+        errLower.includes("resource_exhausted")
       ) {
+        console.warn(`[JobApplyAI] Model ${model} hit error (${err.message}). Trying next fallback model...`);
         continue;
       }
-      // If it's another error (e.g. invalid API key quota), break
+      // If it's an invalid API key or auth error, break
       break;
     }
   }
