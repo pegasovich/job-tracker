@@ -151,18 +151,18 @@ TELEGRAM_CHAT_ID=your_telegram_chat_id
 ADZUNA_APP_ID=your_adzuna_app_id
 ADZUNA_APP_KEY=your_adzuna_app_key
 ```
-*(If Adzuna credentials are left empty, the tracker will automatically skip Adzuna and run all other 6 providers without errors.)*
+*(If Adzuna credentials are left empty, the tracker will automatically skip Adzuna and run all other 7 providers without errors.)*
 
 ### 3. Running the Test Suite
 ```bash
-# Run all 115 tests
+# Run all 120 tests
 pytest -q
 
 # Run with coverage report
 pytest --cov=. --cov-report=term-missing
 ```
 
-### 4. Running the Tracker
+### 4. Running the Tracker Locally
 ```bash
 # Dry run: search and display matches in the console without sending Telegram messages
 python main.py --dry-run
@@ -176,6 +176,17 @@ python main.py
 # Continuous monitoring: run scan periodically every N minutes (e.g. every 60 mins)
 python main.py --interval 60
 ```
+
+### 5. ☁️ 24/7 Cloud Automation (GitHub Actions)
+The platform includes an automated cloud workflow (`.github/workflows/tracker_cron.yml`) that executes every hour without keeping your computer on:
+1. **Zero Infrastructure Cost:** Runs on GitHub-hosted Ubuntu runners for 100% free.
+2. **State Persistence (Git Scraping):** Automatically commits and pushes the updated `jobs_seen.db` back to the repository so duplicate alerts are never sent.
+3. **Repository Secrets:** Add your credentials under **Settings ➔ Secrets and variables ➔ Actions ➔ New repository secret**:
+   * `TELEGRAM_BOT_TOKEN`
+   * `TELEGRAM_CHAT_ID`
+   * `ADZUNA_APP_ID` *(optional)*
+   * `ADZUNA_APP_KEY` *(optional)*
+4. **Manual Run:** Trigger anytime from the **Actions** tab ➔ **Hourly Remote QA Job Tracker** ➔ **Run workflow**.
 
 ---
 
