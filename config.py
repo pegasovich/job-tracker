@@ -157,6 +157,47 @@ DJINNI_COUNTRY_FILTER = True
 DJINNI_USER_COUNTRIES = ["IE", "IRL", "IRELAND"]
 DJINNI_USER_REGIONS = ["EUROPE", "EU", "WORLDWIDE", "ANY", "ALL"]
 
+# DOU Settings (jobs.dou.ua RSS feed)
+ENABLE_DOU = True
+DOU_CATEGORY = "QA"
+DOU_REMOTE_ONLY = True
+DOU_LIMIT = 50
+
+# No Fluff Jobs Settings (nofluffjobs.com API)
+ENABLE_NOFLUFF = True
+NOFLUFF_CATEGORY = "testing"
+NOFLUFF_REMOTE_ONLY = True
+NOFLUFF_CURRENCY = "EUR"
+NOFLUFF_LIMIT = 50
+
+# JustJoin.it Settings (justjoin.it candidate API)
+ENABLE_JUSTJOIN = True
+JUSTJOIN_CATEGORY = "testing"
+JUSTJOIN_REMOTE_ONLY = True
+JUSTJOIN_CURRENCY = "EUR"
+JUSTJOIN_MAX_PAGES = 3
+JUSTJOIN_LIMIT = 30
+
+# Adzuna API Settings (https://developer.adzuna.com/)
+ENABLE_ADZUNA = True
+ADZUNA_APP_ID = os.getenv("ADZUNA_APP_ID", "").strip()
+ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY", "").strip()
+ADZUNA_COUNTRIES = ["ie", "gb"]  # Ireland and UK
+ADZUNA_KEYWORDS = [
+    "QA Engineer",
+    "SDET",
+    "QA Automation",
+]
+ADZUNA_REMOTE_ONLY = True
+ADZUNA_MAX_PAGES = 1
+ADZUNA_RESULTS_PER_PAGE = 20
+
+# Arbeitnow Settings (https://www.arbeitnow.com/api/job-board-api)
+ENABLE_ARBEITNOW = True
+ARBEITNOW_REMOTE_ONLY = True
+ARBEITNOW_MAX_PAGES = 2
+ARBEITNOW_LIMIT = 50
+
 # Database file
 DATABASE_FILE = str(Path(__file__).parent / "jobs_seen.db")
 

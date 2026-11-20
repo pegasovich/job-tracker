@@ -47,6 +47,11 @@ def acquire_lock():
 import config
 from linkedin_scraper import LinkedInJobScraper
 from djinni_scraper import DjinniJobScraper, is_djinni_country_eligible
+from dou_scraper import DouJobScraper
+from nofluff_scraper import NoFluffJobScraper
+from justjoin_scraper import JustJoinJobScraper
+from adzuna_scraper import AdzunaJobScraper
+from arbeitnow_scraper import ArbeitnowJobScraper
 from database import JobDatabase
 from telegram_notifier import TelegramNotifier
 
@@ -284,6 +289,289 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 db.add_job(job)
 
             time.sleep(2.0)
+
+    # --- DOU (jobs.dou.ua) ---
+    if getattr(config, "ENABLE_DOU", True):
+        dou = DouJobScraper()
+        dou_category = getattr(config, "DOU_CATEGORY", "QA")
+        dou_remote = getattr(config, "DOU_REMOTE_ONLY", True)
+        dou_limit = getattr(config, "DOU_LIMIT", 50) if not test_mode else 10
+        logger.info(f"🟡 Поиск на DOU (jobs.dou.ua, Категория: {dou_category}, Remote={dou_remote})...")
+        dou_jobs = dou.search_jobs(category=dou_category, remote_only=dou_remote, limit=dou_limit)
+        logger.info(f"[DOU] Найдено карточек: {len(dou_jobs)}")
+
+        for job in dou_jobs:
+            job_id = job["id"]
+            if db.is_seen(job_id):
+                continue
+
+            # Level 0: Валидация названия роли
+            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
+                logger.info(
+                    f"🚫 [НЕ QA РОЛЬ / DOU] Отклонена по названию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
+            workplace_type = job.get("workplace_type", "remote")
+            total_new += 1
+            snippet = job.get("description", "")[:350]
+            if len(job.get("description", "")) > 350:
+                snippet = snippet.rstrip() + "..."
+
+            logger.info(f"✨ [DOU] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
+
+            if dry_run:
+                print("\n" + "=" * 60)
+                print(f"[DRY RUN / DOU] Новая вакансия ({workplace_type.upper()}):")
+                print(f"Позиция: {job['title']}")
+                print(f"Компания: {job['company']}")
+                print(f"Локация: {job['location']}")
+                if job.get("salary"):
+                    print(f"Зарплата: {job['salary']}")
+                print(f"Ссылка: {job['url']}")
+                if snippet:
+                    print(f"Фрагмент описания: {snippet[:200]}...")
+                print("=" * 60 + "\n")
+            else:
+                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
+                if sent:
+                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
+                else:
+                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
+                time.sleep(1.5)
+
+            db.add_job(job)
+
+    # --- No Fluff Jobs (nofluffjobs.com) ---
+    if getattr(config, "ENABLE_NOFLUFF", True):
+        nofluff = NoFluffJobScraper()
+        nfj_category = getattr(config, "NOFLUFF_CATEGORY", "testing")
+        nfj_remote = getattr(config, "NOFLUFF_REMOTE_ONLY", True)
+        nfj_currency = getattr(config, "NOFLUFF_CURRENCY", "EUR")
+        nfj_limit = getattr(config, "NOFLUFF_LIMIT", 50) if not test_mode else 10
+        logger.info(f"🔴 Поиск на No Fluff Jobs (Категория: {nfj_category}, Remote={nfj_remote}, Валюта={nfj_currency})...")
+        nfj_jobs = nofluff.search_jobs(category=nfj_category, remote_only=nfj_remote, currency=nfj_currency, limit=nfj_limit)
+        logger.info(f"[No Fluff Jobs] Найдено карточек: {len(nfj_jobs)}")
+
+        for job in nfj_jobs:
+            job_id = job["id"]
+            if db.is_seen(job_id):
+                continue
+
+            # Level 0: Валидация названия роли
+            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
+                logger.info(
+                    f"🚫 [НЕ QA РОЛЬ / NoFluff] Отклонена по названию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
+            workplace_type = job.get("workplace_type", "remote")
+            total_new += 1
+            snippet = job.get("description", "")[:350]
+            if len(job.get("description", "")) > 350:
+                snippet = snippet.rstrip() + "..."
+
+            logger.info(f"✨ [NoFluff] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
+
+            if dry_run:
+                print("\n" + "=" * 60)
+                print(f"[DRY RUN / NoFluff] Новая вакансия ({workplace_type.upper()}):")
+                print(f"Позиция: {job['title']}")
+                print(f"Компания: {job['company']}")
+                print(f"Локация: {job['location']}")
+                if job.get("salary"):
+                    print(f"Зарплата: {job['salary']}")
+                print(f"Ссылка: {job['url']}")
+                if snippet:
+                    print(f"Фрагмент описания: {snippet[:200]}...")
+                print("=" * 60 + "\n")
+            else:
+                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
+                if sent:
+                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
+                else:
+                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
+                time.sleep(1.5)
+
+            db.add_job(job)
+
+    # --- JustJoin.it (justjoin.it) ---
+    if getattr(config, "ENABLE_JUSTJOIN", True):
+        justjoin = JustJoinJobScraper()
+        jjit_category = getattr(config, "JUSTJOIN_CATEGORY", "testing")
+        jjit_remote = getattr(config, "JUSTJOIN_REMOTE_ONLY", True)
+        jjit_currency = getattr(config, "JUSTJOIN_CURRENCY", "EUR")
+        jjit_pages = getattr(config, "JUSTJOIN_MAX_PAGES", 3) if not test_mode else 1
+        jjit_limit = getattr(config, "JUSTJOIN_LIMIT", 30) if not test_mode else 10
+        logger.info(f"🟣 Поиск на JustJoin.it (Категория: {jjit_category}, Remote={jjit_remote}, Валюта={jjit_currency})...")
+        jjit_jobs = justjoin.search_jobs(
+            category=jjit_category,
+            remote_only=jjit_remote,
+            currency=jjit_currency,
+            max_pages=jjit_pages,
+            limit=jjit_limit,
+        )
+        logger.info(f"[JustJoin.it] Найдено карточек: {len(jjit_jobs)}")
+
+        for job in jjit_jobs:
+            job_id = job["id"]
+            if db.is_seen(job_id):
+                continue
+
+            # Level 0: Валидация названия роли
+            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
+                logger.info(
+                    f"🚫 [НЕ QA РОЛЬ / JustJoin] Отклонена по названию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
+            workplace_type = job.get("workplace_type", "remote")
+            total_new += 1
+            snippet = job.get("description", "")[:350]
+            if len(job.get("description", "")) > 350:
+                snippet = snippet.rstrip() + "..."
+
+            logger.info(f"✨ [JustJoin] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
+
+            if dry_run:
+                print("\n" + "=" * 60)
+                print(f"[DRY RUN / JustJoin] Новая вакансия ({workplace_type.upper()}):")
+                print(f"Позиция: {job['title']}")
+                print(f"Компания: {job['company']}")
+                print(f"Локация: {job['location']}")
+                if job.get("salary"):
+                    print(f"Зарплата: {job['salary']}")
+                print(f"Ссылка: {job['url']}")
+                if snippet:
+                    print(f"Фрагмент описания: {snippet[:200]}...")
+                print("=" * 60 + "\n")
+            else:
+                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
+                if sent:
+                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
+                else:
+                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
+                time.sleep(1.5)
+
+            db.add_job(job)
+
+    # --- Adzuna (api.adzuna.com) ---
+    if getattr(config, "ENABLE_ADZUNA", True):
+        adzuna = AdzunaJobScraper()
+        if not adzuna.is_configured:
+            logger.info("ℹ️ Adzuna API не настроен (ADZUNA_APP_ID или ADZUNA_APP_KEY не заполнены в .env). Пропуск.")
+        else:
+            adzuna_kws = getattr(config, "ADZUNA_KEYWORDS", ["QA Engineer", "SDET"]) if not test_mode else [getattr(config, "ADZUNA_KEYWORDS", ["QA Engineer"])[0]]
+            adzuna_remote = getattr(config, "ADZUNA_REMOTE_ONLY", True)
+            adzuna_pages = getattr(config, "ADZUNA_MAX_PAGES", 1)
+            adzuna_limit = getattr(config, "ADZUNA_RESULTS_PER_PAGE", 20) if not test_mode else 10
+            logger.info(f"🟧 Поиск на Adzuna (Страны: {', '.join(adzuna.countries)}, Remote={adzuna_remote})...")
+            adzuna_jobs = adzuna.search_jobs(
+                keywords=adzuna_kws,
+                remote_only=adzuna_remote,
+                max_pages=adzuna_pages,
+                results_per_page=adzuna_limit,
+            )
+            logger.info(f"[Adzuna] Найдено карточек: {len(adzuna_jobs)}")
+
+            for job in adzuna_jobs:
+                job_id = job["id"]
+                if db.is_seen(job_id):
+                    continue
+
+                # Level 0: Валидация названия роли
+                if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
+                    logger.info(
+                        f"🚫 [НЕ QA РОЛЬ / Adzuna] Отклонена по названию: '{job['title']}' @ {job['company']}"
+                    )
+                    db.add_job(job)
+                    continue
+
+                workplace_type = job.get("workplace_type", "remote")
+                total_new += 1
+                snippet = job.get("description", "")[:350]
+                if len(job.get("description", "")) > 350:
+                    snippet = snippet.rstrip() + "..."
+
+                logger.info(f"✨ [Adzuna] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
+
+                if dry_run:
+                    print("\n" + "=" * 60)
+                    print(f"[DRY RUN / Adzuna] Новая вакансия ({workplace_type.upper()}):")
+                    print(f"Позиция: {job['title']}")
+                    print(f"Компания: {job['company']}")
+                    print(f"Локация: {job['location']}")
+                    if job.get("salary"):
+                        print(f"Зарплата: {job['salary']}")
+                    print(f"Ссылка: {job['url']}")
+                    if snippet:
+                        print(f"Фрагмент описания: {snippet[:200]}...")
+                    print("=" * 60 + "\n")
+                else:
+                    sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
+                    if sent:
+                        logger.info(f"✅ Отправлено в Telegram: {job_id}")
+                    else:
+                        logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
+                    time.sleep(1.5)
+
+                db.add_job(job)
+
+    # --- Arbeitnow (arbeitnow.com) ---
+    if getattr(config, "ENABLE_ARBEITNOW", True):
+        arbeitnow = ArbeitnowJobScraper()
+        an_remote = getattr(config, "ARBEITNOW_REMOTE_ONLY", True)
+        an_pages = getattr(config, "ARBEITNOW_MAX_PAGES", 2) if not test_mode else 1
+        an_limit = getattr(config, "ARBEITNOW_LIMIT", 50) if not test_mode else 10
+        logger.info(f"🌐 Поиск на Arbeitnow (Remote={an_remote}, Страниц: {an_pages})...")
+        an_jobs = arbeitnow.search_jobs(remote_only=an_remote, max_pages=an_pages, limit=an_limit)
+        logger.info(f"[Arbeitnow] Найдено карточек: {len(an_jobs)}")
+
+        for job in an_jobs:
+            job_id = job["id"]
+            if db.is_seen(job_id):
+                continue
+
+            # Level 0: Валидация названия роли
+            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
+                logger.info(
+                    f"🚫 [НЕ QA РОЛЬ / Arbeitnow] Отклонена по названию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
+            workplace_type = job.get("workplace_type", "remote")
+            total_new += 1
+            snippet = job.get("description", "")[:350]
+            if len(job.get("description", "")) > 350:
+                snippet = snippet.rstrip() + "..."
+
+            logger.info(f"✨ [Arbeitnow] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
+
+            if dry_run:
+                print("\n" + "=" * 60)
+                print(f"[DRY RUN / Arbeitnow] Новая вакансия ({workplace_type.upper()}):")
+                print(f"Позиция: {job['title']}")
+                print(f"Компания: {job['company']}")
+                print(f"Локация: {job['location']}")
+                if job.get("salary"):
+                    print(f"Зарплата: {job['salary']}")
+                print(f"Ссылка: {job['url']}")
+                if snippet:
+                    print(f"Фрагмент описания: {snippet[:200]}...")
+                print("=" * 60 + "\n")
+            else:
+                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
+                if sent:
+                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
+                else:
+                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
+                time.sleep(1.5)
+
+            db.add_job(job)
 
     logger.info(
         f"🏁 Проверка завершена. Найдено новых вакансий: {total_new}. Всего в базе: {db.count_seen()}."

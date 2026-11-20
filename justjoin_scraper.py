@@ -1,0 +1,178 @@
+"""
+JustJoin.it Scraper for QA / SDET Remote positions.
+Extracts structured JobPostings via official candidate API with salary and tech stack.
+"""
+
+import urllib.request
+import urllib.parse
+import json
+import random
+import time
+import logging
+from typing import List, Dict, Optional, Any
+
+logger = logging.getLogger(__name__)
+
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0",
+]
+
+
+class JustJoinJobScraper:
+    BASE_SEARCH_URL = "https://justjoin.it/api/candidate-api/offers"
+    OFFER_BASE_URL = "https://justjoin.it/offers/{}"
+
+    def __init__(self):
+        pass
+
+    def _fetch_page(self, category: str = "testing", from_offset: int = 0) -> Optional[Dict[str, Any]]:
+        query_params = {
+            "categories": category,
+            "from": from_offset,
+        }
+        url = f"{self.BASE_SEARCH_URL}?{urllib.parse.urlencode(query_params)}"
+
+        headers = {
+            "User-Agent": random.choice(USER_AGENTS),
+            "Accept": "application/json",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+
+        req = urllib.request.Request(url, headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                if resp.status == 200:
+                    return json.loads(resp.read().decode("utf-8", errors="ignore"))
+                logger.warning(f"Unexpected status {resp.status} for JustJoin.it {url}")
+        except Exception as e:
+            logger.error(f"Error querying JustJoin.it API: {e}")
+        return None
+
+    def search_jobs(
+        self,
+        category: str = "testing",
+        remote_only: bool = True,
+        currency: str = "EUR",
+        max_pages: int = 3,
+        limit: int = 30,
+    ) -> List[Dict[str, Any]]:
+        jobs = []
+        seen_guids = set()
+
+        for page in range(max_pages):
+            offset = page * 10
+            data = self._fetch_page(category=category, from_offset=offset)
+            if not data:
+                break
+
+            page_offers = data.get("data", [])
+            if not page_offers:
+                break
+
+            for o in page_offers:
+                guid = o.get("guid")
+                if not guid or guid in seen_guids:
+                    continue
+                seen_guids.add(guid)
+
+                workplace_type = (o.get("workplaceType") or "remote").lower()
+                if remote_only and workplace_type != "remote":
+                    continue
+
+                parsed_job = self._parse_single_offer(o, currency=currency)
+                if parsed_job:
+                    jobs.append(parsed_job)
+
+                if len(jobs) >= limit:
+                    break
+
+            if len(jobs) >= limit:
+                break
+
+            time.sleep(random.uniform(0.3, 0.7))
+
+        return jobs
+
+    def _parse_single_offer(self, o: Dict[str, Any], currency: str = "EUR") -> Optional[Dict[str, Any]]:
+        guid = o.get("guid")
+        slug = o.get("slug") or guid
+        title = (o.get("title") or "").strip()
+        company = (o.get("companyName") or "Unknown Company").strip()
+        workplace_type = (o.get("workplaceType") or "remote").lower()
+        city = (o.get("city") or "").strip()
+
+        # Location label
+        if workplace_type == "remote":
+            location = "Remote (Europe / Worldwide)"
+        elif city:
+            location = f"{workplace_type.capitalize()} ({city})"
+        else:
+            location = workplace_type.capitalize()
+
+        # Salary formatting
+        emp_types = o.get("employmentTypes") or []
+        salary = ""
+        if isinstance(emp_types, list) and emp_types:
+            # 1. Try B2B with target currency (EUR)
+            target = next(
+                (e for e in emp_types if e.get("type") == "b2b" and e.get("currency") == currency),
+                None,
+            )
+            # 2. Try any B2B
+            if not target:
+                target = next((e for e in emp_types if e.get("type") == "b2b"), None)
+            # 3. Try any matching target currency
+            if not target:
+                target = next((e for e in emp_types if e.get("currency") == currency), None)
+            # 4. Fallback to first available
+            if not target:
+                target = emp_types[0]
+
+            fr = target.get("from")
+            to = target.get("to")
+            cur = target.get("currency") or currency
+            stype = (target.get("type") or "").upper()
+
+            if fr and to:
+                salary = f"{int(fr)}–{int(to)} {cur}"
+            elif fr:
+                salary = f"from {int(fr)} {cur}"
+            elif to:
+                salary = f"up to {int(to)} {cur}"
+
+            if salary and stype:
+                salary += f" ({stype})"
+
+        # Skills and experience snippet
+        skills = [
+            s.get("name").strip()
+            for s in o.get("requiredSkills", [])
+            if isinstance(s, dict) and s.get("name")
+        ]
+        exp = (o.get("experienceLevel") or "").strip()
+
+        parts = []
+        if exp:
+            parts.append(f"Уровень: {exp.capitalize()}")
+        if skills:
+            parts.append(f"Навыки: {', '.join(skills[:6])}")
+
+        description = " | ".join(parts) if parts else "JustJoin.it job offer"
+
+        pub_date = (o.get("publishedAt") or "")[:10]
+
+        return {
+            "id": f"jjit_{guid}",
+            "title": title,
+            "company": company,
+            "location": location,
+            "url": self.OFFER_BASE_URL.format(slug),
+            "posted_date": pub_date,
+            "description": description,
+            "salary": salary,
+            "source": "JustJoinIT",
+            "workplace_type": workplace_type,
+        }

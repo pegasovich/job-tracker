@@ -59,6 +59,16 @@ class TelegramNotifier:
 
         if "djinni" in source.lower():
             source_badge = "🟢 <b>Источник:</b> Djinni.co"
+        elif "dou" in source.lower():
+            source_badge = "🟡 <b>Источник:</b> DOU (jobs.dou.ua)"
+        elif "nofluff" in source.lower():
+            source_badge = "🔴 <b>Источник:</b> No Fluff Jobs (nofluffjobs.com)"
+        elif "justjoin" in source.lower():
+            source_badge = "🟣 <b>Источник:</b> JustJoin.it"
+        elif "adzuna" in source.lower():
+            source_badge = "🟧 <b>Источник:</b> Adzuna (api.adzuna.com)"
+        elif "arbeitnow" in source.lower():
+            source_badge = "🌐 <b>Источник:</b> Arbeitnow (arbeitnow.com)"
         else:
             source_badge = "🔵 <b>Источник:</b> LinkedIn"
 
@@ -86,7 +96,20 @@ class TelegramNotifier:
             clean_snippet = html.escape(snippet)
             msg += f"\n📝 <b>Выжимка:</b>\n<i>{clean_snippet}</i>\n"
 
-        link_text = "Открыть вакансию на Djinni" if "djinni" in source.lower() else "Открыть вакансию на LinkedIn"
+        if "djinni" in source.lower():
+            link_text = "Открыть вакансию на Djinni"
+        elif "dou" in source.lower():
+            link_text = "Открыть вакансию на DOU"
+        elif "nofluff" in source.lower():
+            link_text = "Открыть вакансию на No Fluff Jobs"
+        elif "justjoin" in source.lower():
+            link_text = "Открыть вакансию на JustJoin.it"
+        elif "adzuna" in source.lower():
+            link_text = "Открыть вакансию на Adzuna"
+        elif "arbeitnow" in source.lower():
+            link_text = "Открыть вакансию на Arbeitnow"
+        else:
+            link_text = "Открыть вакансию на LinkedIn"
         msg += f"\n🔗 <a href=\"{url}\">{link_text}</a>"
 
         return self.send_message(msg)
