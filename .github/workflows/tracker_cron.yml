@@ -13,6 +13,7 @@ jobs:
   track-jobs:
     name: Execute Job Tracker & Alert
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
       - name: Check out repository
@@ -44,10 +45,51 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
+
+          if [ ! -f jobs_seen.db ]; then
+            echo "jobs_seen.db not found, skipping sync."
+            exit 0
+          fi
+
+          # Save runner's database with newly collected jobs
+          cp jobs_seen.db /tmp/local_jobs_seen.db
+
+          # Fetch latest remote commits in case branch moved forward during execution
+          git fetch origin main
+          git reset --hard origin/main
+
+          # Safely merge newly seen jobs into the latest remote database
+          python -c "
+          import os
+          from database import JobDatabase
+          if os.path.exists('/tmp/local_jobs_seen.db'):
+              db = JobDatabase('jobs_seen.db')
+              added = db.merge_from('/tmp/local_jobs_seen.db')
+              print(f'Merged {added} new job(s) into database.')
+          "
+
+          # Commit and push with retry loop for concurrency safety
           git add jobs_seen.db
           if ! git diff --staged --quiet; then
             git commit -m "chore(db): sync seen jobs database [skip ci]"
-            git push origin main
+            for attempt in 1 2 3; do
+              if git push origin main; then
+                echo "Successfully synced jobs_seen.db to origin/main."
+                break
+              fi
+              echo "Push attempt $attempt failed, re-syncing with remote..."
+              cp jobs_seen.db /tmp/retry_jobs_seen.db
+              git fetch origin main
+              git reset --hard origin/main
+              python -c "
+              from database import JobDatabase
+              db = JobDatabase('jobs_seen.db')
+              db.merge_from('/tmp/retry_jobs_seen.db')
+              "
+              git add jobs_seen.db
+              git commit -m "chore(db): sync seen jobs database [skip ci]" || true
+              sleep 2
+            done
           else
             echo "No new jobs added to database."
           fi

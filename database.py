@@ -4,6 +4,7 @@ SQLite Database manager for tracking seen LinkedIn jobs.
 
 import sqlite3
 import datetime
+import os
 from typing import Dict, Any
 
 
@@ -68,3 +69,38 @@ class JobDatabase:
             cursor.execute("SELECT COUNT(*) FROM seen_jobs")
             row = cursor.fetchone()
             return row[0] if row else 0
+
+    def merge_from(self, source_db_path: str) -> int:
+        """
+        Merge seen jobs from another SQLite database file into this database.
+        Uses INSERT OR IGNORE to safely deduplicate records.
+        Returns the count of newly inserted records.
+        """
+        if not os.path.exists(source_db_path):
+            return 0
+
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM seen_jobs")
+            count_before = cursor.fetchone()[0]
+
+            conn.execute("ATTACH DATABASE ? AS source_db", (source_db_path,))
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO seen_jobs (
+                    job_id, title, company, location, url, posted_date, keyword, first_seen_at
+                )
+                SELECT
+                    job_id, title, company, location, url, posted_date, keyword, first_seen_at
+                FROM source_db.seen_jobs
+                """
+            )
+            conn.commit()
+            try:
+                conn.execute("DETACH DATABASE source_db")
+            except Exception:
+                pass
+
+            cursor.execute("SELECT COUNT(*) FROM seen_jobs")
+            count_after = cursor.fetchone()[0]
+            return count_after - count_before

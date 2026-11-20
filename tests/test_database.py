@@ -46,3 +46,36 @@ class TestJobDatabase:
         assert memory_db.count_seen() == 2
         assert memory_db.is_seen("linkedin_123456") is True
         assert memory_db.is_seen("linkedin_789012") is True
+
+    def test_merge_from_adds_new_records_and_ignores_duplicates(self, tmp_path, sample_job):
+        """merge_from should safely merge records from another db file without duplicates."""
+        from database import JobDatabase
+
+        db1_path = str(tmp_path / "db1.db")
+        db2_path = str(tmp_path / "db2.db")
+
+        db1 = JobDatabase(db1_path)
+        db2 = JobDatabase(db2_path)
+
+        db1.add_job(sample_job)  # id: linkedin_123456
+
+        job2 = sample_job.copy()
+        job2["id"] = "linkedin_999999"
+        job2["title"] = "SDET II"
+        db2.add_job(sample_job)  # duplicate of db1
+        db2.add_job(job2)        # new unique job
+
+        added = db1.merge_from(db2_path)
+        assert added == 1
+        assert db1.count_seen() == 2
+        assert db1.is_seen("linkedin_123456") is True
+        assert db1.is_seen("linkedin_999999") is True
+
+    def test_merge_from_non_existent_file(self, tmp_path):
+        """merge_from should return 0 if source database file does not exist."""
+        from database import JobDatabase
+
+        db_path = str(tmp_path / "db.db")
+        db = JobDatabase(db_path)
+        added = db.merge_from(str(tmp_path / "does_not_exist.db"))
+        assert added == 0
