@@ -174,7 +174,8 @@ NOFLUFF_CURRENCY = "EUR"
 NOFLUFF_LIMIT = 50
 
 # JustJoin.it Settings (justjoin.it candidate API)
-ENABLE_JUSTJOIN = True
+# Выключено: 99% вакансий на JustJoin — польский domestic рынок (PLN / JDG / резидентство Польши)
+ENABLE_JUSTJOIN = False
 JUSTJOIN_CATEGORY = "testing"
 JUSTJOIN_REMOTE_ONLY = True
 JUSTJOIN_CURRENCY = "EUR"
