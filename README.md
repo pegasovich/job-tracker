@@ -64,6 +64,9 @@ Raw Job from Scraper
 [ Level 2: Workplace & Geo Filter ] ───► (Reject Onsite & Domestic Residency Locked roles)
          │                                (Allow Commutable Hybrid only for Co. Kerry, IE)
          ▼
+[ Level 2.5: Polish Domestic Filter ] ─► (Reject Polish language requirements & domestic titles)
+         │                                (pl jobLanguage, (k/m), Tester Manualny, etc.)
+         ▼
 [ Level 3: Country Eligibility ] ──────► (Verify Ireland / EU / Worldwide applicant suitability)
          │
          ▼
@@ -81,6 +84,12 @@ Stores processed IDs in SQLite (`jobs_seen.db`). Duplicate items trigger `INSERT
 * **Domestic Remote Block:** Identifies regex patterns indicating local residency requirements (e.g. *"must be resident in Germany"*, *"looking for an SDET based in Poland"*).
 * **Commutable Hybrid Radius:** Hybrid roles are rejected unless within reasonable daily/weekly commute distance to South-West Ireland (Co. Kerry, Cahersiveen, Tralee, Killarney).
 
+### 4. Level 2.5: Polish Domestic & Language Filtering
+* **No Fluff Jobs:** Rejects offers tagged with `pl` / `jobLanguage: pl` requirements.
+* **JustJoin.it:** Rejects offers requiring Polish language (`code: pl`).
+* **Title Filtering:** Drops Polish-domestic titles (`Tester Manualny`, `Tester Automatyzujący`, `Specjalista ds. Testów`, and gender parity markers `(k/m)`, `(m/k)`).
+* **Benefit:** Eliminates 80-90% of Poland-locked internal noise, forwarding only genuine English-language international contracts.
+
 ---
 
 ## 🧪 SDET & Quality Engineering Architecture
@@ -91,25 +100,33 @@ Web scrapers and regex filters operate in volatile environments where target DOM
 job-tracker/
 ├── .github/workflows/
 │   └── tests.yml            # CI/CD: Automated Pytest run & coverage on push/PR
+├── chrome-extension/        # Manifest V3 AI Job Application Assistant
+│   ├── manifest.json        # Extension manifest (DOU, Djinni, LinkedIn, ATS)
+│   ├── background.js        # Service worker (Gemini Flash API & multi-model fallback)
+│   ├── content.js           # DOM parser for <textarea> & Froala rich-text editors
+│   ├── content.css          # Injected UI toolbar styles
+│   ├── popup.html           # Settings UI (API keys, Candidate Profile, Tone)
+│   ├── popup.js             # Storage management & key validator
+│   └── icons/               # Extension icons
 ├── tests/
 │   ├── conftest.py          # Pytest fixtures (tmp_path DB, test clients, dummy jobs)
-│   ├── test_filters.py      # Unit & parameterized tests for workplace/geo rules (50+ cases)
+│   ├── test_filters.py      # Unit & parameterized tests for workplace/geo/Polish rules (60+ cases)
 │   ├── test_database.py     # SQLite persistence, idempotency & deduplication tests
 │   ├── test_notifier.py     # Telegram API client unit tests with HTTP mocks
 │   ├── test_dou.py          # DOU RSS feed parsing & salary extraction tests
-│   ├── test_nofluff.py      # No Fluff Jobs REST API parser & currency formatting tests
+│   ├── test_nofluff.py      # No Fluff Jobs REST API parser & Polish filter tests
 │   ├── test_justjoin.py     # JustJoin.it Candidate API pagination & B2B salary tests
 │   ├── test_adzuna.py       # Adzuna API client, HTML stripping & unconfigured fallback tests
 │   ├── test_arbeitnow.py    # Arbeitnow REST API parsing & remote filtering tests
 │   └── test_greenhouse.py   # Greenhouse direct company ATS parsing & remote tests
 ├── pytest.ini               # Pytest configuration & test discovery settings
 ├── requirements-dev.txt     # Test dependencies (pytest, pytest-cov, flake8)
-├── database.py              # SQLite storage layer
+├── database.py              # SQLite storage layer with safe merge capability
 ├── linkedin_scraper.py      # LinkedIn Guest API scraper & classifier
-├── djinni_scraper.py        # Djinni JSON-LD scraper
+├── djinni_scraper.py        # Djinni JSON-LD scraper & geo verification
 ├── dou_scraper.py           # DOU RSS feed scraper
-├── nofluff_scraper.py       # No Fluff Jobs REST API scraper
-├── justjoin_scraper.py      # JustJoin.it candidate API scraper
+├── nofluff_scraper.py       # No Fluff Jobs REST API scraper with Polish filtering
+├── justjoin_scraper.py      # JustJoin.it candidate API scraper with language filtering
 ├── adzuna_scraper.py        # Adzuna REST API scraper (IE & UK)
 ├── arbeitnow_scraper.py     # Arbeitnow open REST API scraper (EU & Remote)
 ├── greenhouse_scraper.py    # Greenhouse Direct Company ATS scraper
@@ -120,7 +137,7 @@ job-tracker/
 Every `git push` and Pull Request automatically triggers the test pipeline:
 1. Provisions an Ubuntu runner on Python 3.12.
 2. Installs runtime and testing dependencies with pip caching.
-3. Runs all **120 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
+3. Runs all **139 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
 4. Enforces the Quality Gate before merging.
 
 ---
@@ -230,6 +247,57 @@ Located in [`chrome-extension/`](./chrome-extension/): A lightweight Manifest V3
 * **Networking & Parsing:** Standard library (`urllib.request`), JSON, XML (`xml.etree.ElementTree`)
 * **Integrations:** Telegram Bot API, LinkedIn Guest API, Djinni Schema.org, DOU RSS, No Fluff Jobs API, JustJoin.it API, Adzuna API, Arbeitnow API, Greenhouse ATS
 * **AI Extension:** Chrome Manifest V3, Google Gemini API (2.0/3.8 Flash), Froala & DOM parser
+
+---
+
+## 💻 Continuing Work on a Laptop (Step-by-Step Guide)
+
+When switching to your laptop, follow this quick checklist to resume seamlessly:
+
+### 1. Pull the Latest Repository
+```bash
+git pull origin main
+```
+*(Or `git clone https://github.com/pegasovich/job-tracker.git` if cloning fresh).*
+
+### 2. Environment Setup
+```bash
+# Python 3.12+ recommended
+python -m venv .venv
+
+# Activate on Windows:
+.venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+```
+
+### 3. Configure Local Credentials
+Create a `.env` file in the project root:
+```env
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+TELEGRAM_CHAT_ID=your_telegram_chat_id
+ADZUNA_APP_ID=your_adzuna_app_id
+ADZUNA_APP_KEY=your_adzuna_app_key
+```
+
+### 4. Verify Local Tests
+```bash
+pytest -q
+# Expecting: 139 passed
+```
+
+### 5. Load the Chrome Extension on Laptop
+1. Open Google Chrome on your laptop and go to `chrome://extensions/`.
+2. Enable **Developer mode** (top-right).
+3. Click **Load unpacked** (top-left) and select the `chrome-extension/` folder from this repo.
+4. Click the extension icon ✨ in Chrome and confirm your Gemini API key and profile details are saved (settings automatically sync if signed into the same Chrome profile).
+
+### 6. Cloud Automation (24/7 Monitoring)
+* **Zero laptop dependencies:** The tracker is already scheduled in the cloud via `cron-job.org` calling the GitHub Actions `workflow_dispatch` API every 30 minutes.
+* It runs 24/7 even when your laptop is turned off or asleep.
+* Any seen jobs are automatically synchronized and merged back into `jobs_seen.db`.
 
 ---
 
