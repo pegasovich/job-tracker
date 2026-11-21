@@ -177,33 +177,59 @@ python main.py
 python main.py --interval 60
 ```
 
-### 5. ☁️ 24/7 Cloud Automation & Cloud Rate-Limit Optimization
-The platform includes an automated cloud workflow (`.github/workflows/tracker_cron.yml`) triggered 24/7 via external scheduler API dispatch (e.g. cron-job.org) or manual trigger without keeping your computer on:
-1. **Zero Infrastructure Cost:** Runs on GitHub-hosted Ubuntu runners for 100% free.
-2. **State Persistence (Git Scraping):** Automatically commits and pushes the updated `jobs_seen.db` back to the repository so duplicate alerts are never sent across runs.
-3. **Cloud-Optimized Rate Limiting:**
+### 5. ☁️ 24/7 Cloud Automation via External Scheduler (cron-job.org)
+The platform includes an automated cloud workflow (`.github/workflows/tracker_cron.yml`) triggered 24/7 via GitHub REST API dispatch (`workflow_dispatch`), running completely free on GitHub-hosted runners without keeping your local computer powered on:
+
+1. **Why External Dispatch?**
+   * GitHub Actions native cron schedules (`schedule:`) suffer from significant delays (up to several hours) or dropped runs during shared queue congestion.
+   * Triggering via `workflow_dispatch` through the GitHub REST API bypasses the delayed cron queue entirely and starts the job immediately (within 5–10 seconds).
+2. **Setting Up 24/7 Free Scheduler (e.g. [cron-job.org](https://cron-job.org)):**
+   * **Target URL:** `https://api.github.com/repos/pegasovich/job-tracker/actions/workflows/tracker_cron.yml/dispatches`
+   * **Method:** `POST`
+   * **Schedule:** Every 30 minutes (or custom cron `15,45 * * * *`)
+   * **Headers:**
+     * `Accept: application/vnd.github+json`
+     * `Authorization: Bearer <GITHUB_TOKEN>` (token with `workflow` scope, e.g. from `gh auth token`)
+     * `Content-Type: application/json`
+     * `X-GitHub-Api-Version: 2022-11-28`
+     * `User-Agent: cron-job-org`
+   * **Request Body:** `{"ref":"main"}`
+3. **State Persistence (Git Scraping):** Automatically commits and pushes the updated `jobs_seen.db` back to the repository so duplicate alerts are never sent across runs.
+4. **Cloud-Optimized Rate Limiting:**
    * Unlike residential home IPs, cloud data centers (e.g. GitHub/Azure) encounter aggressive `429 Too Many Requests` thresholds from LinkedIn's guest API.
    * The scraper employs an **adaptive fast backoff** (`LINKEDIN_MAX_RETRIES=1`, `LINKEDIN_RETRY_BASE_WAIT=10s`, `LINKEDIN_SEARCH_LIMIT=6`).
    * When LinkedIn rate-limits a detail fetch, the job is **gracefully skipped without marking it as seen in SQLite**, preserving it to be inspected cleanly on the very next hourly cycle without blocking the run for 10+ minutes.
    * The other 7 sources (DOU, No Fluff Jobs, JustJoin.it, Arbeitnow, Greenhouse ATS, Adzuna, Djinni) operate via open APIs / RSS feeds and run in seconds with zero rate-limit friction.
-4. **Repository Secrets:** Add your credentials under **Settings ➔ Secrets and variables ➔ Actions ➔ New repository secret**:
+5. **Repository Secrets:** Add your credentials under **Settings ➔ Secrets and variables ➔ Actions ➔ New repository secret**:
    * `TELEGRAM_BOT_TOKEN`
    * `TELEGRAM_CHAT_ID`
    * `ADZUNA_APP_ID` *(optional)*
    * `ADZUNA_APP_KEY` *(optional)*
-5. **Manual Run:** Trigger anytime from the **Actions** tab ➔ **Remote QA Job Tracker** ➔ **Run workflow**.
+6. **Manual Run:** Trigger anytime from the **Actions** tab ➔ **Remote QA Job Tracker** ➔ **Run workflow**.
+
+---
+
+## 🧩 Chrome Extension: Job Apply AI (Gemini Powered)
+
+Located in [`chrome-extension/`](./chrome-extension/): A lightweight Manifest V3 browser extension that automatically analyzes job descriptions and drafts tailored, honest cover letters directly into application forms.
+
+* **Supported Platforms:** DOU (`jobs.dou.ua`), Djinni (`djinni.co`), LinkedIn, PeopleForce ATS (`*.peopleforce.io`), Greenhouse, Lever, Workable, Breezy HR, and standard job boards.
+* **Rich-Text & Plain Text Support:** Seamlessly autofills both native `<textarea>` and rich-text editors (Froala, contenteditable) with proper DOM change events.
+* **AI Engine:** Powered by Google's free **Gemini API** (`gemini-2.0-flash` / `gemini-3.8-flash` with automatic fallback).
+* **Anti-Hallucination & Transferable Skills:** Strictly enforces truthful positioning based on the candidate's actual profile; bridges skill gaps via fundamental engineering concepts without fabricating experience.
+* **Installation:** Open `chrome://extensions/` ➔ Enable Developer Mode ➔ **Load unpacked** ➔ Select `chrome-extension/`.
 
 ---
 
 ## 🛠 Tech Stack
 
 * **Language:** Python 3.12
-* **Testing Framework:** Pytest 9, Pytest-Cov, Unittest.Mock (123 automated tests)
-* **CI/CD:** GitHub Actions Quality Gate & Hourly Automated Cron Engine
+* **Testing Framework:** Pytest 9, Pytest-Cov, Unittest.Mock (125 automated tests)
+* **CI/CD:** GitHub Actions 24/7 Cloud Automation & Quality Gate
 * **Persistence:** SQLite3 (WAL mode, idempotent schemas, Git-backed sync)
 * **Networking & Parsing:** Standard library (`urllib.request`), JSON, XML (`xml.etree.ElementTree`)
 * **Integrations:** Telegram Bot API, LinkedIn Guest API, Djinni Schema.org, DOU RSS, No Fluff Jobs API, JustJoin.it API, Adzuna API, Arbeitnow API, Greenhouse ATS
-* **Form Automation:** JavaScript (`autofill.js`)
+* **AI Extension:** Chrome Manifest V3, Google Gemini API (2.0/3.8 Flash), Froala & DOM parser
 
 ---
 
