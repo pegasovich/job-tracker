@@ -167,7 +167,8 @@ DOU_REMOTE_ONLY = True
 DOU_LIMIT = 50
 
 # No Fluff Jobs Settings (nofluffjobs.com API)
-ENABLE_NOFLUFF = True
+# Выключено: 100% вакансий на NoFluff — польский domestic рынок (regions: ['pl'], польский B2B)
+ENABLE_NOFLUFF = False
 NOFLUFF_CATEGORY = "testing"
 NOFLUFF_REMOTE_ONLY = True
 NOFLUFF_CURRENCY = "EUR"
