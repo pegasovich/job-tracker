@@ -69,11 +69,17 @@ class GreenhouseJobScraper:
             logger.error(f"Error querying Greenhouse API for '{company}': {e}")
         return None
 
+    @staticmethod
+    def is_qa_title(title: str) -> bool:
+        from linkedin_scraper import LinkedInJobScraper
+        return LinkedInJobScraper.is_qa_title(title)
+
     def search_jobs(
         self,
         companies: Optional[List[str]] = None,
         remote_only: bool = True,
         limit_per_company: int = 30,
+        qa_only: bool = True,
     ) -> List[Dict[str, Any]]:
         target_companies = companies or self.companies
         all_jobs = []
@@ -89,6 +95,10 @@ class GreenhouseJobScraper:
             for job in raw_jobs:
                 if company_jobs_count >= limit_per_company:
                     break
+
+                title = (job.get("title") or "").strip()
+                if qa_only and not self.is_qa_title(title):
+                    continue
 
                 parsed = self._parse_single_job(job, company_fallback=company, remote_only=remote_only)
                 if parsed:

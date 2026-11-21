@@ -96,3 +96,46 @@ class TestGreenhouseScraper:
             assert "Greenhouse (Direct ATS)" in text
             assert "$120,000" in text
             assert "Открыть вакансию на Greenhouse" in text
+
+    def test_search_jobs_qa_only_filters_out_non_qa_roles(self):
+        scraper = GreenhouseJobScraper(companies=["canonical"])
+        mixed_response = {
+            "jobs": [
+                {
+                    "id": 101,
+                    "title": "Senior Frontend Developer",
+                    "location": {"name": "Remote"},
+                },
+                {
+                    "id": 102,
+                    "title": "Senior QA Automation Engineer",
+                    "location": {"name": "Remote"},
+                },
+                {
+                    "id": 103,
+                    "title": "Product Marketing Manager",
+                    "location": {"name": "Remote"},
+                },
+            ]
+        }
+        with patch.object(scraper, "_fetch_company_jobs", return_value=mixed_response):
+            # qa_only=True should only return the QA role
+            jobs = scraper.search_jobs(remote_only=True, qa_only=True)
+            assert len(jobs) == 1
+            assert jobs[0]["title"] == "Senior QA Automation Engineer"
+
+    def test_search_jobs_does_not_exhaust_limit_on_non_qa_roles(self):
+        """Non-QA jobs must not consume the limit_per_company quota."""
+        scraper = GreenhouseJobScraper(companies=["canonical"])
+        # 5 non-QA jobs followed by 1 QA job, limit=2
+        jobs_list = [
+            {"id": i, "title": f"Software Engineer {i}", "location": {"name": "Remote"}}
+            for i in range(5)
+        ]
+        jobs_list.append(
+            {"id": 999, "title": "Lead SDET Engineer", "location": {"name": "Remote"}}
+        )
+        with patch.object(scraper, "_fetch_company_jobs", return_value={"jobs": jobs_list}):
+            jobs = scraper.search_jobs(remote_only=True, limit_per_company=2, qa_only=True)
+            assert len(jobs) == 1
+            assert jobs[0]["title"] == "Lead SDET Engineer"

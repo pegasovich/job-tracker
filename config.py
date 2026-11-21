@@ -204,8 +204,10 @@ ARBEITNOW_MAX_PAGES = 2
 ARBEITNOW_LIMIT = 50
 
 # Greenhouse ATS Settings (https://boards-api.greenhouse.io)
+# Прямые ATS ведущих tech-компаний с хабами в Ирландии/Европе и ремоут-позициями
 ENABLE_GREENHOUSE = True
 GREENHOUSE_COMPANIES = [
+    # Remote-first & Global Tech
     "canonical",
     "gitlab",
     "elastic",
@@ -217,6 +219,18 @@ GREENHOUSE_COMPANIES = [
     "reddit",
     "cockroachlabs",
     "airtable",
+    # Major Dublin Engineering Hubs & European Employers
+    "toast",        # Крупный инженерный центр в Дублине
+    "intercom",     # Штаб-квартира и R&D в Дублине
+    "mongodb",      # Инженерный офис в Дублине
+    "datadog",      # Офисы в Ирландии и ремоут по EMEA
+    "okta",         # Дублинский хаб
+    "qualtrics",    # Европейская штаб-квартира в Дублине
+    "twilio",       # Инженерный хаб в Дублине
+    "pinterest",    # Европейский центр в Дублине
+    "deliveroo",    # UK & Ireland remote
+    "monzo",        # UK & Ireland remote
+    "pagerduty",    # Инженерные команды в Европе
 ]
 GREENHOUSE_REMOTE_ONLY = True
 GREENHOUSE_LIMIT_PER_COMPANY = 30
