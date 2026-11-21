@@ -45,6 +45,7 @@ def acquire_lock():
         sys.exit(0)
 
 import config
+from config import is_polish_domestic_title
 from linkedin_scraper import LinkedInJobScraper
 from djinni_scraper import DjinniJobScraper, is_djinni_country_eligible
 from dou_scraper import DouJobScraper
@@ -375,6 +376,14 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 db.add_job(job)
                 continue
 
+            # Level 0.5: Фильтр польских локальных вакансий
+            if getattr(config, "EXCLUDE_POLISH_DOMESTIC_ROLES", True) and is_polish_domestic_title(job.get("title", "")):
+                logger.info(
+                    f"🇵🇱 [POLISH DOMESTIC / NoFluff] Отклонена по польскому названию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
             workplace_type = job.get("workplace_type", "remote")
             total_new += 1
             snippet = job.get("description", "")[:350]
@@ -432,6 +441,14 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
             if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
                 logger.info(
                     f"🚫 [НЕ QA РОЛЬ / JustJoin] Отклонена по названию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
+            # Level 0.5: Фильтр польских локальных вакансий
+            if getattr(config, "EXCLUDE_POLISH_DOMESTIC_ROLES", True) and is_polish_domestic_title(job.get("title", "")):
+                logger.info(
+                    f"🇵🇱 [POLISH DOMESTIC / JustJoin] Отклонена по польскому названию: '{job['title']}' @ {job['company']}"
                 )
                 db.add_job(job)
                 continue

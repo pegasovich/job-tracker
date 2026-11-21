@@ -3,7 +3,7 @@
 [![Tests & Quality Gate](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml/badge.svg)](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml)
 ![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)
 ![Test Framework](https://img.shields.io/badge/tested_with-pytest-0A9EDC.svg)
-![Test Count](https://img.shields.io/badge/tests-125%20passed-brightgreen.svg)
+![Test Count](https://img.shields.io/badge/tests-139%20passed-brightgreen.svg)
 ![Code Coverage](https://img.shields.io/badge/coverage-core%2090%25%2B-brightgreen.svg)
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF.svg)
 
@@ -11,7 +11,7 @@ An automated, multi-source job intelligence engine engineered for **QA & SDET pr
 
 The platform continuously aggregates, parses, filters, deduplicates, and alerts on verified openings across **8 major tech job boards, direct ATS systems, and APIs**, eliminating recruiter noise, domestic residency restrictions, and misleading "remote" listings.
 
-Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (125 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
+Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (139 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
 
 ---
 
@@ -224,7 +224,7 @@ Located in [`chrome-extension/`](./chrome-extension/): A lightweight Manifest V3
 ## 🛠 Tech Stack
 
 * **Language:** Python 3.12
-* **Testing Framework:** Pytest 9, Pytest-Cov, Unittest.Mock (125 automated tests)
+* **Testing Framework:** Pytest 9, Pytest-Cov, Unittest.Mock (139 automated tests)
 * **CI/CD:** GitHub Actions 24/7 Cloud Automation & Quality Gate
 * **Persistence:** SQLite3 (WAL mode, idempotent schemas, Git-backed sync)
 * **Networking & Parsing:** Standard library (`urllib.request`), JSON, XML (`xml.etree.ElementTree`)

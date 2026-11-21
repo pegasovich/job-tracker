@@ -10,6 +10,7 @@ import random
 import time
 import logging
 from typing import List, Dict, Optional, Any
+from config import is_polish_domestic_title
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,22 @@ USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0",
 ]
+
+
+def has_polish_language_requirement(languages: Any) -> bool:
+    """Detects if job requires Polish language based on JustJoin languages list."""
+    if not languages or not isinstance(languages, list):
+        return False
+    for lang in languages:
+        if isinstance(lang, dict):
+            code = (lang.get("code") or "").strip().lower()
+            name = (lang.get("name") or "").strip().lower()
+            if code == "pl" or "polish" in name or "polski" in name:
+                return True
+        elif isinstance(lang, str):
+            if lang.strip().lower() in ["pl", "polish", "polski"]:
+                return True
+    return False
 
 
 class JustJoinJobScraper:
@@ -58,6 +75,7 @@ class JustJoinJobScraper:
         currency: str = "EUR",
         max_pages: int = 3,
         limit: int = 30,
+        exclude_polish: bool = True,
     ) -> List[Dict[str, Any]]:
         jobs = []
         seen_guids = set()
@@ -82,7 +100,15 @@ class JustJoinJobScraper:
                 if remote_only and workplace_type != "remote":
                     continue
 
-                parsed_job = self._parse_single_offer(o, currency=currency)
+                if exclude_polish:
+                    if has_polish_language_requirement(o.get("languages")):
+                        logger.debug(f"Skipping JustJoin offer requiring Polish: '{o.get('title')}' @ {o.get('companyName')}")
+                        continue
+                    if is_polish_domestic_title(o.get("title") or ""):
+                        logger.debug(f"Skipping JustJoin offer with Polish title: '{o.get('title')}' @ {o.get('companyName')}")
+                        continue
+
+                parsed_job = self._parse_single_offer(o, currency=currency, exclude_polish=exclude_polish)
                 if parsed_job:
                     jobs.append(parsed_job)
 
@@ -96,11 +122,16 @@ class JustJoinJobScraper:
 
         return jobs
 
-    def _parse_single_offer(self, o: Dict[str, Any], currency: str = "EUR") -> Optional[Dict[str, Any]]:
-        guid = o.get("guid")
-        slug = o.get("slug") or guid
+    def _parse_single_offer(self, o: Dict[str, Any], currency: str = "EUR", exclude_polish: bool = False) -> Optional[Dict[str, Any]]:
         title = (o.get("title") or "").strip()
         company = (o.get("companyName") or "Unknown Company").strip()
+
+        if exclude_polish:
+            if has_polish_language_requirement(o.get("languages")) or is_polish_domestic_title(title):
+                return None
+
+        guid = o.get("guid")
+        slug = o.get("slug") or guid
         workplace_type = (o.get("workplaceType") or "remote").lower()
         city = (o.get("city") or "").strip()
 

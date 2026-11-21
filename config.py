@@ -219,6 +219,20 @@ GREENHOUSE_COMPANIES = [
 GREENHOUSE_REMOTE_ONLY = True
 GREENHOUSE_LIMIT_PER_COMPANY = 30
 
+# Polish Domestic Role & Language Filtering (отсекаем вакансии, требующие польский язык или локальный рынок)
+EXCLUDE_POLISH_DOMESTIC_ROLES = True
+
+POLISH_TITLE_STOP_PATTERNS = [
+    r'\b(?:tester\s+manualny|tester\s+automatyzujący|tester\s+oprogramowania|specjalista\s+ds\.|inżynier\s+testów|inżynier\s+jakości|osoba\s+na\s+stanowisku)\b',
+    r'[(\[]\s*[km]\s*/\s*[km]\s*[)\]]',  # Polish gender parity marker: (k/m), (m/k), [k/m]
+]
+
+def is_polish_domestic_title(title: str) -> bool:
+    if not title:
+        return False
+    import re
+    return any(re.search(pat, title, re.IGNORECASE) for pat in POLISH_TITLE_STOP_PATTERNS)
+
 # Database file
 DATABASE_FILE = str(Path(__file__).parent / "jobs_seen.db")
 

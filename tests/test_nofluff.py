@@ -98,10 +98,16 @@ class TestNoFluffScraper:
         mock_urlopen.return_value.__enter__.return_value = mock_resp
 
         scraper = NoFluffJobScraper()
-        jobs = scraper.search_jobs(category="testing", remote_only=True, limit=1)
+        # When exclude_polish=False, returns all jobs including Polish-requiring ones
+        jobs = scraper.search_jobs(category="testing", remote_only=True, limit=1, exclude_polish=False)
         assert len(jobs) == 1
         assert jobs[0]["title"] == "Sr QA Engineer"
         assert mock_urlopen.called
+
+        # By default (exclude_polish=True), filters out Polish-requiring jobs (Bamboo Health) and returns QA Lead
+        jobs_filtered = scraper.search_jobs(category="testing", remote_only=True, limit=1)
+        assert len(jobs_filtered) == 1
+        assert jobs_filtered[0]["title"] == "QA Lead"
 
     @patch("urllib.request.urlopen")
     def test_search_jobs_network_error(self, mock_urlopen):

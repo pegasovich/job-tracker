@@ -10,6 +10,7 @@ import datetime
 import random
 import logging
 from typing import List, Dict, Optional, Any
+from config import is_polish_domestic_title
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,27 @@ USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0",
 ]
+
+
+def has_polish_language_tile(tiles: Any) -> bool:
+    """Detects if job requires Polish language based on NoFluffJobs tiles."""
+    if isinstance(tiles, dict):
+        values = tiles.get("values", [])
+    elif isinstance(tiles, list):
+        values = tiles
+    else:
+        values = []
+
+    for item in values:
+        if isinstance(item, dict):
+            val = (item.get("value") or "").strip().lower()
+            itype = (item.get("type") or "").strip().lower()
+            if val in ["pl", "polish", "polski"] or (itype == "joblanguage" and val == "pl"):
+                return True
+        elif isinstance(item, str):
+            if item.strip().lower() in ["pl", "polish", "polski"]:
+                return True
+    return False
 
 
 class NoFluffJobScraper:
@@ -67,13 +89,20 @@ class NoFluffJobScraper:
         remote_only: bool = True,
         currency: str = "EUR",
         limit: int = 50,
+        exclude_polish: bool = True,
     ) -> List[Dict[str, Any]]:
         data = self._make_request(category=category, remote_only=remote_only, currency=currency, limit=limit)
         if not data:
             return []
-        return self.parse_postings(data, currency=currency, limit=limit)
+        return self.parse_postings(data, currency=currency, limit=limit, exclude_polish=exclude_polish)
 
-    def parse_postings(self, data: Dict[str, Any], currency: str = "EUR", limit: int = 50) -> List[Dict[str, Any]]:
+    def parse_postings(
+        self,
+        data: Dict[str, Any],
+        currency: str = "EUR",
+        limit: int = 50,
+        exclude_polish: bool = False
+    ) -> List[Dict[str, Any]]:
         postings = data.get("postings", [])
         jobs = []
         seen_ids = set()
@@ -86,13 +115,24 @@ class NoFluffJobScraper:
             if not raw_id:
                 continue
 
+            title = (p.get("title") or "").strip()
+            company = (p.get("name") or "Unknown Company").strip()
+            tiles = p.get("tiles", {})
+
+            # Filter out domestic Polish positions and requirements
+            if exclude_polish:
+                if has_polish_language_tile(tiles):
+                    logger.debug(f"Skipping NoFluff offer requiring Polish: '{title}' @ {company}")
+                    continue
+                if is_polish_domestic_title(title):
+                    logger.debug(f"Skipping NoFluff offer with Polish title: '{title}' @ {company}")
+                    continue
+
             job_id = f"nfj_{raw_id}"
             if job_id in seen_ids:
                 continue
             seen_ids.add(job_id)
 
-            title = (p.get("title") or "").strip()
-            company = (p.get("name") or "Unknown Company").strip()
             url_slug = p.get("url") or raw_id
             job_url = self.JOB_BASE_URL.format(url_slug)
 

@@ -261,3 +261,58 @@ class TestLinkedInRateLimitAndTuning:
         assert jobs == []
         assert mock_make_req.called
 
+
+class TestPolishDomesticFiltering:
+    """Tests filtering out Polish-domestic job titles and Polish language requirements."""
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "Tester Manualny (k/m)",
+            "Senior Tester Automatyzujący",
+            "QA Engineer (osoba na stanowisku QA Engineera)",
+            "Specjalista ds. Testów Penetracyjnych - Pentester MID (k/m)",
+            "Senior QA Engineer (m/k)",
+            "Inżynier Testów Oprogramowania",
+        ],
+    )
+    def test_polish_domestic_titles_rejected(self, title):
+        from config import is_polish_domestic_title
+        assert is_polish_domestic_title(title) is True
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "Senior QA Engineer",
+            "SDET",
+            "QA Automation Engineer (Java)",
+            "Quality Assurance Analyst",
+            "Test Automation Engineer",
+            "Lead QA Specialist",
+        ],
+    )
+    def test_international_titles_accepted(self, title):
+        from config import is_polish_domestic_title
+        assert is_polish_domestic_title(title) is False
+
+    def test_nofluff_polish_language_tile_detection(self):
+        from nofluff_scraper import has_polish_language_tile
+        # Polish language tile formats
+        assert has_polish_language_tile({"values": [{"value": "pl", "type": "jobLanguage"}]}) is True
+        assert has_polish_language_tile({"values": [{"value": "pl"}]}) is True
+        assert has_polish_language_tile({"values": [{"value": "Polish"}]}) is True
+        # English only or tech tiles
+        assert has_polish_language_tile({"values": [{"value": "en", "type": "jobLanguage"}]}) is False
+        assert has_polish_language_tile({"values": [{"value": "Java"}, {"value": "Selenium"}]}) is False
+        assert has_polish_language_tile({}) is False
+
+    def test_justjoin_polish_language_requirement_detection(self):
+        from justjoin_scraper import has_polish_language_requirement
+        # Polish language requirement formats
+        assert has_polish_language_requirement([{"code": "pl", "level": "B2"}]) is True
+        assert has_polish_language_requirement([{"code": "en", "level": "C1"}, {"code": "pl", "level": "B2"}]) is True
+        # English only
+        assert has_polish_language_requirement([{"code": "en", "level": "C1"}]) is False
+        assert has_polish_language_requirement([]) is False
+        assert has_polish_language_requirement(None) is False
+
