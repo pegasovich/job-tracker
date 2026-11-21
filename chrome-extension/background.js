@@ -4,6 +4,7 @@ const DEFAULT_MODEL = "gemini-2.0-flash";
 const FALLBACK_MODELS = [
   "gemini-2.0-flash",
   "gemini-1.5-flash",
+  "gemini-2.5-flash",
   "gemini-3.8-flash"
 ];
 
@@ -99,26 +100,23 @@ async function handleGenerateCoverLetter(params) {
     } catch (err) {
       lastError = err;
       const errLower = (err.message || "").toLowerCase();
-      // If error is related to model availability, 404, or per-model quota exceeded (e.g. 20 RPD on 3.8-flash), try next model
-      if (
-        errLower.includes("no longer available") ||
-        errLower.includes("not available") ||
-        errLower.includes("not found") ||
-        errLower.includes("404") ||
-        errLower.includes("deprecated") ||
-        errLower.includes("invalid") ||
-        errLower.includes("supported") ||
-        errLower.includes("quota") ||
-        errLower.includes("limit") ||
-        errLower.includes("rate") ||
-        errLower.includes("429") ||
-        errLower.includes("resource_exhausted")
-      ) {
-        console.warn(`[JobApplyAI] Model ${model} hit error (${err.message}). Trying next fallback model...`);
-        continue;
+
+      // Only stop if the API key itself is invalid or unauthorized
+      const isAuthError =
+        errLower.includes("api key not valid") ||
+        errLower.includes("api_key_invalid") ||
+        errLower.includes("permission_denied") ||
+        errLower.includes("unauthenticated") ||
+        errLower.includes("forbidden");
+
+      if (isAuthError) {
+        break;
       }
-      // If it's an invalid API key or auth error, break
-      break;
+
+      // For any other error (high demand / 503, rate limits, quota, 404, etc.),
+      // automatically try the next model in the fallback list
+      console.warn(`[JobApplyAI] Model ${model} encountered: ${err.message}. Trying next fallback model...`);
+      continue;
     }
   }
 
