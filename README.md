@@ -178,7 +178,7 @@ python main.py --interval 60
 ```
 
 ### 5. ☁️ 24/7 Cloud Automation & Cloud Rate-Limit Optimization
-The platform includes an automated cloud workflow (`.github/workflows/tracker_cron.yml`) that executes every hour without keeping your computer on:
+The platform includes an automated cloud workflow (`.github/workflows/tracker_cron.yml`) triggered 24/7 via external scheduler API dispatch (e.g. cron-job.org) or manual trigger without keeping your computer on:
 1. **Zero Infrastructure Cost:** Runs on GitHub-hosted Ubuntu runners for 100% free.
 2. **State Persistence (Git Scraping):** Automatically commits and pushes the updated `jobs_seen.db` back to the repository so duplicate alerts are never sent across runs.
 3. **Cloud-Optimized Rate Limiting:**

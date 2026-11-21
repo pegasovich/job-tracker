@@ -1,10 +1,7 @@
 name: Remote QA Job Tracker
 
 on:
-  schedule:
-    # Runs twice every hour at off-peak minutes (:15 and :45 UTC) to bypass GitHub Actions queue congestion
-    - cron: '15,45 * * * *'
-  workflow_dispatch: # Allows manual one-click trigger from GitHub Actions UI
+  workflow_dispatch: # Triggered via GitHub API (e.g. cron-job.org) or manual run from UI
 
 permissions:
   contents: write # Grants permissions to commit and push updated jobs_seen.db
