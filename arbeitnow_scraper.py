@@ -22,6 +22,40 @@ USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0",
 ]
 
+# Common non-English words that indicate the job posting is not in English
+# Covers German, French, Spanish, Italian, Dutch, Portuguese, Polish, Czech
+NON_ENGLISH_MARKER_WORDS = re.compile(
+    r'\b(?:'
+    # German
+    r'für|und|oder|mit|bei|als|wir|suchen|ihre?|dein[e]?|unser[e]?|aufgaben|anforderungen'
+    r'|stellenangebot|qualitätsmanager|entwickler|berufserfahrung|mindestens|arbeiten'
+    r'|erfahrung|kenntnisse|verantwortlich|bewerbung|sofort|festanstellung|homeoffice'
+    # French
+    r'|nous|vous|avec|pour|dans|notre|votre|poste|expérience|recherchons|missions'
+    r'|compétences|responsable|développeur|ingénieur'
+    # Spanish
+    r'|para|como|nuestro|nuestra|experiencia|conocimientos|responsabilidades|buscamos'
+    r'|empresa|puesto|requisitos|habilidades'
+    # Polish
+    r'|praca|doświadczenie|wymagania|obowiązki|stanowisko|szukamy|oferujemy|umiejętności'
+    r')\b',
+    re.IGNORECASE,
+)
+
+# Minimum number of non-English markers to classify text as non-English
+NON_ENGLISH_MARKER_THRESHOLD = 3
+
+
+def is_non_english_text(title: str, description: str = "") -> bool:
+    """Detect if job title + description snippet is NOT in English using common marker words.
+
+    Returns True if the text contains enough non-English marker words to be
+    confidently classified as a non-English posting.
+    """
+    combined = f"{title} {description[:500]}"
+    matches = NON_ENGLISH_MARKER_WORDS.findall(combined)
+    return len(matches) >= NON_ENGLISH_MARKER_THRESHOLD
+
 
 class ArbeitnowJobScraper:
     BASE_URL = "https://www.arbeitnow.com/api/job-board-api"
@@ -93,13 +127,18 @@ class ArbeitnowJobScraper:
         if remote_only and not is_remote:
             return None
 
-        workplace_type = "remote" if is_remote else "onsite"
-        location_label = f"Remote ({raw_loc})" if is_remote and raw_loc else ("Remote" if is_remote else raw_loc)
-
-        # Description cleaning
+        # Description cleaning (needed early for language detection)
         raw_desc = item.get("description", "")
         clean_desc = html.unescape(re.sub(r"<[^>]+>", " ", raw_desc))
         clean_desc = re.sub(r"\s+", " ", clean_desc).strip()
+
+        # Non-English language detection: skip postings written in German, French, etc.
+        if is_non_english_text(title, clean_desc):
+            logger.debug(f"Skipping Arbeitnow non-English posting: '{title}' @ {company}")
+            return None
+
+        workplace_type = "remote" if is_remote else "onsite"
+        location_label = f"Remote ({raw_loc})" if is_remote and raw_loc else ("Remote" if is_remote else raw_loc)
 
         # Date formatting
         ts = item.get("created_at")

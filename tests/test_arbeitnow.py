@@ -2,7 +2,7 @@ from unittest.mock import patch, MagicMock
 import urllib.error
 import json
 import pytest
-from arbeitnow_scraper import ArbeitnowJobScraper
+from arbeitnow_scraper import ArbeitnowJobScraper, is_non_english_text
 from telegram_notifier import TelegramNotifier
 
 
@@ -103,3 +103,111 @@ class TestArbeitnowScraper:
             assert "Arbeitnow (arbeitnow.com)" in text
             assert "€75,000" in text
             assert "Открыть вакансию на Arbeitnow" in text
+
+
+class TestNonEnglishTextDetection:
+    """Tests for detecting non-English (German, French, Spanish, Polish) job postings."""
+
+    @pytest.mark.parametrize(
+        "title,description",
+        [
+            (
+                "Qualitätsmanager/in für App, Website und Filialen-Tests",
+                "Wir suchen eine zuverlässige Person mit Erfahrung und Kenntnisse im Bereich Qualitätsmanagement.",
+            ),
+            (
+                "Senior QA Tester (m/w/d)",
+                "Für unser Team suchen wir einen erfahrenen QA Tester mit mindestens 3 Jahren Berufserfahrung und Kenntnisse in der Testautomatisierung.",
+            ),
+            (
+                "Testingenieur Softwareentwicklung",
+                "Ihre Aufgaben umfassen die Verantwortlich für automatisierte Tests und die Bewerbung neuer Testverfahren.",
+            ),
+        ],
+    )
+    def test_german_postings_detected(self, title, description):
+        """German-language job postings must be detected as non-English."""
+        assert is_non_english_text(title, description) is True
+
+    @pytest.mark.parametrize(
+        "title,description",
+        [
+            (
+                "Ingénieur QA Automatisation",
+                "Nous recherchons un ingénieur avec expérience pour notre poste. Vos missions incluent les compétences de test.",
+            ),
+        ],
+    )
+    def test_french_postings_detected(self, title, description):
+        """French-language job postings must be detected as non-English."""
+        assert is_non_english_text(title, description) is True
+
+    @pytest.mark.parametrize(
+        "title,description",
+        [
+            (
+                "Ingeniero de QA",
+                "Buscamos un profesional con experiencia para nuestro puesto. Requisitos incluyen conocimientos y habilidades técnicas.",
+            ),
+        ],
+    )
+    def test_spanish_postings_detected(self, title, description):
+        """Spanish-language job postings must be detected as non-English."""
+        assert is_non_english_text(title, description) is True
+
+    @pytest.mark.parametrize(
+        "title,description",
+        [
+            (
+                "Senior QA Automation Engineer",
+                "We are looking for a skilled QA engineer with 5 years of experience in test automation. Proficiency in Python and Selenium required.",
+            ),
+            (
+                "SDET - Remote Europe",
+                "Join our team to build and maintain test frameworks. This is a fully remote role open to candidates across Europe.",
+            ),
+            (
+                "Test Automation Engineer",
+                "Design, implement, and maintain automated test suites for web applications. Experience with Playwright and CI/CD pipelines.",
+            ),
+        ],
+    )
+    def test_english_postings_not_blocked(self, title, description):
+        """English-language job postings must NOT be detected as non-English."""
+        assert is_non_english_text(title, description) is False
+
+    def test_german_title_with_empty_description(self):
+        """Short German titles without enough markers should not false-positive."""
+        # Only 1 marker ("für") — below threshold of 3
+        assert is_non_english_text("QA Test für Berlin", "") is False
+
+    def test_probantica_case_blocked(self):
+        """The specific Probantica posting that triggered this filter should be blocked."""
+        title = "Qualitätsmanager:in für App-, Website- und Filialen-Tests (m/w/d)"
+        desc = (
+            "Wir suchen eine zuverlässige Person für unsere Tests. "
+            "Deine Aufgaben umfassen die Bewerbung und Erfahrung im Bereich Qualitätsmanagement. "
+            "Anforderungen: mindestens 18 Jahre alt, eigenes Smartphone oder Laptop mit Internetzugang."
+        )
+        assert is_non_english_text(title, desc) is True
+
+    def test_scraper_skips_german_posting(self):
+        """Arbeitnow scraper should return None for a German-language posting."""
+        scraper = ArbeitnowJobScraper()
+        item = {
+            "slug": "probantica-qualitatsmanagerin-berlin-74117",
+            "company_name": "Probantica",
+            "title": "Qualitätsmanager:in für App-, Website- und Filialen-Tests",
+            "description": (
+                "<p>Wir suchen eine zuverlässige Person für unsere Tests. "
+                "Deine Aufgaben umfassen Erfahrung und Kenntnisse im Bereich "
+                "Qualitätsmanagement und Anforderungen.</p>"
+            ),
+            "remote": True,
+            "url": "https://www.arbeitnow.com/jobs/companies/probantica/qualitatsmanagerin-berlin-74117",
+            "tags": ["Quality Assurance", "Remote"],
+            "location": "Berlin",
+            "created_at": 1732200000,
+        }
+        parsed = scraper._parse_single_item(item, remote_only=True)
+        assert parsed is None
