@@ -316,3 +316,86 @@ class TestPolishDomesticFiltering:
         assert has_polish_language_requirement([]) is False
         assert has_polish_language_requirement(None) is False
 
+
+class TestLanguageWhitelistFilter:
+    """Tests the language whitelist filter that blocks non-English language requirements."""
+
+    def test_justjoin_german_language_blocked(self):
+        """JustJoin offers requiring German should be blocked."""
+        from justjoin_scraper import has_non_allowed_language_requirement
+        assert has_non_allowed_language_requirement(
+            [{"code": "en", "level": "B2"}, {"code": "de", "level": "B2"}],
+            allowed_codes=["en", "english"],
+        ) is True
+
+    def test_justjoin_french_language_blocked(self):
+        """JustJoin offers requiring French should be blocked."""
+        from justjoin_scraper import has_non_allowed_language_requirement
+        assert has_non_allowed_language_requirement(
+            [{"code": "fr", "level": "B2"}],
+            allowed_codes=["en", "english"],
+        ) is True
+
+    def test_justjoin_english_only_allowed(self):
+        """JustJoin offers requiring only English should pass."""
+        from justjoin_scraper import has_non_allowed_language_requirement
+        assert has_non_allowed_language_requirement(
+            [{"code": "en", "level": "C1"}],
+            allowed_codes=["en", "english"],
+        ) is False
+
+    def test_justjoin_no_languages_allowed(self):
+        """JustJoin offers with no language requirements should pass."""
+        from justjoin_scraper import has_non_allowed_language_requirement
+        assert has_non_allowed_language_requirement([], allowed_codes=["en", "english"]) is False
+        assert has_non_allowed_language_requirement(None, allowed_codes=["en", "english"]) is False
+
+    def test_justjoin_polish_blocked_by_whitelist(self):
+        """Polish should also be caught by the whitelist filter (not just the legacy blacklist)."""
+        from justjoin_scraper import has_non_allowed_language_requirement
+        assert has_non_allowed_language_requirement(
+            [{"code": "pl", "level": "B2"}],
+            allowed_codes=["en", "english"],
+        ) is True
+
+    def test_justjoin_spanish_and_english_blocked(self):
+        """JustJoin offers requiring Spanish + English: Spanish should trigger block."""
+        from justjoin_scraper import has_non_allowed_language_requirement
+        assert has_non_allowed_language_requirement(
+            [{"code": "en", "level": "B2"}, {"code": "es", "level": "B1"}],
+            allowed_codes=["en", "english"],
+        ) is True
+
+    def test_nofluff_german_language_tile_blocked(self):
+        """NoFluff offers requiring German via tiles should be blocked."""
+        from nofluff_scraper import has_non_allowed_language_tile
+        assert has_non_allowed_language_tile(
+            {"values": [{"value": "de", "type": "jobLanguage"}]},
+            allowed_codes=["en", "english"],
+        ) is True
+
+    def test_nofluff_english_tile_allowed(self):
+        """NoFluff offers requiring only English via tiles should pass."""
+        from nofluff_scraper import has_non_allowed_language_tile
+        assert has_non_allowed_language_tile(
+            {"values": [{"value": "en", "type": "jobLanguage"}]},
+            allowed_codes=["en", "english"],
+        ) is False
+
+    def test_nofluff_no_language_tiles_allowed(self):
+        """NoFluff offers with no language tiles should pass."""
+        from nofluff_scraper import has_non_allowed_language_tile
+        assert has_non_allowed_language_tile({}, allowed_codes=["en", "english"]) is False
+        assert has_non_allowed_language_tile(
+            {"values": [{"value": "Java"}, {"value": "Selenium"}]},
+            allowed_codes=["en", "english"],
+        ) is False
+
+    def test_nofluff_french_language_tile_blocked(self):
+        """NoFluff offers requiring French via tiles should be blocked."""
+        from nofluff_scraper import has_non_allowed_language_tile
+        assert has_non_allowed_language_tile(
+            {"values": [{"value": "fr", "type": "jobLanguage"}]},
+            allowed_codes=["en", "english"],
+        ) is True
+

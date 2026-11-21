@@ -38,6 +38,40 @@ def has_polish_language_requirement(languages: Any) -> bool:
     return False
 
 
+def has_non_allowed_language_requirement(languages: Any, allowed_codes: list = None) -> bool:
+    """Detects if job requires a language NOT in the allowed whitelist.
+
+    Returns True if the job has language requirements and at least one required
+    language is not in the allowed list (e.g. German, French, Spanish).
+    Returns False if no language requirements or all required languages are allowed.
+    """
+    if allowed_codes is None:
+        from config import ALLOWED_LANGUAGE_CODES
+        allowed_codes = ALLOWED_LANGUAGE_CODES
+
+    if not languages or not isinstance(languages, list):
+        return False  # No requirements → OK
+
+    allowed_set = {c.strip().lower() for c in allowed_codes}
+
+    for lang in languages:
+        if isinstance(lang, dict):
+            code = (lang.get("code") or "").strip().lower()
+            name = (lang.get("name") or "").strip().lower()
+            if not code and not name:
+                continue
+            # Check if this language is NOT in the allowed list
+            if code and code not in allowed_set:
+                return True
+            if not code and name and not any(a in name for a in allowed_set):
+                return True
+        elif isinstance(lang, str):
+            val = lang.strip().lower()
+            if val and val not in allowed_set:
+                return True
+    return False
+
+
 class JustJoinJobScraper:
     BASE_SEARCH_URL = "https://justjoin.it/api/candidate-api/offers"
     OFFER_BASE_URL = "https://justjoin.it/offers/{}"
@@ -108,6 +142,11 @@ class JustJoinJobScraper:
                         logger.debug(f"Skipping JustJoin offer with Polish title: '{o.get('title')}' @ {o.get('companyName')}")
                         continue
 
+                # Language whitelist filter: skip if job requires a language we don't speak
+                if has_non_allowed_language_requirement(o.get("languages")):
+                    logger.debug(f"Skipping JustJoin offer requiring non-allowed language: '{o.get('title')}' @ {o.get('companyName')}")
+                    continue
+
                 parsed_job = self._parse_single_offer(o, currency=currency, exclude_polish=exclude_polish)
                 if parsed_job:
                     jobs.append(parsed_job)
@@ -129,6 +168,10 @@ class JustJoinJobScraper:
         if exclude_polish:
             if has_polish_language_requirement(o.get("languages")) or is_polish_domestic_title(title):
                 return None
+
+        # Language whitelist filter
+        if has_non_allowed_language_requirement(o.get("languages")):
+            return None
 
         guid = o.get("guid")
         slug = o.get("slug") or guid

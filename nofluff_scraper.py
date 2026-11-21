@@ -43,6 +43,40 @@ def has_polish_language_tile(tiles: Any) -> bool:
     return False
 
 
+def has_non_allowed_language_tile(tiles: Any, allowed_codes: list = None) -> bool:
+    """Detects if job requires a language NOT in the allowed whitelist based on NoFluffJobs tiles.
+
+    Returns True if the job has language tiles and at least one required
+    language is not in the allowed list (e.g. German, French, Spanish).
+    Returns False if no language tiles or all required languages are allowed.
+    """
+    if allowed_codes is None:
+        from config import ALLOWED_LANGUAGE_CODES
+        allowed_codes = ALLOWED_LANGUAGE_CODES
+
+    allowed_set = {c.strip().lower() for c in allowed_codes}
+
+    if isinstance(tiles, dict):
+        values = tiles.get("values", [])
+    elif isinstance(tiles, list):
+        values = tiles
+    else:
+        return False
+
+    for item in values:
+        if isinstance(item, dict):
+            val = (item.get("value") or "").strip().lower()
+            itype = (item.get("type") or "").strip().lower()
+            if itype == "joblanguage" and val and val not in allowed_set:
+                return True
+        elif isinstance(item, str):
+            # Raw string language codes
+            stripped = item.strip().lower()
+            if stripped and stripped not in allowed_set and len(stripped) <= 3:
+                return True
+    return False
+
+
 class NoFluffJobScraper:
     BASE_SEARCH_URL = "https://nofluffjobs.com/api/search/posting"
     JOB_BASE_URL = "https://nofluffjobs.com/job/{}"
@@ -127,6 +161,11 @@ class NoFluffJobScraper:
                 if is_polish_domestic_title(title):
                     logger.debug(f"Skipping NoFluff offer with Polish title: '{title}' @ {company}")
                     continue
+
+            # Language whitelist filter: skip if job requires a language we don't speak
+            if has_non_allowed_language_tile(tiles):
+                logger.debug(f"Skipping NoFluff offer requiring non-allowed language: '{title}' @ {company}")
+                continue
 
             job_id = f"nfj_{raw_id}"
             if job_id in seen_ids:

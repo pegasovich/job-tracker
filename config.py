@@ -219,6 +219,10 @@ GREENHOUSE_COMPANIES = [
 GREENHOUSE_REMOTE_ONLY = True
 GREENHOUSE_LIMIT_PER_COMPANY = 30
 
+# Language Filtering (пропускаем только вакансии с английским или без языковых требований)
+# Whitelist подход: если вакансия требует язык НЕ из этого списка — отсекаем
+ALLOWED_LANGUAGE_CODES = ["en", "english"]
+
 # Polish Domestic Role & Language Filtering (отсекаем вакансии, требующие польский язык или локальный рынок)
 EXCLUDE_POLISH_DOMESTIC_ROLES = True
 
