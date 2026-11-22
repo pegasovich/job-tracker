@@ -14,6 +14,7 @@
       --text-muted: #94a3b8;
       --success: #22c55e;
       --danger: #ef4444;
+      --accent: #d946ef;
     }
 
     * {
@@ -23,11 +24,11 @@
     }
 
     body {
-      width: 380px;
+      width: 420px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: var(--bg);
       color: var(--text);
-      padding: 16px;
+      padding: 14px;
       font-size: 13px;
       line-height: 1.4;
     }
@@ -36,8 +37,8 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 14px;
-      padding-bottom: 10px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
       border-bottom: 1px solid var(--border);
     }
 
@@ -68,8 +69,46 @@
       letter-spacing: 0.5px;
     }
 
-    .form-group {
+    /* Tabs */
+    .tabs-header {
+      display: flex;
+      gap: 4px;
       margin-bottom: 12px;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 3px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: var(--card-bg);
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .tab-pane {
+      display: none;
+    }
+
+    .tab-pane.active {
+      display: block;
+    }
+
+    .form-group {
+      margin-bottom: 10px;
     }
 
     label {
@@ -77,7 +116,7 @@
       font-weight: 600;
       margin-bottom: 4px;
       color: #e2e8f0;
-      font-size: 12px;
+      font-size: 11px;
     }
 
     .input-row {
@@ -93,7 +132,7 @@
       background: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 7px 10px;
+      padding: 6px 8px;
       color: var(--text);
       font-size: 12px;
       font-family: inherit;
@@ -109,9 +148,9 @@
 
     textarea {
       resize: vertical;
-      min-height: 110px;
-      font-size: 12px;
-      line-height: 1.4;
+      min-height: 90px;
+      font-size: 11px;
+      line-height: 1.35;
     }
 
     .btn-toggle-visibility,
@@ -156,7 +195,7 @@
       color: white;
       border: none;
       border-radius: 6px;
-      padding: 9px;
+      padding: 8px;
       font-weight: 600;
       font-size: 13px;
       cursor: pointer;
@@ -175,7 +214,7 @@
     #save-status,
     #test-status {
       font-size: 11px;
-      margin-top: 6px;
+      margin-top: 4px;
       min-height: 16px;
       text-align: center;
     }
@@ -207,70 +246,136 @@
     .btn-text-small:hover {
       text-decoration: underline;
     }
+
+    .info-box {
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 6px;
+      padding: 8px;
+      font-size: 11px;
+      color: #bae6fd;
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
   </style>
 </head>
 <body>
   <header>
     <div class="brand">
       <span class="brand-icon">✨</span>
-      <h1>Job Apply AI</h1>
+      <h1>Job Apply AI Assistant</h1>
     </div>
-    <span class="badge">Gemini</span>
+    <span class="badge">Gemini Pro/Flash</span>
   </header>
 
+  <div class="tabs-header">
+    <button type="button" class="tab-btn active" data-tab="tab-ai">📝 Резюме & AI</button>
+    <button type="button" class="tab-btn" data-tab="tab-autofill">🎓 Анкета & Образование</button>
+  </div>
+
   <main>
-    <!-- API Key Section -->
-    <div class="form-group">
-      <label for="api-key">Gemini API Key (бесплатный):</label>
-      <div class="input-row">
-        <input type="password" id="api-key" placeholder="AIzaSy..." autocomplete="off">
-        <button type="button" id="btn-toggle-key" class="btn-toggle-visibility" title="Показать/скрыть">👁️</button>
-        <button type="button" id="btn-test-key" class="btn-secondary" title="Проверить ключ">Тест</button>
-      </div>
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <a href="https://aistudio.google.com/app/apikey" target="_blank" class="helper-link">👉 Получить бесплатный ключ (AI Studio)</a>
-      </div>
-      <div id="test-status"></div>
-    </div>
-
-    <!-- Candidate Profile Section -->
-    <div class="form-group">
-      <div class="profile-header">
-        <label for="user-profile">О кандидате (опыт, стек, навыки):</label>
-        <button type="button" id="btn-reset-profile" class="btn-text-small" title="Восстановить базовый шаблон QA">Шаблон QA</button>
-      </div>
-      <textarea id="user-profile" placeholder="Опишите ваш опыт, стек инструментов, сильные стороны..."></textarea>
-    </div>
-
-    <!-- Settings Row: Language & Tone -->
-    <div class="row-2">
+    <!-- Tab 1: AI & Cover Letters -->
+    <div id="tab-ai" class="tab-pane active">
+      <!-- API Key Section -->
       <div class="form-group">
-        <label for="letter-lang">Язык отклика:</label>
-        <select id="letter-lang">
-          <option value="auto">Как в вакансии</option>
-          <option value="uk">Украинский</option>
-          <option value="en">Английский</option>
-          <option value="ru">Русский</option>
+        <label for="api-key">Gemini API Key (бесплатный):</label>
+        <div class="input-row">
+          <input type="password" id="api-key" placeholder="AIzaSy..." autocomplete="off">
+          <button type="button" id="btn-toggle-key" class="btn-toggle-visibility" title="Показать/скрыть">👁️</button>
+          <button type="button" id="btn-test-key" class="btn-secondary" title="Проверить ключ">Тест</button>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" class="helper-link">👉 Получить бесплатный ключ (AI Studio)</a>
+        </div>
+        <div id="test-status"></div>
+      </div>
+
+      <!-- Candidate Profile Section -->
+      <div class="form-group">
+        <div class="profile-header">
+          <label for="user-profile">Профиль кандидата (опыт, стек, проекты):</label>
+          <button type="button" id="btn-reset-profile" class="btn-text-small" title="Восстановить резюме Senior QA">Восстановить CV</button>
+        </div>
+        <textarea id="user-profile" placeholder="Опишите ваш опыт, стек инструментов, сильные стороны..."></textarea>
+      </div>
+
+      <!-- Settings Row: Language & Tone -->
+      <div class="row-2">
+        <div class="form-group">
+          <label for="letter-lang">Язык отклика / ответов:</label>
+          <select id="letter-lang">
+            <option value="auto">Как в вопросе/вакансии</option>
+            <option value="en">Английский</option>
+            <option value="uk">Украинский</option>
+            <option value="ru">Русский</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="letter-tone">Формат отклика:</label>
+          <select id="letter-tone">
+            <option value="concise">Краткий (3-4 абз.)</option>
+            <option value="detailed">Подробный</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Model selection -->
+      <div class="form-group">
+        <label for="gemini-model">Модель Gemini:</label>
+        <select id="gemini-model">
+          <option value="gemini-2.0-flash">Gemini 2.0 Flash (Рекомендуется, 1500 зап./день)</option>
+          <option value="gemini-1.5-flash">Gemini 1.5 Flash (Быстрая, 1500 зап./день)</option>
+          <option value="gemini-3.8-flash">Gemini 3.8 Flash (Free Tier: 20 зап./день)</option>
         </select>
       </div>
-
-      <div class="form-group">
-        <label for="letter-tone">Формат отклика:</label>
-        <select id="letter-tone">
-          <option value="concise">Краткий (3-4 абз.)</option>
-          <option value="detailed">Подробный</option>
-        </select>
-      </div>
     </div>
 
-    <!-- Model selection -->
-    <div class="form-group">
-      <label for="gemini-model">Модель Gemini:</label>
-      <select id="gemini-model">
-        <option value="gemini-2.0-flash">Gemini 2.0 Flash (Рекомендуется, 1500 зап./день)</option>
-        <option value="gemini-1.5-flash">Gemini 1.5 Flash (Быстрая, 1500 зап./день)</option>
-        <option value="gemini-3.8-flash">Gemini 3.8 Flash (Лимит Free Tier: 20 зап./день)</option>
-      </select>
+    <!-- Tab 2: Questionnaire & Autofill -->
+    <div id="tab-autofill" class="tab-pane">
+      <div class="info-box">
+        💡 Эти данные автоматически подставляются в анкеты Greenhouse / Canonical (Degree result, School rationale, Travel commitment) по кнопке <b>⚡ Автозаполнить</b> на странице вакансии.
+      </div>
+
+      <div class="form-group">
+        <label for="degree-result">Диплом и оценка (Degree Result & Grading):</label>
+        <textarea id="degree-result" style="min-height: 55px;" placeholder="Bachelor of Engineering in Computer Science..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="school-rationale">Обоснование школьных оценок (High School Rationale):</label>
+        <textarea id="school-rationale" style="min-height: 65px;" placeholder="Graduated high school with Gold Medal..."></textarea>
+      </div>
+
+      <div class="row-2">
+        <div class="form-group">
+          <label for="candidate-location">Локация:</label>
+          <input type="text" id="candidate-location" placeholder="Cahersiveen, Co. Kerry, Ireland">
+        </div>
+        <div class="form-group">
+          <label for="candidate-phone">Телефон:</label>
+          <input type="text" id="candidate-phone" placeholder="+353 83 395 9693">
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="form-group">
+          <label for="candidate-linkedin">LinkedIn URL:</label>
+          <input type="text" id="candidate-linkedin" placeholder="https://linkedin.com/in/...">
+        </div>
+        <div class="form-group">
+          <label for="candidate-github">GitHub URL:</label>
+          <input type="text" id="candidate-github" placeholder="https://github.com/pegasovich">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="travel-commitment">Готовность к командировкам (2-4 нед./год):</label>
+        <select id="travel-commitment">
+          <option value="Yes">Yes (Полностью готов к очным саммитам)</option>
+          <option value="No">No</option>
+        </select>
+      </div>
     </div>
 
     <button type="button" id="btn-save" class="btn-primary">💾 Сохранить настройки</button>

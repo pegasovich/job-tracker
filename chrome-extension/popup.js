@@ -1,20 +1,43 @@
 // Popup script for Job Apply AI Assistant
 
-const DEFAULT_PROFILE = `Имя: Олег
-Специализация: QA Engineer (Manual Mobile & Web QA, базовый Automation)
-Опыт: 2+ года коммерческого опыта в тестировании программного обеспечения (iOS, Android, Web).
+const DEFAULT_PROFILE = `Имя: Олег Кривокобыльский (Oleg Kryvokobylskyi)
+Локация: Cahersiveen, Co. Kerry, Ireland (Full Right to Work in Ireland / No Sponsorship Required)
+Контакты: +353 83 395 9693 | pegasovich@gmail.com
+Роль: Senior QA Engineer / QA Automation Engineer (SDET)
+Опыт: 15+ лет коммерческого опыта в Quality Assurance & Test Automation (Web, Desktop, API, Cloud Distributed Systems).
+Компании: EPAM Systems (2017 – 2025, Senior Test Automation Engineer / QA Lead), GlobalLogic (2012 – 2017, Senior QA / Automation).
 
 Ключевые навыки и стек:
-- Функциональное, регрессионное, смоук и исследовательское тестирование мобильных приложений (iOS и Android) на реальных девайсах и эмуляторах/симуляторах.
-- Анализ требований, составление и актуализация тест-кейсов, чек-листов и баг-репортов.
-- Инструменты: Jira, TestRail, Postman (REST API), Charles Proxy / Fiddler (инспекция и подмена трафика).
-- Базовый опыт работы с логами и сборками через Android Studio (Logcat, ADB) и Xcode.
-- Понимание архитектуры клиент-сервер, базовые знания SQL запросов.
-- Практика работы по Agile / Scrum в тесном контакте с разработчиками и дизайнерами.
-- Знание основ Python и интерес к автоматизации тестирования.
-- Английский язык: B1 (Intermediate) — чтение документации, ведение тасок и коммуникация.`;
+- Языки & Фреймворки автоматизации: Python (Playwright, PyTest), C# (.NET, SpecFlow, Selenium WebDriver, NUnit).
+- Тестирование API: REST API, Postman, Swagger, Fiddler, GraphQL.
+- Базы данных & Инфраструктура: SQL (PostgreSQL, MS SQL, MySQL, Azure SQL), Docker, Kubernetes, Linux (Ubuntu, bash), Windows Server.
+- CI/CD & Репозитории: GitHub Actions, Jenkins, Azure DevOps, Git.
+- Процессы и домены: FinTech (Investment Banking), Media Technology, Cloud Virtualization, Distributed Systems Testing.
+- Образование: Высшее техническое (Bachelor of Engineering in Computer Science, НТУУ 'КПИ' / NTUU KPI, 1995–2001, диплом с отличием / GPA 4.8 из 5.0).
+- Английский язык: Professional Working Proficiency (C1 / Full professional communication).
+- Готовность к командировкам: Полная готовность к международным командировкам (2-4 недели в год).`;
+
+const DEFAULT_DEGREE_RESULT = `Bachelor of Engineering (B.E.) in Computer Science, National Technical University of Ukraine "Kyiv Polytechnic Institute" (NTUU KPI). Degree result: 4.8 out of 5.0 (Grading system: 5-point scale where 5 is Excellent / Equivalent to First-Class Honours / Top 5% of class).`;
+
+const DEFAULT_SCHOOL_RATIONALE = `Graduated secondary school with Gold Medal (Certificate of Secondary Education with Distinction / Honours), ranked in the top 5% of the graduating cohort. Maintained top grades (5.0 / 5.0) in Mathematics, Physics, and native language throughout high school. Regularly participated and placed in municipal and regional mathematics Olympiads.`;
 
 document.addEventListener("DOMContentLoaded", async () => {
+  // Tab switching
+  const tabBtns = document.querySelectorAll(".tab-btn");
+  const tabPanes = document.querySelectorAll(".tab-pane");
+
+  tabBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      tabBtns.forEach(b => b.classList.remove("active"));
+      tabPanes.forEach(p => p.classList.remove("active"));
+
+      btn.classList.add("active");
+      const targetId = btn.getAttribute("data-tab");
+      document.getElementById(targetId)?.classList.add("active");
+    });
+  });
+
+  // Elements
   const apiKeyInput = document.getElementById("api-key");
   const btnToggleKey = document.getElementById("btn-toggle-key");
   const btnTestKey = document.getElementById("btn-test-key");
@@ -27,6 +50,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   const letterToneSelect = document.getElementById("letter-tone");
   const geminiModelSelect = document.getElementById("gemini-model");
 
+  const degreeResultArea = document.getElementById("degree-result");
+  const schoolRationaleArea = document.getElementById("school-rationale");
+  const locationInput = document.getElementById("candidate-location");
+  const phoneInput = document.getElementById("candidate-phone");
+  const linkedinInput = document.getElementById("candidate-linkedin");
+  const githubInput = document.getElementById("candidate-github");
+  const travelCommitmentSelect = document.getElementById("travel-commitment");
+
   const btnSave = document.getElementById("btn-save");
   const saveStatus = document.getElementById("save-status");
 
@@ -36,18 +67,35 @@ document.addEventListener("DOMContentLoaded", async () => {
     "userProfile",
     "geminiModel",
     "letterLanguage",
-    "letterTone"
+    "letterTone",
+    "degreeResult",
+    "schoolRationale",
+    "candidateLocation",
+    "candidatePhone",
+    "candidateLinkedin",
+    "candidateGithub",
+    "travelCommitment"
   ]);
 
   if (stored.geminiApiKey) apiKeyInput.value = stored.geminiApiKey;
   userProfileArea.value = stored.userProfile || DEFAULT_PROFILE;
+
   if (stored.geminiModel && ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-3.8-flash"].includes(stored.geminiModel)) {
     geminiModelSelect.value = stored.geminiModel;
   } else {
     geminiModelSelect.value = "gemini-2.0-flash";
   }
+
   if (stored.letterLanguage) letterLangSelect.value = stored.letterLanguage;
   if (stored.letterTone) letterToneSelect.value = stored.letterTone;
+
+  degreeResultArea.value = stored.degreeResult || DEFAULT_DEGREE_RESULT;
+  schoolRationaleArea.value = stored.schoolRationale || DEFAULT_SCHOOL_RATIONALE;
+  locationInput.value = stored.candidateLocation || "Cahersiveen, Co. Kerry, Ireland";
+  phoneInput.value = stored.candidatePhone || "+353 83 395 9693";
+  linkedinInput.value = stored.candidateLinkedin || "";
+  githubInput.value = stored.candidateGithub || "https://github.com/pegasovich";
+  if (stored.travelCommitment) travelCommitmentSelect.value = stored.travelCommitment;
 
   // Toggle API key visibility
   btnToggleKey.addEventListener("click", () => {
@@ -60,9 +108,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Reset profile to default QA template
+  // Reset profile to default CV template
   btnResetProfile.addEventListener("click", () => {
-    if (confirm("Заполнить шаблонными данными для QA Engineer? (Текущий текст будет заменён)")) {
+    if (confirm("Заполнить данными из вашего резюме (Senior QA / SDET 15+ лет)?")) {
       userProfileArea.value = DEFAULT_PROFILE;
     }
   });
@@ -103,37 +151,48 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Save Settings
   btnSave.addEventListener("click", async () => {
-    const dataToSave = {
-      geminiApiKey: apiKeyInput.value.trim(),
-      userProfile: userProfileArea.value.trim(),
-      geminiModel: geminiModelSelect.value,
-      letterLanguage: letterLangSelect.value,
-      letterTone: letterToneSelect.value
-    };
+    const geminiApiKey = apiKeyInput.value.trim();
+    const userProfile = userProfileArea.value.trim();
+    const geminiModel = geminiModelSelect.value;
+    const letterLanguage = letterLangSelect.value;
+    const letterTone = letterToneSelect.value;
+
+    const degreeResult = degreeResultArea.value.trim();
+    const schoolRationale = schoolRationaleArea.value.trim();
+    const candidateLocation = locationInput.value.trim();
+    const candidatePhone = phoneInput.value.trim();
+    const candidateLinkedin = linkedinInput.value.trim();
+    const candidateGithub = githubInput.value.trim();
+    const travelCommitment = travelCommitmentSelect.value;
 
     btnSave.disabled = true;
+    saveStatus.className = "";
     saveStatus.textContent = "Сохранение...";
 
     try {
-      await chrome.storage.sync.set(dataToSave);
+      await chrome.storage.sync.set({
+        geminiApiKey,
+        userProfile,
+        geminiModel,
+        letterLanguage,
+        letterTone,
+        degreeResult,
+        schoolRationale,
+        candidateLocation,
+        candidatePhone,
+        candidateLinkedin,
+        candidateGithub,
+        travelCommitment
+      });
+
       saveStatus.className = "status-ok";
-      saveStatus.textContent = "✓ Настройки успешно сохранены!";
+      saveStatus.textContent = "✅ Настройки успешно сохранены!";
       setTimeout(() => {
         saveStatus.textContent = "";
       }, 3000);
     } catch (e) {
-      // Fallback to local storage if sync fails (e.g. quota limit)
-      try {
-        await chrome.storage.local.set(dataToSave);
-        saveStatus.className = "status-ok";
-        saveStatus.textContent = "✓ Настройки сохранены локально!";
-        setTimeout(() => {
-          saveStatus.textContent = "";
-        }, 3000);
-      } catch (err) {
-        saveStatus.className = "status-err";
-        saveStatus.textContent = `❌ Ошибка: ${err.message}`;
-      }
+      saveStatus.className = "status-err";
+      saveStatus.textContent = `❌ Ошибка сохранения: ${e.message}`;
     } finally {
       btnSave.disabled = false;
     }

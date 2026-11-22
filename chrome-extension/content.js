@@ -1,10 +1,10 @@
 // Content script for Job Apply AI Assistant
-// Supports: plain <textarea>, rich-text editors (Froala, Tiptap, Quill, CKEditor, etc.)
+// Supports: Cover letters, Screening questions, and Form Autofill (Greenhouse, Lever, DOU, Djinni, etc.)
 
 (() => {
   const PROCESSED_ATTR = "data-job-ai-attached";
 
-  // Observe DOM for dynamic forms (e.g. clicking 'Відгукнутися' on DOU, or SPA navigation)
+  // Observe DOM for dynamic forms (SPA navigation, modal dialogs)
   let scanTimeout = null;
   const observer = new MutationObserver(() => {
     if (scanTimeout) clearTimeout(scanTimeout);
@@ -13,54 +13,90 @@
 
   observer.observe(document.body, { childList: true, subtree: true });
 
-  // Initial scan (with a small delay for SPA hydration)
+  // Initial scans
   setTimeout(scanAndInject, 500);
   setTimeout(scanAndInject, 1500);
+  setTimeout(scanAndInject, 3000);
 
   function scanAndInject() {
     const fields = findApplicationFields();
+
     for (const field of fields) {
-      const anchor = field.anchor; // the element we attach the toolbar near
+      const anchor = field.anchor;
       if (anchor.hasAttribute(PROCESSED_ATTR)) continue;
       anchor.setAttribute(PROCESSED_ATTR, "true");
-      injectToolbar(field);
+      injectFieldToolbar(field);
+    }
+
+    // If multiple questionnaire fields are detected on page, inject a top banner
+    if (fields.length >= 2 || isGreenhousePage()) {
+      injectTopFormBanner(fields);
     }
   }
 
+  function isGreenhousePage() {
+    return (
+      window.location.hostname.includes("greenhouse.io") ||
+      Boolean(document.querySelector("#application_form, .application-form, form[action*='greenhouse']"))
+    );
+  }
+
   /**
-   * Returns an array of { type, anchor, textarea, editableEl, container }
-   *   type: "textarea" | "richtext"
-   *   anchor: element to insert the toolbar before
-   *   textarea: the <textarea> to write to (may be hidden for richtext)
-   *   editableEl: the contenteditable div (for richtext)
-   *   container: the wrapper div that contains the whole field
+   * Identifies all application inputs & textareas
    */
   function findApplicationFields() {
     const results = [];
     const hostname = window.location.hostname;
 
-    // ─── Strategy 1: Plain <textarea> elements ───
+    // ─── 1. All visible <textarea> elements ───
     const allTextareas = document.querySelectorAll("textarea");
     for (const ta of allTextareas) {
-      // Skip hidden textareas that belong to rich-text editors (we handle those below)
       if (ta.classList.contains("hidden") || ta.style.display === "none") continue;
       if (ta.offsetParent === null && ta.offsetHeight === 0) continue;
-      if (ta.offsetWidth < 120 && ta.offsetHeight < 30) continue;
+      if (ta.offsetWidth < 80 && ta.offsetHeight < 25) continue;
 
-      if (isApplicationField(ta, hostname)) {
+      const qContext = extractQuestionContext(ta);
+      const fieldType = classifyFieldType(qContext, ta, hostname);
+
+      results.push({
+        type: "textarea",
+        fieldType,
+        questionText: qContext,
+        anchor: ta,
+        textarea: ta,
+        inputEl: ta,
+        editableEl: null,
+        container: ta.parentElement
+      });
+    }
+
+    // ─── 2. Single-line <input> fields for specific screening questions (Degree result, etc.) ───
+    const allInputs = document.querySelectorAll(
+      'input[type="text"]:not([data-job-ai-attached]), input:not([type]):not([data-job-ai-attached])'
+    );
+    for (const inp of allInputs) {
+      if (inp.classList.contains("hidden") || inp.style.display === "none") continue;
+      if (inp.offsetParent === null && inp.offsetHeight === 0) continue;
+
+      const qContext = extractQuestionContext(inp);
+      const fieldType = classifyFieldType(qContext, inp, hostname);
+
+      // Only attach to inputs that are clearly questionnaire questions (not basic name/email)
+      if (fieldType === "degree_result" || fieldType === "school_rationale" || fieldType === "screening_question") {
         results.push({
-          type: "textarea",
-          anchor: ta,
-          textarea: ta,
+          type: "input",
+          fieldType,
+          questionText: qContext,
+          anchor: inp,
+          textarea: null,
+          inputEl: inp,
           editableEl: null,
-          container: ta.parentElement
+          container: inp.parentElement
         });
       }
     }
 
-    // ─── Strategy 2: Rich-text editors (contenteditable divs) ───
-
-    // 2a. PeopleForce: data-controller="forms--rich-text-component"
+    // ─── 3. Rich-text editors (contenteditable divs) ───
     const richTextContainers = document.querySelectorAll(
       '[data-controller="forms--rich-text-component"], ' +
       '.rich-text-component, ' +
@@ -71,126 +107,118 @@
       const editable = container.querySelector('[contenteditable="true"], .fr-element, .fr-view, .ql-editor, .ProseMirror, [role="textbox"]');
       if (!editable && !hiddenTa) continue;
 
-      // Check if this is a cover-letter / message field (not some other rich text)
-      const label = findLabelFor(container);
-      const labelText = (label?.innerText || "").toLowerCase();
-      const idOrName = (hiddenTa?.name || hiddenTa?.id || container.id || "").toLowerCase();
-      const combined = labelText + " " + idOrName;
+      const qContext = extractQuestionContext(container);
+      const fieldType = classifyFieldType(qContext, container, hostname);
 
-      const coverKeywords = [
-        "cover", "letter", "message", "о себе", "про себе", "сопроводительное",
-        "супровідн", "отклик", "відгук", "почему", "чому", "motivation"
-      ];
-
-      if (coverKeywords.some(k => combined.includes(k))) {
-        // Find the best anchor to insert toolbar before
-        const anchor = editable || container;
-        results.push({
-          type: "richtext",
-          anchor: container, // insert toolbar before the whole rich-text container
-          textarea: hiddenTa,
-          editableEl: editable,
-          container: container
-        });
-      }
-    }
-
-    // 2b. Generic: any contenteditable div near a "cover letter" label
-    if (results.length === 0) {
-      const allEditables = document.querySelectorAll(
-        '[contenteditable="true"], .fr-element, .ql-editor, .ProseMirror, [role="textbox"]'
-      );
-      for (const el of allEditables) {
-        if (el.hasAttribute(PROCESSED_ATTR)) continue;
-        // Walk up to find a label
-        const wrapper = el.closest(".form-group, .field, .form-field, [class*=cover], [class*=letter]") || el.parentElement?.parentElement;
-        if (!wrapper) continue;
-        const label = findLabelFor(wrapper);
-        const labelText = (label?.innerText || "").toLowerCase();
-        const wrapperText = (wrapper.innerText || "").substring(0, 300).toLowerCase();
-        const combined = labelText + " " + wrapperText;
-
-        const keywords = [
-          "cover letter", "cover_letter", "message", "о себе", "про себе",
-          "сопроводительное", "супровідн", "отклик", "відгук", "motivation"
-        ];
-
-        if (keywords.some(k => combined.includes(k))) {
-          const hiddenTa = wrapper.querySelector("textarea");
-          results.push({
-            type: "richtext",
-            anchor: el.closest('[data-controller]') || el.parentElement || el,
-            textarea: hiddenTa,
-            editableEl: el,
-            container: wrapper
-          });
-        }
-      }
+      results.push({
+        type: "richtext",
+        fieldType,
+        questionText: qContext,
+        anchor: container,
+        textarea: hiddenTa,
+        inputEl: null,
+        editableEl: editable,
+        container: container
+      });
     }
 
     return results;
   }
 
-  /** Check if a plain <textarea> is an application/cover-letter field */
-  function isApplicationField(ta, hostname) {
-    // 1. DOU
-    if (hostname.includes("dou.ua")) {
-      const inReply = ta.closest(".reply, #reply-form, .b-reply, form");
-      const nameOrId = ((ta.name || "") + (ta.id || "")).toLowerCase();
-      if (inReply || nameOrId.includes("message") || nameOrId.includes("reply") || nameOrId.includes("comment")) {
-        return true;
+  /**
+   * Extracts question or prompt text associated with an element
+   */
+  function extractQuestionContext(el) {
+    let text = "";
+
+    // 1. Native HTML labels
+    if (el.labels && el.labels.length > 0) {
+      text = Array.from(el.labels).map(l => l.innerText).join(" ");
+    }
+
+    // 2. Explicit label[for="id"]
+    if (!text && el.id) {
+      const labelEl = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+      if (labelEl) text = labelEl.innerText;
+    }
+
+    // 3. Parent / wrapper label
+    if (!text) {
+      const fieldWrapper = el.closest(".field, .form-group, .form-field, .application-question, [class*='question'], [class*='field']");
+      if (fieldWrapper) {
+        const labelEl = fieldWrapper.querySelector("label, .label, legend, h3, h4, strong");
+        if (labelEl && labelEl !== el) {
+          text = labelEl.innerText;
+        } else {
+          // Fallback to wrapper text before the input
+          text = fieldWrapper.innerText.substring(0, 300);
+        }
       }
     }
 
-    // 2. Djinni
-    if (hostname.includes("djinni.co")) {
-      const inDjinniForm = ta.closest(".inbox-thread--reply-form, form, .lead-response");
-      if (inDjinniForm || ta.name === "message") return true;
+    // 4. Preceding sibling
+    if (!text && el.previousElementSibling) {
+      text = el.previousElementSibling.innerText || "";
     }
 
-    // 3. Generic context check
-    const parentText = (ta.parentElement?.innerText || "").toLowerCase();
-    const grandParentText = (ta.parentElement?.parentElement?.innerText || "").toLowerCase();
-    const combined = parentText + " " + grandParentText;
-
-    const keywords = [
-      "о себе", "про себе", "сопроводительное", "супровідний",
-      "вакансия вам подходит", "чому саме ви", "cover letter",
-      "почему вакансия", "отклик", "відгук", "message", "motivation"
-    ];
-
-    if (keywords.some(k => combined.includes(k))) return true;
-
-    // 4. Inside a form with a submit button
-    const form = ta.closest("form");
-    if (form) {
-      const formText = form.innerText.toLowerCase();
-      if (formText.includes("отправить") || formText.includes("відгукнутися") ||
-          formText.includes("apply") || formText.includes("send")) {
-        return true;
-      }
+    // 5. Attributes (placeholder, aria-label)
+    if (!text) {
+      text = el.getAttribute("aria-label") || el.getAttribute("placeholder") || el.name || "";
     }
 
-    return false;
+    return text.replace(/\s+/g, " ").trim();
   }
 
-  /** Find a label element associated with a container */
-  function findLabelFor(container) {
-    // Check for a <label> inside or just before the container
-    const labelInside = container.querySelector("label");
-    if (labelInside) return labelInside;
+  /**
+   * Classify field into cover_letter, degree_result, school_rationale, or screening_question
+   */
+  function classifyFieldType(qContext, el, hostname) {
+    const qLower = (qContext || "").toLowerCase();
+    const idOrName = ((el.name || "") + " " + (el.id || "")).toLowerCase();
+    const combined = qLower + " " + idOrName;
 
-    const prev = container.previousElementSibling;
-    if (prev && prev.tagName === "LABEL") return prev;
-
-    // Look in parent
-    const parent = container.parentElement;
-    if (parent) {
-      const label = parent.querySelector("label");
-      if (label) return label;
+    // 1. Degree result / GPA question
+    if (
+      combined.includes("degree result") ||
+      combined.includes("expected result") ||
+      combined.includes("bachelor's university degree") ||
+      combined.includes("bachelor's degree") ||
+      combined.includes("gpa score") ||
+      combined.includes("grading system")
+    ) {
+      return "degree_result";
     }
 
-    return null;
+    // 2. High school rationale / evidence
+    if (
+      combined.includes("high school performance") ||
+      combined.includes("rationale or evidence") ||
+      combined.includes("high school selections") ||
+      combined.includes("sat or act scores")
+    ) {
+      return "school_rationale";
+    }
+
+    // 3. Cover letter / General application message
+    const coverKeywords = [
+      "cover letter", "cover_letter", "сопроводительное", "супровідн",
+      "напишите немного о себе", "чому вакансія вам підходить",
+      "почему вакансия вам подходит", "letter of motivation", "motivation letter"
+    ];
+    if (coverKeywords.some(k => combined.includes(k))) {
+      return "cover_letter";
+    }
+
+    // DOU or Djinni reply fields
+    if (hostname.includes("dou.ua") && (el.name === "message" || el.id?.includes("message") || el.closest(".reply, #reply-form"))) {
+      return "cover_letter";
+    }
+    if (hostname.includes("djinni.co") && (el.name === "message" || el.closest(".inbox-thread--reply-form"))) {
+      return "cover_letter";
+    }
+
+    // 4. Any other application questionnaire field
+    return "screening_question";
   }
 
   function extractJobDetails() {
@@ -200,7 +228,12 @@
 
     const hostname = window.location.hostname;
 
-    if (hostname.includes("dou.ua")) {
+    if (hostname.includes("greenhouse.io")) {
+      title = document.querySelector(".app-title, h1.app-title, h1")?.innerText?.trim() || "";
+      company = document.querySelector(".company-name, [class*='company']")?.innerText?.trim() || "";
+      const descEl = document.querySelector("#content, .body, #job-post, [class*='description']");
+      description = descEl ? descEl.innerText.trim() : "";
+    } else if (hostname.includes("dou.ua")) {
       title = document.querySelector(".b-vacancy h1.g-h2, h1.g-h2, h1")?.innerText?.trim() || "";
       company = document.querySelector(".b-vacancy .info .l-n a, .company a")?.innerText?.trim() || "";
       const descEl = document.querySelector(".b-typo.vacancy-section, .vacancy-section, .b-vacancy");
@@ -213,13 +246,6 @@
       title = document.querySelector(".job-details-jobs-unified-top-card__job-title, h1")?.innerText?.trim() || "";
       company = document.querySelector(".job-details-jobs-unified-top-card__company-name")?.innerText?.trim() || "";
       description = document.querySelector(".jobs-description, #job-details")?.innerText?.trim() || "";
-    } else if (hostname.includes("peopleforce.io")) {
-      title = document.querySelector("h1")?.innerText?.trim() || "";
-      // Company name is often in header or breadcrumb
-      company = document.querySelector(".company-name, .tw-text-lg, header a, [class*=company]")?.innerText?.trim() || "";
-      // The job description is on the previous page; on the apply page, grab whatever text is available
-      const main = document.querySelector("main, article, .career-page, [class*=career]") || document.body;
-      description = main.innerText.substring(0, 3500);
     } else {
       title = document.querySelector("h1")?.innerText?.trim() || document.title || "";
       const main = document.querySelector("main, article, #content") || document.body;
@@ -233,70 +259,73 @@
     };
   }
 
-  /**
-   * Write text into the field (supports both plain textarea and rich-text editors)
-   */
   function writeToField(field, text) {
-    if (field.type === "textarea" && field.textarea && !field.textarea.classList.contains("hidden")) {
-      // Plain textarea
-      field.textarea.value = text;
-      field.textarea.dispatchEvent(new Event("input", { bubbles: true }));
-      field.textarea.dispatchEvent(new Event("change", { bubbles: true }));
-      // Notify autosize.js (used by DOU and similar portals) to adjust height
-      field.textarea.dispatchEvent(new Event("autosize:update", { bubbles: true }));
+    if (field.inputEl) {
+      field.inputEl.value = text;
+      field.inputEl.dispatchEvent(new Event("input", { bubbles: true }));
+      field.inputEl.dispatchEvent(new Event("change", { bubbles: true }));
 
-      // Auto-resize: ensure field expands to show the generated letter
-      field.textarea.style.setProperty("min-height", "180px", "important");
-      const targetHeight = Math.min(Math.max(field.textarea.scrollHeight + 30, 200), 500);
-      field.textarea.style.setProperty("height", `${targetHeight}px`, "important");
-      field.textarea.style.setProperty("overflow-y", "auto", "important");
+      // If it's a textarea, auto-expand
+      if (field.inputEl.tagName === "TEXTAREA") {
+        field.inputEl.dispatchEvent(new Event("autosize:update", { bubbles: true }));
+        field.inputEl.style.setProperty("min-height", "140px", "important");
+        const targetHeight = Math.min(Math.max(field.inputEl.scrollHeight + 20, 140), 500);
+        field.inputEl.style.setProperty("height", `${targetHeight}px`, "important");
+      }
     }
 
-    if (field.type === "richtext") {
-      // Write into contenteditable div
-      if (field.editableEl) {
-        // Convert plain text to HTML paragraphs
-        const htmlContent = text
-          .split("\n\n")
-          .map(p => `<p>${escapeHtml(p).replace(/\n/g, "<br>")}</p>`)
-          .join("");
+    if (field.type === "richtext" && field.editableEl) {
+      const htmlContent = text
+        .split("\n\n")
+        .map(p => `<p>${escapeHtml(p).replace(/\n/g, "<br>")}</p>`)
+        .join("");
 
-        field.editableEl.innerHTML = htmlContent;
+      field.editableEl.innerHTML = htmlContent;
+      field.editableEl.dispatchEvent(new Event("input", { bubbles: true }));
+      field.editableEl.dispatchEvent(new Event("change", { bubbles: true }));
+      field.editableEl.dispatchEvent(new Event("blur", { bubbles: true }));
+      field.editableEl.dispatchEvent(new Event("focus", { bubbles: true }));
 
-        // Trigger events so the framework picks up the change
-        field.editableEl.dispatchEvent(new Event("input", { bubbles: true }));
-        field.editableEl.dispatchEvent(new Event("change", { bubbles: true }));
-        field.editableEl.dispatchEvent(new Event("blur", { bubbles: true }));
-        field.editableEl.dispatchEvent(new Event("focus", { bubbles: true }));
-
-        // Also try to dispatch keyup for frameworks that listen to it
-        field.editableEl.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true }));
-      }
-
-      // Also update the hidden textarea (Froala, etc., sync from it on submit)
       if (field.textarea) {
         field.textarea.value = text;
-        field.textarea.innerHTML = text;
         field.textarea.dispatchEvent(new Event("input", { bubbles: true }));
         field.textarea.dispatchEvent(new Event("change", { bubbles: true }));
       }
     }
   }
 
-  function injectToolbar(field) {
+  function injectFieldToolbar(field) {
     const container = document.createElement("div");
     container.className = "job-ai-container";
+
+    const isCover = field.fieldType === "cover_letter";
+    const isDegree = field.fieldType === "degree_result";
+    const isSchool = field.fieldType === "school_rationale";
+
+    let btnLabel = isCover ? "✨ Написать Cover Letter" : "✨ Ответить на вопрос с AI";
+    let quickFillBtn = "";
+
+    if (isDegree) {
+      quickFillBtn = `<button type="button" class="job-ai-btn-quickfill" data-action="fill-degree">⚡ Вставить диплом и GPA</button>`;
+    } else if (isSchool) {
+      quickFillBtn = `<button type="button" class="job-ai-btn-quickfill" data-action="fill-school">⚡ Вставить обоснование оценок</button>`;
+    }
+
+    let questionBadge = "";
+    if (!isCover && field.questionText) {
+      const shortQ = field.questionText.length > 50 ? field.questionText.substring(0, 47) + "..." : field.questionText;
+      questionBadge = `<span class="job-ai-question-pill" title="${escapeHtml(field.questionText)}">❓ ${escapeHtml(shortQ)}</span>`;
+    }
 
     container.innerHTML = `
       <div class="job-ai-bar">
         <div class="job-ai-left">
           <button type="button" class="job-ai-btn-generate">
-            <span class="job-ai-icon">✨</span>
-            <span class="job-ai-btn-text">Написать отклик с Gemini</span>
+            <span class="job-ai-btn-text">${btnLabel}</span>
           </button>
-          <button type="button" class="job-ai-btn-settings" title="Открыть настройки профиля / API ключа">
-            ⚙️
-          </button>
+          ${quickFillBtn}
+          ${questionBadge}
+          <button type="button" class="job-ai-btn-settings" title="Настройки">⚙️</button>
         </div>
         <div class="job-ai-status"></div>
       </div>
@@ -311,13 +340,32 @@
     const btnSettings = container.querySelector(".job-ai-btn-settings");
     const statusEl = container.querySelector(".job-ai-status");
     const modalEl = container.querySelector(".job-ai-modal");
+    const btnQuickFill = container.querySelector(".job-ai-btn-quickfill");
+
+    // Quickfill click
+    if (btnQuickFill) {
+      btnQuickFill.addEventListener("click", async () => {
+        const stored = await chrome.storage.sync.get(["degreeResult", "schoolRationale"]);
+        if (isDegree) {
+          const val = stored.degreeResult || "Bachelor of Engineering (B.E.) in Computer Science, NTUU KPI. Result: 4.8 out of 5.0 (Equivalent to First-Class Honours / Top 5% of class).";
+          writeToField(field, val);
+          statusEl.className = "job-ai-status success";
+          statusEl.textContent = "✅ Диплом вставлен!";
+        } else if (isSchool) {
+          const val = stored.schoolRationale || "Graduated secondary school with Gold Medal (Certificate of Secondary Education with Distinction / Honours), ranked in top 5% of class. Maintained 5.0/5.0 in Mathematics and Language; participated in regional Olympiads.";
+          writeToField(field, val);
+          statusEl.className = "job-ai-status success";
+          statusEl.textContent = "✅ Обоснование вставлено!";
+        }
+      });
+    }
 
     btnSettings.addEventListener("click", () => {
       if (modalEl.style.display === "none") {
         modalEl.style.display = "block";
         modalEl.innerHTML = `
           <strong>💡 Настройки расширения:</strong><br>
-          Чтобы изменить ваш опыт, навыки или вставить Gemini API ключ, нажмите на иконку расширения <b>Job Apply AI</b> в правом верхнем углу панели Chrome (значок пазла 🧩 или закреплённая иконка ✨).
+          Нажмите на иконку расширения <b>Job Apply AI</b> в панели браузера Chrome (значок пазла 🧩 или ✨) для редактирования опыта, диплома или API ключа.
           <br><br>
           <button type="button" class="job-ai-close-modal" style="padding: 3px 8px; font-size: 11px; cursor: pointer; border-radius: 4px; background: #334155; color: white; border: 1px solid #64748b;">Закрыть</button>
         `;
@@ -332,26 +380,36 @@
     btnGenerate.addEventListener("click", async () => {
       const details = extractJobDetails();
 
-      // Update UI
       btnGenerate.disabled = true;
-      btnText.textContent = "Генерирую отклик...";
+      btnText.textContent = isCover ? "Генерирую отклик..." : "Генерирую ответ...";
       statusEl.className = "job-ai-status";
-      statusEl.innerHTML = '<span class="job-ai-spinner"></span> Gemini читает вакансию...';
+      statusEl.innerHTML = '<span class="job-ai-spinner"></span> Gemini формирует ответ...';
       modalEl.style.display = "none";
 
       try {
-        const response = await chrome.runtime.sendMessage({
-          action: "generate_cover_letter",
-          vacancyTitle: details.title,
-          company: details.company,
-          vacancyText: details.description
-        });
+        let response;
+        if (isCover) {
+          response = await chrome.runtime.sendMessage({
+            action: "generate_cover_letter",
+            vacancyTitle: details.title,
+            company: details.company,
+            vacancyText: details.description
+          });
+        } else {
+          response = await chrome.runtime.sendMessage({
+            action: "answer_screening_question",
+            questionText: field.questionText,
+            vacancyTitle: details.title,
+            company: details.company,
+            vacancyText: details.description
+          });
+        }
 
         if (response && response.success) {
           writeToField(field, response.text);
 
           statusEl.className = "job-ai-status success";
-          statusEl.textContent = `✅ Отклик готов! (${response.modelUsed || "Gemini"})`;
+          statusEl.textContent = `✅ Готово! (${response.modelUsed || "Gemini"})`;
           btnText.textContent = "Перегенерировать";
         } else {
           statusEl.className = "job-ai-status error";
@@ -383,9 +441,136 @@
     });
   }
 
+  /**
+   * Injects top banner for questionnaires (Greenhouse / Canonical style)
+   */
+  function injectTopFormBanner(fields) {
+    if (document.querySelector(".job-ai-form-banner")) return;
+
+    const form = document.querySelector("#application_form, form, .application-form") || document.body;
+    const banner = document.createElement("div");
+    banner.className = "job-ai-form-banner";
+
+    banner.innerHTML = `
+      <div class="job-ai-form-banner-header">
+        <div class="job-ai-form-banner-title">
+          <span>✨</span>
+          <span>Job Apply AI Assistant — Анкета работодателя</span>
+        </div>
+      </div>
+      <div class="job-ai-form-banner-body">
+        <div class="job-ai-form-banner-desc">
+          Обнаружена форма с анкетой (${fields.length} полей). Вы можете в 1 клик заполнить стандартные поля (диплом, школу, согласие на поездки).
+        </div>
+        <div class="job-ai-form-banner-actions">
+          <button type="button" class="job-ai-btn-autofill-all">⚡ Автозаполнить стандартные поля</button>
+        </div>
+      </div>
+      <div class="job-ai-banner-status" style="margin-top: 6px; font-size: 12px; font-weight: 500;"></div>
+    `;
+
+    form.parentNode.insertBefore(banner, form);
+
+    const btnAutofill = banner.querySelector(".job-ai-btn-autofill-all");
+    const statusEl = banner.querySelector(".job-ai-banner-status");
+
+    btnAutofill.addEventListener("click", async () => {
+      btnAutofill.disabled = true;
+      const count = await autofillCanonicalStandardFields();
+      statusEl.style.color = "#4ade80";
+      statusEl.textContent = `✅ Заполнено полей: ${count} (Degree, High School, Travel commitment, Agreement). Нажмите ✨ на вопросе по тестированию для генерации ответа по опыту.`;
+      setTimeout(() => {
+        btnAutofill.disabled = false;
+      }, 2000);
+    });
+  }
+
+  /**
+   * Autofills known standard fields on Canonical/Greenhouse forms
+   */
+  async function autofillCanonicalStandardFields() {
+    const stored = await chrome.storage.sync.get([
+      "degreeResult",
+      "schoolRationale",
+      "travelCommitment"
+    ]);
+
+    const defaultDegree = "Bachelor of Engineering (B.E.) in Computer Science, National Technical University of Ukraine 'Kyiv Polytechnic Institute' (NTUU KPI). Degree result: 4.8 out of 5.0 (Grading system: 5-point scale where 5 is Excellent / Equivalent to First-Class Honours / Top 5% of class).";
+    const defaultSchool = "Graduated secondary school with Gold Medal (Certificate of Secondary Education with Distinction / Honours), ranked in the top 5% of the graduating cohort. Maintained top grades (5.0 / 5.0) in Mathematics, Physics, and native language throughout high school. Regularly participated and placed in municipal and regional mathematics Olympiads.";
+
+    let filledCount = 0;
+
+    // 1. Textareas and inputs
+    const allInputs = document.querySelectorAll("input, textarea");
+    for (const el of allInputs) {
+      const qContext = extractQuestionContext(el).toLowerCase();
+
+      // Degree result
+      if (qContext.includes("degree result") || qContext.includes("bachelor's university degree") || qContext.includes("expected result")) {
+        el.value = stored.degreeResult || defaultDegree;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        filledCount++;
+      }
+
+      // School rationale
+      if (qContext.includes("rationale or evidence") || qContext.includes("high school performance selections") || qContext.includes("high school performance")) {
+        el.value = stored.schoolRationale || defaultSchool;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        filledCount++;
+      }
+    }
+
+    // 2. Select dropdowns
+    const allSelects = document.querySelectorAll("select");
+    for (const sel of allSelects) {
+      const qContext = extractQuestionContext(sel).toLowerCase();
+
+      // "During this application process I agree to use only my own words..."
+      if (qContext.includes("use only my own words") || qContext.includes("disqualify my application") || qContext.includes("plagiarism")) {
+        selectDropdownValue(sel, ["yes", "да", "agree", "true"]);
+        filledCount++;
+      }
+
+      // Travel commitment (2-4 times a year, 1-2 weeks)
+      if (qContext.includes("meet in person 2-4 times") || qContext.includes("international travel") || qContext.includes("commit to this")) {
+        selectDropdownValue(sel, ["yes", "да", "agree", "true"]);
+        filledCount++;
+      }
+
+      // High school mathematics performance
+      if (qContext.includes("mathematics at high school") || qContext.includes("math at high school")) {
+        selectDropdownValue(sel, ["top 20%", "top 10%", "top 5%", "top"]);
+        filledCount++;
+      }
+
+      // High school native language performance
+      if (qContext.includes("native language at high school") || qContext.includes("language at high school")) {
+        selectDropdownValue(sel, ["top 20%", "top 10%", "top 5%", "top"]);
+        filledCount++;
+      }
+    }
+
+    return filledCount;
+  }
+
+  function selectDropdownValue(selectEl, matchKeywords) {
+    for (const opt of selectEl.options) {
+      const optText = (opt.text || "").toLowerCase();
+      const optVal = (opt.value || "").toLowerCase();
+      if (matchKeywords.some(kw => optText.includes(kw) || optVal === kw)) {
+        selectEl.value = opt.value;
+        selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+        selectEl.dispatchEvent(new Event("input", { bubbles: true }));
+        break;
+      }
+    }
+  }
+
   function escapeHtml(text) {
     const div = document.createElement("div");
-    div.textContent = text;
+    div.textContent = text || "";
     return div.innerHTML;
   }
 })();

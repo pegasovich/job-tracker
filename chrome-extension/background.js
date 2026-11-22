@@ -22,6 +22,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       .catch(err => sendResponse({ success: false, error: err.message }));
     return true; // Keep channel open for async
   }
+
+  if (request.action === "answer_screening_question") {
+    handleAnswerScreeningQuestion(request)
+      .then(result => sendResponse(result))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true; // Keep channel open for async
+  }
 });
 
 async function handleKeyTest(apiKey) {
@@ -55,7 +62,6 @@ async function handleKeyTest(apiKey) {
 }
 
 async function handleGenerateCoverLetter(params) {
-  // 1. Get stored settings
   const stored = await chrome.storage.sync.get([
     "geminiApiKey",
     "userProfile",
@@ -73,12 +79,11 @@ async function handleGenerateCoverLetter(params) {
   }
 
   const modelChoice = params.model || stored.geminiModel || DEFAULT_MODEL;
-  const userProfile = params.userProfile || stored.userProfile || "Опытный QA Engineer с коммерческим опытом тестирования ПО.";
+  const userProfile = params.userProfile || stored.userProfile || "Опытный Senior QA / SDET инженер.";
   const language = params.language || stored.letterLanguage || "auto";
   const tone = params.tone || stored.letterTone || "concise";
 
-  // Build the prompt
-  const prompt = buildPrompt({
+  const prompt = buildCoverLetterPrompt({
     vacancyTitle: params.vacancyTitle || "Специалист",
     company: params.company || "",
     vacancyText: params.vacancyText || "",
@@ -87,7 +92,6 @@ async function handleGenerateCoverLetter(params) {
     tone
   });
 
-  // Try generating with preferred model, with automatic fallback
   const modelsToTry = [modelChoice, ...FALLBACK_MODELS.filter(m => m !== modelChoice)];
 
   let lastError = null;
@@ -101,7 +105,6 @@ async function handleGenerateCoverLetter(params) {
       lastError = err;
       const errLower = (err.message || "").toLowerCase();
 
-      // Only stop if the API key itself is invalid or unauthorized
       const isAuthError =
         errLower.includes("api key not valid") ||
         errLower.includes("api_key_invalid") ||
@@ -113,8 +116,6 @@ async function handleGenerateCoverLetter(params) {
         break;
       }
 
-      // For any other error (high demand / 503, rate limits, quota, 404, etc.),
-      // automatically try the next model in the fallback list
       console.warn(`[JobApplyAI] Model ${model} encountered: ${err.message}. Trying next fallback model...`);
       continue;
     }
@@ -123,6 +124,78 @@ async function handleGenerateCoverLetter(params) {
   return {
     success: false,
     error: lastError ? lastError.message : "Не удалось сгенерировать ответ от Gemini API."
+  };
+}
+
+async function handleAnswerScreeningQuestion(params) {
+  const stored = await chrome.storage.sync.get([
+    "geminiApiKey",
+    "userProfile",
+    "geminiModel",
+    "letterLanguage",
+    "degreeResult",
+    "schoolRationale"
+  ]);
+
+  const apiKey = (params.apiKey || stored.geminiApiKey || "").trim();
+  if (!apiKey) {
+    return {
+      success: false,
+      error: "API ключ Gemini не настроен. Откройте расширение в панели Chrome и введите бесплатный ключ."
+    };
+  }
+
+  const modelChoice = params.model || stored.geminiModel || DEFAULT_MODEL;
+  const userProfile = params.userProfile || stored.userProfile || "";
+  const questionText = params.questionText || "";
+  const vacancyTitle = params.vacancyTitle || "";
+  const company = params.company || "";
+  const vacancyText = params.vacancyText || "";
+  const language = params.language || stored.letterLanguage || "auto";
+
+  const prompt = buildScreeningQuestionPrompt({
+    questionText,
+    vacancyTitle,
+    company,
+    vacancyText,
+    userProfile,
+    language,
+    degreeResult: stored.degreeResult,
+    schoolRationale: stored.schoolRationale
+  });
+
+  const modelsToTry = [modelChoice, ...FALLBACK_MODELS.filter(m => m !== modelChoice)];
+
+  let lastError = null;
+  for (const model of modelsToTry) {
+    try {
+      const result = await callGeminiApi(apiKey, model, prompt);
+      if (result && result.text) {
+        return { success: true, text: result.text, modelUsed: model };
+      }
+    } catch (err) {
+      lastError = err;
+      const errLower = (err.message || "").toLowerCase();
+
+      const isAuthError =
+        errLower.includes("api key not valid") ||
+        errLower.includes("api_key_invalid") ||
+        errLower.includes("permission_denied") ||
+        errLower.includes("unauthenticated") ||
+        errLower.includes("forbidden");
+
+      if (isAuthError) {
+        break;
+      }
+
+      console.warn(`[JobApplyAI] Model ${model} screening error: ${err.message}. Trying next fallback model...`);
+      continue;
+    }
+  }
+
+  return {
+    success: false,
+    error: lastError ? lastError.message : "Не удалось сгенерировать ответ на вопрос."
   };
 }
 
@@ -140,7 +213,7 @@ async function callGeminiApi(apiKey, model, prompt) {
       }
     ],
     generationConfig: {
-      temperature: 0.65,
+      temperature: 0.6,
       maxOutputTokens: 2048
     }
   };
@@ -170,7 +243,7 @@ async function callGeminiApi(apiKey, model, prompt) {
   return { text: replyText.trim() };
 }
 
-function buildPrompt({ vacancyTitle, company, vacancyText, userProfile, language, tone }) {
+function buildCoverLetterPrompt({ vacancyTitle, company, vacancyText, userProfile, language, tone }) {
   let langInstruction = "";
   if (language === "uk") {
     langInstruction = "Текст отклика должен быть строго на украинском языке.";
@@ -189,7 +262,7 @@ function buildPrompt({ vacancyTitle, company, vacancyText, userProfile, language
     toneInstruction = "Тон: лаконичный, энергичный, строго по делу (3-4 небольших абзаца). Без лишней 'воды' и общих фраз, только конкретные навыки и опыт, релевантные вакансии.";
   }
 
-  return `Ты — профессиональный IT-карьерный консультант. Твоя задача — составить убедительное, честное и живое сопроводительное письмо (Cover Letter) для отклика на вакансию через веб-форму на сайте (поле 'Напишите немного о себе и почему вакансия вам подходит').
+  return `Ты — профессиональный IT-карьерный консультант. Твоя задача — составить убедительное, честное и живое сопроводительное письмо (Cover Letter) для отклика на вакансию через веб-форму на сайте.
 
 ДАННЫЕ О КАНДИДАТЕ (ЕДИНСТВЕННЫЙ ИСТОЧНИК ПРАВДЫ):
 ${userProfile}
@@ -201,28 +274,57 @@ ${userProfile}
 ${vacancyText.substring(0, 4000)}
 
 КРИТИЧЕСКИЕ ПРАВИЛА И СТРАТЕГИЯ ГЕНЕРАЦИИ:
-
-1. ПРАВИЛО ДОСТОВЕРНОСТИ (НЕ ВРАТЬ И НЕ ПРИДУМЫВАТЬ):
-   - Строго запрещено приписывать кандидату опыт, коммерческие годы стажа, стек или инструменты, которых НЕТ в блоке 'ДАННЫЕ О КАНДИДАТЕ'.
-   - Кандидат пойдёт на собеседование лично, поэтому каждое утверждение должно соответствовать реальности.
-
+1. ПРАВИЛО ДОСТОВЕРНОСТИ:
+   - Строго запрещено приписывать кандидату опыт, стаж, стек или инструменты, которых НЕТ в блоке 'ДАННЫЕ О КАНДИДАТЕ'.
 2. СТРАТЕГИЯ ПРИ НЕСОВПАДЕНИИ ТРЕБОВАНИЙ (TRANSFERABLE SKILLS):
-   - Если вакансия требует технологии или домен, которых нет в профиле кандидата:
-     * НИКОГДА не оправдывайся и не используй слабые фразы ('К сожалению, я не знаю...', 'У меня нет опыта в...').
-     * Найди смежные и фундаментальные навыки кандидата (например: общая база тест-дизайна, тестирование API через Postman, работа с клиент-серверной архитектурой, базами данных, логами, процессами Agile).
-     * Сделай сильный профессиональный 'мостик': покажи, как имеющаяся инженерная база и схожий опыт позволяют быстро и качественно освоить необходимый стек проекта.
-
+   - Если вакансия требует технологии, которых нет в профиле: покажи, как имеющаяся инженерная база (Python, тест-архитектура, API, CI/CD, Linux) позволяет быстро освоить нужный стек.
 3. ПРИОРИТЕТ ТОЧНЫХ СОВПАДЕНИЙ:
-   - В первую очередь подсвети те навыки и инструменты кандидата, которые НАПРЯМУЮ совпадают с требованиями вакансии.
-
+   - В первую очередь подсвети навыки и инструменты кандидата, которые НАПРЯМУЮ совпадают с требованиями вакансии.
 4. ЯЗЫК И СТИЛЬ:
    - ${langInstruction}
    - ${toneInstruction}
-   - Никаких шаблонных пустых фраз вроде 'я стрессоустойчивый', 'коммуникабельный', 'быстро обучаюсь'. Пиши как практикующий инженер.
-   - Если указана компания (${company}), органично упомяни её.
-
+   - Пиши живым языком практикующего инженера. Без шаблонных фраз вроде 'я стрессоустойчивый', 'быстро обучаюсь'.
 5. ФОРМАТ ВЫВОДА:
-   - ВЫВЕДИ ТОЛЬКО ГОТОВЫЙ ТЕКСТ ПИСЬМА для отправки.
-   - Не добавляй никаких предисловий от себя ('Вот текст отклика:', 'Здравствуйте, держите вариант'), не пиши 'Тема:' или markdown-заголовки (#, ##).
-   - Начинай сразу с приветствия (например, 'Здравствуйте!' / 'Вітаю!' / 'Hello team!').`;
+   - ВЫВЕДИ ТОЛЬКО ГОТОВЫЙ ТЕКСТ ПИСЬМА для отправки. Без предисловий, без markdown-заголовков (#). Начинай сразу с приветствия.`;
+}
+
+function buildScreeningQuestionPrompt({ questionText, vacancyTitle, company, vacancyText, userProfile, language, degreeResult, schoolRationale }) {
+  let langInstruction = "Answer strictly in the SAME language the question is written in (if the question is in English, write in English).";
+  if (language === "en") langInstruction = "Answer strictly in English.";
+  if (language === "uk") langInstruction = "Відповідай суворо українською мовою.";
+  if (language === "ru") langInstruction = "Отвечай строго на русском языке.";
+
+  return `You are an experienced Senior QA Automation / SDET Engineer filling out a detailed online job application questionnaire.
+The employer (${company || "the company"}, position: "${vacancyTitle}") has asked a specific screening question in the application form.
+
+QUESTION FROM EMPLOYER:
+"${questionText}"
+
+CANDIDATE'S PROFILE & REAL EXPERIENCE (SOLE SOURCE OF TRUTH):
+${userProfile}
+
+ADDITIONAL CANDIDATE FACTS:
+- Education / Degree: ${degreeResult || "Bachelor of Engineering in Computer Science, NTUU KPI"}
+- High School Rationale: ${schoolRationale || "High school Gold Medal (Honours), top 5% in mathematics and native language"}
+
+CRITICAL REQUIREMENTS:
+1. ANSWER DIRECTLY AND CONCISELY:
+   - Do NOT write a cover letter, do NOT add greetings ("Dear Hiring Manager", "Hello") and do NOT add sign-offs ("Best regards", "Sincerely").
+   - Jump straight into the direct answer to the exact question asked.
+   - Keep it high-impact, factual, and concise (1-3 paragraphs or structured bullet points if summarizing experience/tools).
+
+2. HUMAN ENGINEER VOICE (STRICT ANTI-AI DETECTION):
+   - IMPORTANT: The employer uses automated AI-detection software to disqualify AI-generated answers.
+   - Speak in the first person ("I have built...", "Over my 15+ years in QA...", "At EPAM, I designed...", "My primary stack is...").
+   - FORBIDDEN AI WORDS AND CLICHES: Never use words such as "thrilled", "delve", "testament", "tapestry", "in today's rapidly evolving", "beacon", "furthermore", "spearhead", "foster", "cutting-edge".
+   - Write like a pragmatic, battle-tested software engineer describing real hands-on experience, architecture, frameworks, and tools (Python, PyTest, Playwright, API testing, Linux, CI/CD, distributed cloud testing).
+
+3. TRUTHFULNESS:
+   - Stick 100% to the candidate's real background. Never fabricate companies, tools, or projects.
+
+4. LANGUAGE:
+   - ${langInstruction}
+
+5. OUTPUT FORMAT:
+   - Output ONLY the ready-to-paste text of the answer. No quotation marks around the answer, no markdown headers (# or ##), no conversational preamble.`;
 }

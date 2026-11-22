@@ -1,10 +1,10 @@
-/* Styles for Job Apply AI Assistant toolbar */
+/* Styles for Job Apply AI Assistant */
 
 .job-ai-container {
   display: flex;
   flex-direction: column;
-  margin-bottom: 8px;
-  margin-top: 8px;
+  margin-bottom: 6px;
+  margin-top: 6px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   user-select: none;
 }
@@ -16,38 +16,40 @@
   background: linear-gradient(135deg, rgba(28, 32, 48, 0.95), rgba(40, 30, 60, 0.95));
   border: 1px solid rgba(138, 116, 249, 0.35);
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 6px 10px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
   backdrop-filter: blur(8px);
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .job-ai-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .job-ai-btn-generate {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
   color: #ffffff !important;
   border: none;
   border-radius: 6px;
-  padding: 6px 14px;
-  font-size: 13px;
+  padding: 5px 12px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
 }
 
 .job-ai-btn-generate:hover:not(:disabled) {
   opacity: 0.95;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.55);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.5);
 }
 
 .job-ai-btn-generate:active:not(:disabled) {
@@ -60,13 +62,46 @@
   filter: grayscale(20%);
 }
 
+.job-ai-btn-quickfill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80 !important;
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.job-ai-btn-quickfill:hover {
+  background: rgba(34, 197, 94, 0.3);
+  border-color: #4ade80;
+}
+
+.job-ai-question-pill {
+  font-size: 11px;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 2px 8px;
+  border-radius: 10px;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .job-ai-btn-settings {
   background: rgba(255, 255, 255, 0.1);
   color: #e2e8f0;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 13px;
+  padding: 5px 8px;
+  font-size: 12px;
   cursor: pointer;
   transition: background 0.2s;
 }
@@ -76,11 +111,11 @@
 }
 
 .job-ai-status {
-  font-size: 12px;
+  font-size: 11px;
   color: #cbd5e1;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -98,8 +133,8 @@
 
 /* Spinner */
 .job-ai-spinner {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
   border-top-color: #ffffff;
@@ -112,20 +147,80 @@
   100% { transform: rotate(360deg); }
 }
 
-/* Tooltip / Modal Guide */
+/* Modal Guide */
 .job-ai-modal {
   background: #1e293b;
   border: 1px solid #475569;
   border-radius: 8px;
-  padding: 12px;
+  padding: 10px;
   margin-top: 6px;
   color: #f1f5f9;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.4;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
 }
 
-.job-ai-modal a {
-  color: #38bdf8;
-  text-decoration: underline;
+/* Top Form Banner (for questionnaires with multiple fields like Canonical/Greenhouse) */
+.job-ai-form-banner {
+  background: linear-gradient(135deg, #1e1b4b, #311042);
+  border: 1px solid #818cf8;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.25);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #f8fafc;
+}
+
+.job-ai-form-banner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.job-ai-form-banner-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.job-ai-form-banner-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.job-ai-form-banner-desc {
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.job-ai-form-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.job-ai-btn-autofill-all {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: white !important;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.4);
+  transition: all 0.2s ease;
+}
+
+.job-ai-btn-autofill-all:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
 }
