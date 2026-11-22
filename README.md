@@ -3,7 +3,7 @@
 [![Tests & Quality Gate](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml/badge.svg)](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml)
 ![Python Version](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue.svg)
 ![Test Framework](https://img.shields.io/badge/tested_with-pytest-0A9EDC.svg)
-![Test Count](https://img.shields.io/badge/tests-182%20passed-brightgreen.svg)
+![Test Count](https://img.shields.io/badge/tests-231%20passed-brightgreen.svg)
 ![Code Coverage](https://img.shields.io/badge/coverage-core%2090%25%2B-brightgreen.svg)
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF.svg)
 
@@ -11,7 +11,7 @@ An automated, multi-source job intelligence engine engineered for **QA & SDET pr
 
 The platform continuously aggregates, parses, filters, deduplicates, and alerts on verified openings across **direct ATS systems, curated remote portals, and APIs**, eliminating recruiter noise, domestic residency restrictions, and misleading "remote" listings.
 
-Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (182 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
+Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (231 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
 
 ---
 
@@ -76,18 +76,31 @@ Raw Job from Scraper
 [ Formatting & Telegram Dispatch ] ────► (Send alert card & persist to SQLite with timestamp)
 ```
 
-### 1. Level 0: Strict QA Title Validation
-Ensures roles like *"Software Engineer, Backend (Unit Testing)"*, *"PLC Automation Engineer"*, *"Scrum Master"*, or *"DevOps"* are immediately dropped, while accepting genuine QA, SDET, SQA, Automation, and Testing titles.
+### 1. Level 0: Strict QA Title Validation & Non-QA Overrides
+* **Positive Patterns:** Identifies genuine QA, SDET, SQA, Automation, Performance, and Software Testing titles.
+* **Negative Overrides:** Eliminates false positives where "testing" or "quality" appears in non-IT or non-QA domains:
+  * Pure Dev/Ops: *Software Engineer (Backend/Frontend/DevOps/SRE/Platform)*, *Scrum Master*, *Engineering Ops*.
+  * Regulatory & Legal: *Compliance Lead (Testing)*, *Regulatory Testing Analyst*, *Internal Audit & Controls*, *SOX/KYC/AML*.
+  * Cybersecurity & Pen-Testing: *Penetration Tester / Pen-Test Consultant*, *Ethical Hacker*.
+  * Medical & Laboratory: *Clinical Testing Coordinator*, *Lab / Chemical / Swab Testing*.
+  * Industrial & Materials: *Non-Destructive Testing (NDT)*, *Soil & Concrete Testing*, *Materials Testing Technician*.
+  * Marketing & Growth: *A/B Testing Specialist*, *Conversion Rate Optimization (CRO)*.
 
 ### 2. Level 1: Idempotent Deduplication
 Stores processed IDs in SQLite (`jobs_seen.db`). Duplicate items trigger `INSERT OR IGNORE`, preventing redundant alerts and guaranteeing idempotency across parallel or multi-machine runs.
 
-### 3. Level 2: Domestic Restriction & Commuter Heuristics
+### 3. Level 2: Cross-Source Geo-Blocking (US Domestic & Overseas Restrictions)
 * **Universal Remote:** Roles open to candidates Worldwide, Pan-European, EU, or Ireland are approved.
-* **Domestic Remote Block:** Identifies regex patterns indicating local residency requirements (e.g. *"must be resident in Germany"*, *"looking for an SDET based in Poland"*).
+* **Domestic US & Incompatible Region Block:** Blocks domestic remote positions labeled as `Remote US`, `US Remote`, `Remote (US)`, `United States`, `Canada`, `Latam`, `APAC`, `India`, etc., directly across all providers (Greenhouse, Lever, Arbeitnow, Remotive, WWR, DOU, Djinni, LinkedIn).
 * **Commutable Hybrid Radius:** Hybrid roles are rejected unless within reasonable daily/weekly commute distance to South-West Ireland (Co. Kerry, Cahersiveen, Tralee, Killarney).
 
-### 4. Level 2.5: Polish Domestic & Language Filtering
+### 4. Level 3: Description Stop-Pattern & Domestic Salary Gate
+* Scans full job descriptions for domestic restrictions:
+  * US state compensation disclosures (*"USA base pay range"*, *"base pay range (all other U.S. states)"*).
+  * Domestic work authorization mandates (*"authorized to work in the US"*, *"remote within the US only"*).
+  * Foreign country residency locked clauses (*"must be resident in Germany"*, *"looking for an SDET based in Poland"*).
+
+### 5. Level 3.5: Polish Domestic & Language Filtering
 * **No Fluff Jobs:** Rejects offers tagged with `pl` / `jobLanguage: pl` requirements.
 * **JustJoin.it:** Rejects offers requiring Polish language (`code: pl`).
 * **Title Filtering:** Drops Polish-domestic titles (`Tester Manualny`, `Tester Automatyzujący`, `Specjalista ds. Testów`, and gender parity markers `(k/m)`, `(m/k)`).
@@ -140,7 +153,7 @@ job-tracker/
 Every `git push` and Pull Request automatically triggers the test pipeline:
 1. Provisions an Ubuntu runner on Python 3.12.
 2. Installs runtime and testing dependencies with pip caching.
-3. Runs all **139 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
+3. Runs all **231 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
 4. Enforces the Quality Gate before merging.
 
 ---
@@ -175,7 +188,7 @@ ADZUNA_APP_KEY=your_adzuna_app_key
 
 ### 3. Running the Test Suite
 ```bash
-# Run all 120 tests
+# Run all 231 tests
 pytest -q
 
 # Run with coverage report
@@ -244,7 +257,7 @@ Located in [`chrome-extension/`](./chrome-extension/): A lightweight Manifest V3
 ## 🛠 Tech Stack
 
 * **Language:** Python 3.12
-* **Testing Framework:** Pytest 9, Pytest-Cov, Unittest.Mock (139 automated tests)
+* **Testing Framework:** Pytest 9, Pytest-Cov, Unittest.Mock (231 automated tests)
 * **CI/CD:** GitHub Actions 24/7 Cloud Automation & Quality Gate
 * **Persistence:** SQLite3 (WAL mode, idempotent schemas, Git-backed sync)
 * **Networking & Parsing:** Standard library (`urllib.request`), JSON, XML (`xml.etree.ElementTree`)
@@ -288,7 +301,7 @@ ADZUNA_APP_KEY=your_adzuna_app_key
 ### 4. Verify Local Tests
 ```bash
 pytest -q
-# Expecting: 139 passed
+# Expecting: 231 passed
 ```
 
 ### 5. Load the Chrome Extension on Laptop

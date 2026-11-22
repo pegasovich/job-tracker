@@ -286,6 +286,22 @@ class LinkedInJobScraper:
                 return True
         return False
 
+    @staticmethod
+    def is_description_blocked(description: str) -> bool:
+        """
+        Check if the job description contains phrases indicating the role is restricted
+        to foreign domestic residents (e.g. US only, Latam only, domestic salary tables, etc.)
+        incompatible with a candidate based in Ireland.
+        """
+        if not description:
+            return False
+        d = description.lower()
+        patterns = getattr(config, "LINKEDIN_DESCRIPTION_STOP_PATTERNS", []) if config else []
+        for pat in patterns:
+            if re.search(pat, d, re.IGNORECASE):
+                return True
+        return False
+
     def detect_workplace_type(self, title: str, location: str, description: str) -> str:
         t = title.lower()
         loc = location.lower()

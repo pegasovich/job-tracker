@@ -69,7 +69,12 @@ LINKEDIN_BLOCKED_LOCATIONS = [
     "panama", "guatemala", "el salvador", "honduras", "nicaragua",
     "latam", "latin america", "south america",
     # North America (domestic US/Canada roles)
-    "united states", r"\busa\b", r"\bu\.s\.a?\b", "canada",
+    "united states", r"\busa\b", r"\bu\.s\.a?\b", r"\bu\.?s\.?\b", "canada",
+    r"\bremote\s*[-–,(/]\s*u\.?s\.?\b",
+    r"\bu\.?s\.?\s*[-–,)/]\s*remote\b",
+    r"\bus\s+only\b",
+    r"\bdomestic\s+u\.?s\.?\b",
+    "california", "texas", "new york", "florida", "washington", "colorado", "massachusetts", "illinois",
     # Asia & Pacific
     "india", "pakistan", "bangladesh", "philippines", "vietnam", "indonesia",
     "malaysia", "singapore", "thailand", "china", "japan", "korea", "taiwan",
@@ -100,6 +105,15 @@ LINKEDIN_DESCRIPTION_STOP_PATTERNS = [
     r'\bresidents?\s+of\s+(?:latam|latin\s+america|argentina|brazil|colombia|mexico|usa?|united\s+states|india)\s+only\b',
     r'\btime\s*zones?\s*:\s*(?:est|pst|cst|mst|gmt-3|utc-3|utc-5)\s+only\b',
     r'\b(?:must\s+work\s+in|aligned\s+with)\s+(?:latam|est|pst|cst)\s+hours?\b',
+    # Domestic US salary & compensation disclosures and location gates
+    r'\b(?:usa?|u\.s\.?|united\s+states)\s+base\s+pay\s+range\b',
+    r'\b(?:base\s+pay|salary)\s+range\s*\(?(?:all\s+other\s+)?u\.?s\.?(?:\s+states)?\)?\b',
+    r'\b(?:remote\s+)?(?:work\s+)?(?:is\s+)?(?:only\s+)?(?:permitted|allowed|available)\s+(?:within|in)\s+(?:the\s+)?(?:u\.?s\.?|usa|united\s+states)\b',
+    r'\b(?:remote\s+)?(?:within|in)\s+the\s+(?:u\.?s\.?|usa|united\s+states)\s+only\b',
+    r'\b(?:must\s+be\s+)?(?:authorized|eligible)\s+to\s+work\s+in\s+the\s+(?:u\.?s\.?|usa|united\s+states)\b',
+    r'\b(?:u\.?s\.?|usa|united\s+states)\s+work\s+authorization\b',
+    r'\bwork\s+authorization\s+in\s+the\s+(?:u\.?s\.?|usa|united\s+states)\b',
+    r'\bpositions?\s+based\s+in\s+san\s+francisco\s+or\s+los\s+angeles\b',
 ]
 
 # Title & Role Validation (отсекаем вакансии девелоперов, DevOps, PM и т.д.)
@@ -131,6 +145,22 @@ NON_QA_OVERRIDE_PATTERNS = [
     r'\b(?:product|project|program|release|delivery)\s+manager\b',
     r'\b(?:scrum\s+master|agile\s+coach)\b',
     r'\bengineering\s+operations\b',
+    # Compliance, Regulatory, Legal, and Audit testing (non-software QA roles)
+    r'\b(?:compliance|regulatory|sox|kyc|aml)\b',
+    r'\baudit(?:ing|or)?\b',
+    r'\b(?:legal|governance)\b',
+    # Penetration testing / Ethical hacking (unless explicitly SDET/QA)
+    r'\b(?:penetration|pen)[\s-]?test',
+    r'\bethical\s+hack',
+    # Medical, Clinical, Laboratory, Chemical, and Biological testing
+    r'\b(?:clinical|medical|laboratory|lab|chemical|environmental|blood|drug|covid|swab|phlebotomy)\b',
+    # Industrial, Materials, Civil, Physical, and Non-destructive testing
+    r'\b(?:soil|concrete|materials?|metallurgical|ndt|non[\s-]destructive|geotechnical|civil)\b',
+    # Electrical appliance, vehicle, emissions testing
+    r'\bpat\s+test',
+    r'\b(?:vehicle|emissions?)\s+test',
+    # Marketing and CRO A/B testing
+    r'\b(?:a\/b|cro)\s+test',
 ]
 
 # Target keywords to monitor for QA/SDET (Manual & Automation)

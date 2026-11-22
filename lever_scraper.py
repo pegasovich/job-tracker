@@ -118,6 +118,11 @@ class LeverJobScraper:
         loc_name = (categories.get("location") or "").strip()
         workplace_type_raw = (job.get("workplaceType") or "").strip().lower()
 
+        # Geographical location filter (reject US, Latam, APAC, etc. for remote candidate in Ireland)
+        from linkedin_scraper import LinkedInJobScraper
+        if remote_only and LinkedInJobScraper.is_location_blocked(loc_name):
+            return None
+
         # Remote / workplace classification
         text_for_remote = f"{title} {loc_name} {workplace_type_raw}".lower()
         is_remote = (
@@ -148,6 +153,10 @@ class LeverJobScraper:
             raw_html = job.get("description") or ""
             clean = html.unescape(re.sub(r"<[^>]+>", " ", raw_html))
             description = re.sub(r"\s+", " ", clean).strip()
+
+        # Reject jobs with domestic US/foreign regional restrictions in description
+        if remote_only and LinkedInJobScraper.is_description_blocked(description):
+            return None
 
         # Check for salary mentions in text or description
         salary = ""

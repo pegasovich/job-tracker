@@ -139,3 +139,39 @@ class TestGreenhouseScraper:
             jobs = scraper.search_jobs(remote_only=True, limit_per_company=2, qa_only=True)
             assert len(jobs) == 1
             assert jobs[0]["title"] == "Lead SDET Engineer"
+
+    def test_compliance_and_us_remote_roles_filtered_out(self):
+        """Jobs like 'Compliance Lead, Testing' and US Remote roles must be rejected."""
+        scraper = GreenhouseJobScraper(companies=["affirm"])
+        affirm_response = {
+            "jobs": [
+                {
+                    "id": 7994549003,
+                    "title": "Compliance Lead, Testing",
+                    "company_name": "Affirm",
+                    "location": {"name": "Remote US"},
+                    "content": "<p>USA base pay range: $130,000 - $180,000. Compliance testing program.</p>",
+                },
+                {
+                    "id": 7994549004,
+                    "title": "Lead SDET Engineer",
+                    "company_name": "Affirm",
+                    "location": {"name": "Remote US"},
+                    "content": "<p>USA base pay range: $150,000 - $190,000. US remote only.</p>",
+                },
+                {
+                    "id": 7994549005,
+                    "title": "Senior SDET - Automation",
+                    "company_name": "Affirm",
+                    "location": {"name": "Remote (Europe)"},
+                    "content": "<p>Pan-European remote SDET role.</p>",
+                },
+            ]
+        }
+        with patch.object(scraper, "_fetch_company_jobs", return_value=affirm_response):
+            jobs = scraper.search_jobs(remote_only=True, qa_only=True)
+            # Only the European remote SDET role should pass; compliance and US remote must be rejected
+            assert len(jobs) == 1
+            assert jobs[0]["title"] == "Senior SDET - Automation"
+            assert jobs[0]["id"] == "gh_affirm_7994549005"
+

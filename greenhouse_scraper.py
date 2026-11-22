@@ -119,6 +119,11 @@ class GreenhouseJobScraper:
         loc_data = job.get("location") or {}
         loc_name = (loc_data.get("name") if isinstance(loc_data, dict) else str(loc_data) or "").strip()
 
+        # Geographical location filter (reject US, Latam, APAC, etc. for remote candidate in Ireland)
+        from linkedin_scraper import LinkedInJobScraper
+        if remote_only and LinkedInJobScraper.is_location_blocked(loc_name):
+            return None
+
         # Remote / workplace classification
         text_for_remote = f"{title} {loc_name}".lower()
         is_remote = (
@@ -146,6 +151,10 @@ class GreenhouseJobScraper:
         raw_content = job.get("content") or ""
         clean_desc = html.unescape(re.sub(r"<[^>]+>", " ", raw_content))
         clean_desc = re.sub(r"\s+", " ", clean_desc).strip()
+
+        # Reject jobs with domestic US/foreign regional restrictions in description
+        if remote_only and LinkedInJobScraper.is_description_blocked(clean_desc):
+            return None
 
         # Check for salary mentions in content or title
         salary = ""

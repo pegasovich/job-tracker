@@ -244,6 +244,22 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                     db.add_job(job)
                     continue
 
+                # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
+                if LinkedInJobScraper.is_location_blocked(job.get("location", "")):
+                    logger.info(
+                        f"🚫 [ГЕО-БЛОКИРОВКА / Djinni] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job.get('location', '')})"
+                    )
+                    db.add_job(job)
+                    continue
+
+                # Level 2: Стоп-фразы в описании
+                if LinkedInJobScraper.is_description_blocked(job.get("description", "")):
+                    logger.info(
+                        f"🚫 [СТОП-ОПИСАНИЕ / Djinni] Отклонена по описанию: '{job['title']}' @ {job['company']}"
+                    )
+                    db.add_job(job)
+                    continue
+
                 workplace_type = job.get("workplace_type", "remote")
 
                 # Фильтрация гибридных вакансий на Djinni
@@ -321,6 +337,22 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
             if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
                 logger.info(
                     f"🚫 [НЕ QA РОЛЬ / DOU] Отклонена по названию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
+            # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
+            if LinkedInJobScraper.is_location_blocked(job.get("location", "")):
+                logger.info(
+                    f"🚫 [ГЕО-БЛОКИРОВКА / DOU] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                )
+                db.add_job(job)
+                continue
+
+            # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
+            if LinkedInJobScraper.is_description_blocked(job.get("description", "")):
+                logger.info(
+                    f"🚫 [СТОП-ОПИСАНИЕ / DOU] Отклонена по описанию: '{job['title']}' @ {job['company']}"
                 )
                 db.add_job(job)
                 continue
@@ -571,6 +603,22 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 db.add_job(job)
                 continue
 
+            # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
+            if LinkedInJobScraper.is_location_blocked(job.get("location", "")):
+                logger.info(
+                    f"🚫 [ГЕО-БЛОКИРОВКА / Arbeitnow] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                )
+                db.add_job(job)
+                continue
+
+            # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
+            if LinkedInJobScraper.is_description_blocked(job.get("description", "")):
+                logger.info(
+                    f"🚫 [СТОП-ОПИСАНИЕ / Arbeitnow] Отклонена по описанию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
             workplace_type = job.get("workplace_type", "remote")
             total_new += 1
             snippet = job.get("description", "")[:350]
@@ -621,6 +669,22 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
             if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
                 logger.info(
                     f"🚫 [НЕ QA РОЛЬ / Greenhouse] Отклонена по названию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
+            # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
+            if LinkedInJobScraper.is_location_blocked(job.get("location", "")):
+                logger.info(
+                    f"🚫 [ГЕО-БЛОКИРОВКА / Greenhouse] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                )
+                db.add_job(job)
+                continue
+
+            # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
+            if LinkedInJobScraper.is_description_blocked(job.get("description", "")):
+                logger.info(
+                    f"🚫 [СТОП-ОПИСАНИЕ / Greenhouse] Отклонена по описанию: '{job['title']}' @ {job['company']}"
                 )
                 db.add_job(job)
                 continue
@@ -679,6 +743,22 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 db.add_job(job)
                 continue
 
+            # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
+            if LinkedInJobScraper.is_location_blocked(job.get("location", "")):
+                logger.info(
+                    f"🚫 [ГЕО-БЛОКИРОВКА / Lever] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                )
+                db.add_job(job)
+                continue
+
+            # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
+            if LinkedInJobScraper.is_description_blocked(job.get("description", "")):
+                logger.info(
+                    f"🚫 [СТОП-ОПИСАНИЕ / Lever] Отклонена по описанию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
             workplace_type = job.get("workplace_type", "remote")
             total_new += 1
             snippet = job.get("description", "")[:350]
@@ -732,6 +812,22 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 db.add_job(job)
                 continue
 
+            # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
+            if LinkedInJobScraper.is_location_blocked(job.get("location", "")):
+                logger.info(
+                    f"🚫 [ГЕО-БЛОКИРОВКА / Remotive] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                )
+                db.add_job(job)
+                continue
+
+            # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
+            if LinkedInJobScraper.is_description_blocked(job.get("description", "")):
+                logger.info(
+                    f"🚫 [СТОП-ОПИСАНИЕ / Remotive] Отклонена по описанию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
             workplace_type = job.get("workplace_type", "remote")
             total_new += 1
             snippet = job.get("description", "")[:350]
@@ -779,6 +875,22 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
             if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
                 logger.info(
                     f"🚫 [НЕ QA РОЛЬ / WeWorkRemotely] Отклонена по названию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
+            # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
+            if LinkedInJobScraper.is_location_blocked(job.get("location", "")):
+                logger.info(
+                    f"🚫 [ГЕО-БЛОКИРОВКА / WeWorkRemotely] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                )
+                db.add_job(job)
+                continue
+
+            # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
+            if LinkedInJobScraper.is_description_blocked(job.get("description", "")):
+                logger.info(
+                    f"🚫 [СТОП-ОПИСАНИЕ / WeWorkRemotely] Отклонена по описанию: '{job['title']}' @ {job['company']}"
                 )
                 db.add_job(job)
                 continue

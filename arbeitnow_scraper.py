@@ -127,10 +127,19 @@ class ArbeitnowJobScraper:
         if remote_only and not is_remote:
             return None
 
+        # Geographical location filter (reject US, Latam, APAC, etc. for remote candidate in Ireland)
+        from linkedin_scraper import LinkedInJobScraper
+        if remote_only and LinkedInJobScraper.is_location_blocked(raw_loc):
+            return None
+
         # Description cleaning (needed early for language detection)
         raw_desc = item.get("description", "")
         clean_desc = html.unescape(re.sub(r"<[^>]+>", " ", raw_desc))
         clean_desc = re.sub(r"\s+", " ", clean_desc).strip()
+
+        # Reject jobs with domestic US/foreign regional restrictions in description
+        if remote_only and LinkedInJobScraper.is_description_blocked(clean_desc):
+            return None
 
         # Non-English language detection: skip postings written in German, French, etc.
         if is_non_english_text(title, clean_desc):

@@ -187,10 +187,21 @@ class TestQATitleFilter:
             "Backend Developer (TDD)",
             "Software Engineer, Backend (Unit Testing)",
             "PLC Automation Engineer",
+            "Compliance Lead, Testing",
+            "Compliance Testing Analyst",
+            "Audit Manager - Financial & Controls Testing",
+            "SOX Testing Lead",
+            "Regulatory Reporting & Testing Analyst",
+            "Penetration Tester / Security Consultant",
+            "Clinical Testing Coordinator",
+            "Materials Testing Technician",
+            "A/B Testing Specialist",
+            "PAT Testing Engineer",
+            "Non-Destructive Testing (NDT) Inspector",
         ],
     )
     def test_non_qa_titles_rejected(self, linkedin_scraper, title):
-        """Pure developer, ops, and management titles must be rejected."""
+        """Pure developer, ops, management, compliance, and non-software testing titles must be rejected."""
         assert linkedin_scraper.is_qa_title(title) is False
 
     @pytest.mark.parametrize(
@@ -398,4 +409,86 @@ class TestLanguageWhitelistFilter:
             {"values": [{"value": "fr", "type": "jobLanguage"}]},
             allowed_codes=["en", "english"],
         ) is True
+
+
+class TestGeoBlockedLocations:
+    """Tests location blocking against US domestic, Latam, APAC, etc."""
+
+    @pytest.mark.parametrize(
+        "location",
+        [
+            "Remote US",
+            "US Remote",
+            "Remote, US",
+            "Remote (US)",
+            "Remote - US",
+            "United States",
+            "Remote - United States",
+            "Remote, USA",
+            "San Francisco, CA, US",
+            "Austin, TX, US",
+            "Remote - California",
+            "Remote - Canada",
+            "Remote Brazil",
+            "India (Remote)",
+            "Remote - Latam",
+            "Remote - APAC",
+        ],
+    )
+    def test_incompatible_locations_blocked(self, linkedin_scraper, location):
+        """Domestic US and other non-European remote locations must be blocked."""
+        assert linkedin_scraper.is_location_blocked(location) is True
+
+    @pytest.mark.parametrize(
+        "location",
+        [
+            "Ireland",
+            "Remote (Ireland)",
+            "Dublin, Ireland",
+            "Remote - Europe",
+            "Remote - EMEA",
+            "Home Based - EMEA",
+            "Worldwide",
+            "Anywhere",
+            "London, UK",
+            "Remote",
+        ],
+    )
+    def test_compatible_locations_allowed(self, linkedin_scraper, location):
+        """Ireland, Europe, EMEA, UK, and Worldwide locations must not be blocked."""
+        assert linkedin_scraper.is_location_blocked(location) is False
+
+
+class TestDescriptionStopPatterns:
+    """Tests detection of domestic US salary disclosures and regional restrictions in description."""
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "USA base pay range (CA, WA, NY, NJ, CT) per year: $130,000 - $180,000",
+            "base pay range (all other U.S. states) per year: $115,000 - $165,000",
+            "This position is strictly for Latam candidates.",
+            "Remote work is only permitted within the US.",
+            "Candidates must be living in the US.",
+            "Work authorization in the United States is required.",
+            "For positions based in San Francisco or Los Angeles: Affirm considers qualified applicants.",
+        ],
+    )
+    def test_incompatible_descriptions_blocked(self, linkedin_scraper, text):
+        """Descriptions with domestic US salary grids or US/Latam residency rules must be blocked."""
+        assert linkedin_scraper.is_description_blocked(text) is True
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "We offer competitive salary for top SDETs across Europe.",
+            "Remote role open to candidates in Ireland and the UK.",
+            "Candidates worldwide considered. Flexible B2B contractor contract.",
+            "Visa sponsorship is not available for this role. Candidates must have Stamp 4 or EU citizenship.",
+        ],
+    )
+    def test_compatible_descriptions_allowed(self, linkedin_scraper, text):
+        """European, Ireland, and global contractor descriptions must not be blocked."""
+        assert linkedin_scraper.is_description_blocked(text) is False
+
 
