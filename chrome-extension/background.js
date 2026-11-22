@@ -4,8 +4,8 @@ const DEFAULT_MODEL = "gemini-2.0-flash";
 const FALLBACK_MODELS = [
   "gemini-2.0-flash",
   "gemini-1.5-flash",
-  "gemini-2.5-flash",
-  "gemini-3.8-flash"
+  "gemini-2.0-flash-lite",
+  "gemini-1.5-flash-8b"
 ];
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -78,7 +78,11 @@ async function handleGenerateCoverLetter(params) {
     };
   }
 
-  const modelChoice = params.model || stored.geminiModel || DEFAULT_MODEL;
+  let modelChoice = params.model || stored.geminiModel || DEFAULT_MODEL;
+  if (modelChoice === "gemini-2.5-flash" || !modelChoice) {
+    modelChoice = DEFAULT_MODEL;
+  }
+
   const userProfile = params.userProfile || stored.userProfile || "Опытный Senior QA / SDET инженер.";
   const language = params.language || stored.letterLanguage || "auto";
   const tone = params.tone || stored.letterTone || "concise";
@@ -92,7 +96,8 @@ async function handleGenerateCoverLetter(params) {
     tone
   });
 
-  const modelsToTry = [modelChoice, ...FALLBACK_MODELS.filter(m => m !== modelChoice)];
+  const validFallbacks = FALLBACK_MODELS.filter(m => m !== "gemini-2.5-flash");
+  const modelsToTry = [modelChoice, ...validFallbacks.filter(m => m !== modelChoice)];
 
   let lastError = null;
   for (const model of modelsToTry) {
@@ -145,7 +150,11 @@ async function handleAnswerScreeningQuestion(params) {
     };
   }
 
-  const modelChoice = params.model || stored.geminiModel || DEFAULT_MODEL;
+  let modelChoice = params.model || stored.geminiModel || DEFAULT_MODEL;
+  if (modelChoice === "gemini-2.5-flash" || !modelChoice) {
+    modelChoice = DEFAULT_MODEL;
+  }
+
   const userProfile = params.userProfile || stored.userProfile || "";
   const questionText = params.questionText || "";
   const vacancyTitle = params.vacancyTitle || "";
@@ -164,7 +173,8 @@ async function handleAnswerScreeningQuestion(params) {
     schoolRationale: stored.schoolRationale
   });
 
-  const modelsToTry = [modelChoice, ...FALLBACK_MODELS.filter(m => m !== modelChoice)];
+  const validFallbacks = FALLBACK_MODELS.filter(m => m !== "gemini-2.5-flash");
+  const modelsToTry = [modelChoice, ...validFallbacks.filter(m => m !== modelChoice)];
 
   let lastError = null;
   for (const model of modelsToTry) {

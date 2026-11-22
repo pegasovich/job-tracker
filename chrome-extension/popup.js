@@ -80,7 +80,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (stored.geminiApiKey) apiKeyInput.value = stored.geminiApiKey;
   userProfileArea.value = stored.userProfile || DEFAULT_PROFILE;
 
-  if (stored.geminiModel && ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-3.8-flash"].includes(stored.geminiModel)) {
+  if (stored.geminiModel && ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"].includes(stored.geminiModel)) {
     geminiModelSelect.value = stored.geminiModel;
   } else {
     geminiModelSelect.value = "gemini-2.0-flash";

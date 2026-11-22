@@ -4,6 +4,20 @@
 (() => {
   const PROCESSED_ATTR = "data-job-ai-attached";
 
+  // Standard personal / contact fields that should NEVER receive AI generation buttons
+  const EXCLUDED_FIELD_KEYWORDS = [
+    "first name", "first_name", "firstname", "given name", "forename", "имя", "ім'я",
+    "last name", "last_name", "lastname", "family name", "surname", "фамилия", "прізвище",
+    "full name", "fullname", "полное имя", "фио",
+    "email", "e-mail", "почта", "пошта",
+    "phone", "mobile", "tel", "telephone", "телефон",
+    "resume", "cv", "резюме", "attach", "upload", "file",
+    "address", "city", "location", "country", "state", "postal", "zip", "город", "місто", "адрес",
+    "linkedin", "github", "portfolio", "website", "url", "link", "social",
+    "salary", "зарплата", "compensation",
+    "hear about", "how did you hear", "source", "referred", "referral"
+  ];
+
   // Observe DOM for dynamic forms (SPA navigation, modal dialogs)
   let scanTimeout = null;
   const observer = new MutationObserver(() => {
@@ -48,7 +62,7 @@
     const results = [];
     const hostname = window.location.hostname;
 
-    // ─── 1. All visible <textarea> elements ───
+    // ─── 1. All visible <textarea> elements (Essay questions / Cover letter) ───
     const allTextareas = document.querySelectorAll("textarea");
     for (const ta of allTextareas) {
       if (ta.classList.contains("hidden") || ta.style.display === "none") continue;
@@ -57,6 +71,9 @@
 
       const qContext = extractQuestionContext(ta);
       const fieldType = classifyFieldType(qContext, ta, hostname);
+
+      // Do NOT attach to blacklisted personal fields
+      if (!fieldType || fieldType === "excluded_personal") continue;
 
       results.push({
         type: "textarea",
@@ -70,7 +87,8 @@
       });
     }
 
-    // ─── 2. Single-line <input> fields for specific screening questions (Degree result, etc.) ───
+    // ─── 2. Single-line <input> fields ONLY for degree_result or school_rationale ───
+    // NEVER attach to generic input[type="text"] (First Name, Email, etc.)
     const allInputs = document.querySelectorAll(
       'input[type="text"]:not([data-job-ai-attached]), input:not([type]):not([data-job-ai-attached])'
     );
@@ -81,8 +99,8 @@
       const qContext = extractQuestionContext(inp);
       const fieldType = classifyFieldType(qContext, inp, hostname);
 
-      // Only attach to inputs that are clearly questionnaire questions (not basic name/email)
-      if (fieldType === "degree_result" || fieldType === "school_rationale" || fieldType === "screening_question") {
+      // STRICT CHECK: For single-line inputs, ONLY attach if it's explicitly degree_result or school_rationale
+      if (fieldType === "degree_result" || fieldType === "school_rationale") {
         results.push({
           type: "input",
           fieldType,
@@ -109,6 +127,8 @@
 
       const qContext = extractQuestionContext(container);
       const fieldType = classifyFieldType(qContext, container, hostname);
+
+      if (!fieldType || fieldType === "excluded_personal") continue;
 
       results.push({
         type: "richtext",
@@ -177,6 +197,11 @@
     const idOrName = ((el.name || "") + " " + (el.id || "")).toLowerCase();
     const combined = qLower + " " + idOrName;
 
+    // Check blacklist first
+    if (EXCLUDED_FIELD_KEYWORDS.some(kw => combined.includes(kw))) {
+      return "excluded_personal";
+    }
+
     // 1. Degree result / GPA question
     if (
       combined.includes("degree result") ||
@@ -217,8 +242,12 @@
       return "cover_letter";
     }
 
-    // 4. Any other application questionnaire field
-    return "screening_question";
+    // 4. Any other application textarea
+    if (el.tagName === "TEXTAREA" || el.getAttribute("contenteditable") === "true") {
+      return "screening_question";
+    }
+
+    return null;
   }
 
   function extractJobDetails() {
@@ -460,7 +489,7 @@
       </div>
       <div class="job-ai-form-banner-body">
         <div class="job-ai-form-banner-desc">
-          Обнаружена форма с анкетой (${fields.length} полей). Вы можете в 1 клик заполнить стандартные поля (диплом, школу, согласие на поездки).
+          Обнаружена анкета вакансии. Вы можете в 1 клик заполнить стандартные поля (диплом, школу, согласие на поездки).
         </div>
         <div class="job-ai-form-banner-actions">
           <button type="button" class="job-ai-btn-autofill-all">⚡ Автозаполнить стандартные поля</button>
