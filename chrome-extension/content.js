@@ -507,7 +507,7 @@
       btnAutofill.disabled = true;
       const count = await autofillCanonicalStandardFields();
       statusEl.style.color = "#4ade80";
-      statusEl.textContent = `✅ Заполнено полей: ${count} (LinkedIn, GitHub/Website, Degree, School, Travel, Agreement). Нажмите ✨ на вопросе по тестированию для генерации ответа по опыту.`;
+      statusEl.textContent = `✅ Заполнено полей: ${count} (Контакты, LinkedIn, GitHub/Website, Degree, School, Travel, Agreement). Нажмите ✨ на вопросе по тестированию для генерации ответа по опыту.`;
       setTimeout(() => {
         btnAutofill.disabled = false;
       }, 2000);
@@ -525,6 +525,10 @@
       "candidateLinkedin",
       "candidateGithub",
       "candidatePhone",
+      "candidateEmail",
+      "candidateCountry",
+      "firstName",
+      "lastName",
       "candidateLocation"
     ]);
 
@@ -532,6 +536,11 @@
     const defaultSchool = "Graduated secondary school with Gold Medal (Certificate of Secondary Education with Distinction / Honours), ranked in the top 5% of the graduating cohort. Maintained top grades (5.0 / 5.0) in Mathematics, Physics, and native language throughout high school. Regularly participated and placed in municipal and regional mathematics Olympiads.";
     const defaultGithub = stored.candidateGithub || "https://github.com/pegasovich";
     const defaultLinkedin = stored.candidateLinkedin || "https://www.linkedin.com/in/oleg-kryvokobylskyi/";
+    const firstName = stored.firstName || "Oleg";
+    const lastName = stored.lastName || "Kryvokobylskyi";
+    const email = stored.candidateEmail || "pegasovich@gmail.com";
+    const phone = stored.candidatePhone || "+353 83 395 9693";
+    const country = stored.candidateCountry || "Ireland";
 
     let filledCount = 0;
 
@@ -540,6 +549,58 @@
     for (const el of allInputs) {
       const qContext = extractQuestionContext(el).toLowerCase();
       const idOrName = ((el.name || "") + " " + (el.id || "")).toLowerCase();
+
+      // First Name
+      if (
+        qContext.includes("first name") ||
+        qContext.includes("given name") ||
+        idOrName.includes("first_name") ||
+        idOrName.includes("firstname")
+      ) {
+        el.value = firstName;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        filledCount++;
+      }
+
+      // Last Name
+      if (
+        qContext.includes("last name") ||
+        qContext.includes("family name") ||
+        qContext.includes("surname") ||
+        idOrName.includes("last_name") ||
+        idOrName.includes("lastname")
+      ) {
+        el.value = lastName;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        filledCount++;
+      }
+
+      // Email
+      if (
+        qContext.includes("email") ||
+        idOrName.includes("email")
+      ) {
+        el.value = email;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        filledCount++;
+      }
+
+      // Phone
+      if (
+        qContext.includes("phone") ||
+        qContext.includes("mobile") ||
+        qContext.includes("telephone") ||
+        idOrName.includes("phone") ||
+        idOrName.includes("mobile")
+      ) {
+        el.value = phone;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        filledCount++;
+      }
 
       // Degree result
       if (qContext.includes("degree result") || qContext.includes("bachelor's university degree") || qContext.includes("expected result")) {
@@ -578,6 +639,17 @@
     const allSelects = document.querySelectorAll("select");
     for (const sel of allSelects) {
       const qContext = extractQuestionContext(sel).toLowerCase();
+      const idOrName = ((sel.name || "") + " " + (sel.id || "")).toLowerCase();
+
+      // Country
+      if (
+        qContext === "country" ||
+        qContext.includes("country") ||
+        idOrName.includes("country")
+      ) {
+        selectDropdownValue(sel, ["ireland", "ie", "irl", "+353"]);
+        filledCount++;
+      }
 
       // "During this application process I agree to use only my own words..."
       if (qContext.includes("use only my own words") || qContext.includes("disqualify my application") || qContext.includes("plagiarism")) {

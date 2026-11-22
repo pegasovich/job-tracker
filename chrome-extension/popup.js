@@ -52,6 +52,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const degreeResultArea = document.getElementById("degree-result");
   const schoolRationaleArea = document.getElementById("school-rationale");
+  const firstNameInput = document.getElementById("first-name");
+  const lastNameInput = document.getElementById("last-name");
+  const emailInput = document.getElementById("candidate-email");
+  const countryInput = document.getElementById("candidate-country");
   const locationInput = document.getElementById("candidate-location");
   const phoneInput = document.getElementById("candidate-phone");
   const linkedinInput = document.getElementById("candidate-linkedin");
@@ -68,6 +72,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     "geminiModel",
     "letterLanguage",
     "letterTone",
+    "firstName",
+    "lastName",
+    "candidateEmail",
+    "candidateCountry",
     "degreeResult",
     "schoolRationale",
     "candidateLocation",
@@ -88,6 +96,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (stored.letterLanguage) letterLangSelect.value = stored.letterLanguage;
   if (stored.letterTone) letterToneSelect.value = stored.letterTone;
+
+  if (firstNameInput) firstNameInput.value = stored.firstName || "Oleg";
+  if (lastNameInput) lastNameInput.value = stored.lastName || "Kryvokobylskyi";
+  if (emailInput) emailInput.value = stored.candidateEmail || "pegasovich@gmail.com";
+  if (countryInput) countryInput.value = stored.candidateCountry || "Ireland";
 
   degreeResultArea.value = stored.degreeResult || DEFAULT_DEGREE_RESULT;
   schoolRationaleArea.value = stored.schoolRationale || DEFAULT_SCHOOL_RATIONALE;
@@ -159,6 +172,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const degreeResult = degreeResultArea.value.trim();
     const schoolRationale = schoolRationaleArea.value.trim();
+    const firstName = firstNameInput ? firstNameInput.value.trim() : "Oleg";
+    const lastName = lastNameInput ? lastNameInput.value.trim() : "Kryvokobylskyi";
+    const candidateEmail = emailInput ? emailInput.value.trim() : "pegasovich@gmail.com";
+    const candidateCountry = countryInput ? countryInput.value.trim() : "Ireland";
     const candidateLocation = locationInput.value.trim();
     const candidatePhone = phoneInput.value.trim();
     const candidateLinkedin = linkedinInput.value.trim();
@@ -176,6 +193,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         geminiModel,
         letterLanguage,
         letterTone,
+        firstName,
+        lastName,
+        candidateEmail,
+        candidateCountry,
         degreeResult,
         schoolRationale,
         candidateLocation,
