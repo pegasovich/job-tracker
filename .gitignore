@@ -24,4 +24,5 @@ htmlcov/
 
 # Local exports
 *.csv
-jobs_seen.html
+*.html
+*Resume*
