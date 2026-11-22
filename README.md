@@ -3,7 +3,7 @@
 [![Tests & Quality Gate](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml/badge.svg)](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml)
 ![Python Version](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue.svg)
 ![Test Framework](https://img.shields.io/badge/tested_with-pytest-0A9EDC.svg)
-![Test Count](https://img.shields.io/badge/tests-246%20passed-brightgreen.svg)
+![Test Count](https://img.shields.io/badge/tests-248%20passed-brightgreen.svg)
 ![Code Coverage](https://img.shields.io/badge/coverage-core%2090%25%2B-brightgreen.svg)
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF.svg)
 
@@ -11,7 +11,7 @@ An automated, multi-source job intelligence engine engineered for **QA & SDET pr
 
 The platform continuously aggregates, parses, filters, deduplicates, and alerts on verified openings across **direct ATS systems, curated remote portals, and APIs**, eliminating recruiter noise, domestic residency restrictions, and misleading "remote" listings.
 
-Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (246 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
+Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (248 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
 
 ---
 
@@ -148,6 +148,10 @@ job-tracker/
 ├── adzuna_scraper.py        # Adzuna REST API scraper (IE & UK)
 ├── arbeitnow_scraper.py     # Arbeitnow open REST API scraper (EU & Remote)
 ├── greenhouse_scraper.py    # Greenhouse Direct Company ATS scraper
+├── lever_scraper.py         # Lever Direct Company ATS scraper
+├── ashby_scraper.py         # Ashby Direct Company ATS scraper
+├── himalayas_scraper.py     # Himalayas Curated Remote REST API scraper
+├── view_db.py               # Database CLI inspector, search & CSV/HTML exporter
 └── telegram_notifier.py     # Telegram Bot API notification engine
 ```
 
@@ -155,7 +159,7 @@ job-tracker/
 Every `git push` and Pull Request automatically triggers the test pipeline:
 1. Provisions an Ubuntu runner on Python 3.12.
 2. Installs runtime and testing dependencies with pip caching.
-3. Runs all **246 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
+3. Runs all **248 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
 4. Enforces the Quality Gate before merging.
 
 ---
