@@ -55,6 +55,8 @@ from adzuna_scraper import AdzunaJobScraper
 from arbeitnow_scraper import ArbeitnowJobScraper
 from greenhouse_scraper import GreenhouseJobScraper
 from lever_scraper import LeverJobScraper
+from ashby_scraper import AshbyJobScraper
+from himalayas_scraper import HimalayasJobScraper, is_himalayas_location_eligible
 from remotive_scraper import RemotiveJobScraper
 from weworkremotely_scraper import WeWorkRemotelyJobScraper
 from database import JobDatabase
@@ -789,6 +791,76 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
 
             db.add_job(job)
 
+    # --- Ashby (Direct Company ATS) ---
+    if getattr(config, "ENABLE_ASHBY", True):
+        ashby_companies = getattr(config, "ASHBY_COMPANIES", ["linear", "synthesia", "posthog"])
+        ashby_remote = getattr(config, "ASHBY_REMOTE_ONLY", True)
+        ashby_limit = getattr(config, "ASHBY_LIMIT_PER_COMPANY", 30) if not test_mode else 10
+        target_ashby_comps = ashby_companies if not test_mode else [ashby_companies[0]]
+        logger.info(f"🪐 Поиск в Ashby ATS (Компаний: {len(target_ashby_comps)}, Remote={ashby_remote})...")
+        ashby = AshbyJobScraper(companies=target_ashby_comps)
+        ashby_jobs = ashby.search_jobs(remote_only=ashby_remote, limit_per_company=ashby_limit)
+        logger.info(f"[Ashby] Найдено карточек: {len(ashby_jobs)}")
+
+        for job in ashby_jobs:
+            job_id = job["id"]
+            if db.is_seen(job_id):
+                continue
+
+            # Level 0: Валидация названия роли
+            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
+                logger.info(
+                    f"🚫 [НЕ QA РОЛЬ / Ashby] Отклонена по названию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
+            # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
+            if LinkedInJobScraper.is_location_blocked(job.get("location", "")):
+                logger.info(
+                    f"🚫 [ГЕО-БЛОКИРОВКА / Ashby] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                )
+                db.add_job(job)
+                continue
+
+            # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
+            if LinkedInJobScraper.is_description_blocked(job.get("description", "")):
+                logger.info(
+                    f"🚫 [СТОП-ОПИСАНИЕ / Ashby] Отклонена по описанию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
+            workplace_type = job.get("workplace_type", "remote")
+            total_new += 1
+            snippet = job.get("description", "")[:350]
+            if len(job.get("description", "")) > 350:
+                snippet = snippet.rstrip() + "..."
+
+            logger.info(f"✨ [Ashby] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
+
+            if dry_run:
+                print("\n" + "=" * 60)
+                print(f"[DRY RUN / Ashby] Новая вакансия ({workplace_type.upper()}):")
+                print(f"Позиция: {job['title']}")
+                print(f"Компания: {job['company']}")
+                print(f"Локация: {job['location']}")
+                if job.get("salary"):
+                    print(f"Зарплата: {job['salary']}")
+                print(f"Ссылка: {job['url']}")
+                if snippet:
+                    print(f"Фрагмент описания: {snippet[:200]}...")
+                print("=" * 60 + "\n")
+            else:
+                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
+                if sent:
+                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
+                else:
+                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
+                time.sleep(1.5)
+
+            db.add_job(job)
+
     # --- Remotive (remotive.com API) ---
     if getattr(config, "ENABLE_REMOTIVE", True):
         remotive_cat = getattr(config, "REMOTIVE_CATEGORY", "qa")
@@ -925,9 +997,73 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
 
             db.add_job(job)
 
-    logger.info(
-        f"🏁 Проверка завершена. Найдено новых вакансий: {total_new}. Всего в базе: {db.count_seen()}."
-    )
+    # --- Himalayas (himalayas.app API) ---
+    if getattr(config, "ENABLE_HIMALAYAS", True):
+        himalayas_max_pages = getattr(config, "HIMALAYAS_MAX_PAGES", 5) if not test_mode else 1
+        himalayas_limit = getattr(config, "HIMALAYAS_LIMIT", 50) if not test_mode else 10
+        logger.info(f"🏔️ Поиск на Himalayas API (Страниц: {himalayas_max_pages})...")
+        himalayas = HimalayasJobScraper(max_pages=himalayas_max_pages)
+        himalayas_jobs = himalayas.search_jobs(remote_only=True, limit=himalayas_limit)
+        logger.info(f"[Himalayas] Найдено карточек: {len(himalayas_jobs)}")
+
+        for job in himalayas_jobs:
+            job_id = job["id"]
+            if db.is_seen(job_id):
+                continue
+
+            # Level 0: Валидация названия роли
+            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
+                logger.info(
+                    f"🚫 [НЕ QA РОЛЬ / Himalayas] Отклонена по названию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
+            # Level 1: Гео-фильтр карточки
+            if LinkedInJobScraper.is_location_blocked(job.get("location", "")):
+                logger.info(
+                    f"🚫 [ГЕО-БЛОКИРОВКА / Himalayas] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                )
+                db.add_job(job)
+                continue
+
+            # Level 2: Стоп-фразы в описании
+            if LinkedInJobScraper.is_description_blocked(job.get("description", "")):
+                logger.info(
+                    f"🚫 [СТОП-ОПИСАНИЕ / Himalayas] Отклонена по описанию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
+            workplace_type = job.get("workplace_type", "remote")
+            total_new += 1
+            snippet = job.get("description", "")[:350]
+            if len(job.get("description", "")) > 350:
+                snippet = snippet.rstrip() + "..."
+
+            logger.info(f"✨ [Himalayas] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
+
+            if dry_run:
+                print("\n" + "=" * 60)
+                print(f"[DRY RUN / Himalayas] Новая вакансия ({workplace_type.upper()}):")
+                print(f"Позиция: {job['title']}")
+                print(f"Компания: {job['company']}")
+                print(f"Локация: {job['location']}")
+                if job.get("salary"):
+                    print(f"Зарплата: {job['salary']}")
+                print(f"Ссылка: {job['url']}")
+                if snippet:
+                    print(f"Фрагмент описания: {snippet[:200]}...")
+                print("=" * 60 + "\n")
+            else:
+                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
+                if sent:
+                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
+                else:
+                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
+                time.sleep(1.5)
+
+            db.add_job(job)
     return total_new
 
 

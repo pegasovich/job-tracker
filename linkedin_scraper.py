@@ -261,9 +261,9 @@ class LinkedInJobScraper:
         patterns = getattr(config, "QA_TITLE_PATTERNS", [])
         has_qa = any(re.search(p, t, re.IGNORECASE) for p in patterns)
 
-        # 3. Allow "Automation Engineer" unless it's hardware/PLC/marketing
+        # 3. Allow "Automation Engineer" unless it's hardware/PLC/marketing/GTM
         if not has_qa and re.search(r'\bautomation\s+engineers?\b', t, re.IGNORECASE):
-            if not re.search(r'\b(?:plc|hardware|industrial|marketing|sales|network)\b', t, re.IGNORECASE):
+            if not re.search(r'\b(?:plc|hardware|industrial|marketing|sales|network|gtm|revenue|business|crm|hubspot|salesforce)\b', t, re.IGNORECASE):
                 has_qa = True
 
         return has_qa

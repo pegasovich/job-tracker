@@ -161,6 +161,10 @@ NON_QA_OVERRIDE_PATTERNS = [
     r'\b(?:vehicle|emissions?)\s+test',
     # Marketing and CRO A/B testing
     r'\b(?:a\/b|cro)\s+test',
+    # Foreign language specific tester roles (requiring non-English native fluency)
+    r'\b(?:with|speaking|fluent|native)\s+(?:french|german|deutsch|italian|spanish|polish|dutch|swedish|danish|norwegian|finnish|japanese|mandarin|hebrew)\b',
+    r'\b(?:french|german|deutsch|italian|spanish|polish|dutch|japanese)\s+speaker\b',
+    r'\b(?:french|german|deutsch|italian|spanish|polish|dutch)\s+language\b',
 ]
 
 # Target keywords to monitor for QA/SDET (Manual & Automation)
@@ -313,6 +317,38 @@ REMOTIVE_LIMIT = 50
 # Курируемый RSS-поток 100% удалённых вакансий
 ENABLE_WEWORKREMOTELY = True
 WEWORKREMOTELY_LIMIT = 50
+
+# Ashby ATS Settings (https://api.ashbyhq.com/posting-api/job-board/{company})
+# Прямые ATS современных tech-компаний и AI-стартапов, нанимающих удалённо (Ashby)
+ENABLE_ASHBY = True
+ASHBY_REMOTE_ONLY = True
+ASHBY_LIMIT_PER_COMPANY = 30
+ASHBY_COMPANIES = [
+    "linear",
+    "synthesia",
+    "notion",
+    "ramp",
+    "posthog",
+    "snyk",
+    "zapier",
+    "vanta",
+    "webflow",
+    "surveymonkey",
+    "replit",
+    "openai",
+    "perplexity",
+    "cursor",
+    "cognition",
+    "modal",
+]
+
+# Himalayas Remote Board Settings (https://himalayas.app/jobs/api)
+# Чистый 100% Remote-агрегатор с валидацией региональных и часовых ограничений (UTC+0/+1)
+ENABLE_HIMALAYAS = True
+HIMALAYAS_MAX_PAGES = 5
+HIMALAYAS_LIMIT_PER_PAGE = 20
+HIMALAYAS_ALLOWED_TIMEZONES = [-2, -1, 0, 1, 2, 3, 4]  # EMEA / Ireland overlap
+HIMALAYAS_LIMIT = 50
 
 # Language Filtering (пропускаем только вакансии с английским или без языковых требований)
 # Whitelist подход: если вакансия требует язык НЕ из этого списка — отсекаем
