@@ -184,7 +184,8 @@ JUSTJOIN_MAX_PAGES = 3
 JUSTJOIN_LIMIT = 30
 
 # Adzuna API Settings (https://developer.adzuna.com/)
-ENABLE_ADZUNA = True
+# Выключено: Adzuna перешла на платную подписку (£12/мес) и не поддерживает отдельный регион Ирландии
+ENABLE_ADZUNA = False
 ADZUNA_APP_ID = os.getenv("ADZUNA_APP_ID", "").strip()
 ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY", "").strip()
 ADZUNA_COUNTRIES = ["gb"]  # Adzuna поддерживает 'gb' (UK & Northern Ireland, включая remote-роли)
