@@ -88,6 +88,27 @@ def is_hybrid_nearby(job_location: str) -> bool:
     return False
 
 
+def log_and_track_batch(source_name: str, jobs: List[Dict], db: JobDatabase) -> tuple[int, int]:
+    """
+    Log clear status of scraped cards: how many total, how many already seen in db,
+    and how many are new candidates for filtering.
+    Returns (already_seen_count, new_candidates_count).
+    """
+    total = len(jobs)
+    if total == 0:
+        logger.info(f"[{source_name}] Найдено карточек: 0")
+        return 0, 0
+    seen = sum(1 for j in jobs if db.is_seen(j.get("id", "")))
+    new_cand = total - seen
+    if seen == total:
+        logger.info(f"[{source_name}] Найдено карточек: {total} (все {total} уже есть в базе jobs_seen.db — пропуск повторов)")
+    elif seen > 0:
+        logger.info(f"[{source_name}] Найдено карточек: {total} ({seen} уже в базе, {new_cand} новых отправлены на проверку фильтрами)")
+    else:
+        logger.info(f"[{source_name}] Найдено карточек: {total} (все {total} новые, отправлены на проверку фильтрами)")
+    return seen, new_cand
+
+
 def run_tracker(dry_run: bool = False, test_mode: bool = False):
     locations = config.TARGET_LOCATIONS if not test_mode else [config.TARGET_LOCATIONS[0]]
     logger.info(f"--- Запуск трекера вакансий (Регионы: {', '.join(locations)}, Remote={config.REMOTE_ONLY}) ---")
@@ -102,6 +123,9 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         logger.warning("Запуск переведён в режим --dry-run (вывод только в консоль).")
         dry_run = True
 
+    total_scanned = 0
+    total_already_seen = 0
+    total_filtered = 0
     total_new = 0
     keywords = config.SEARCH_KEYWORDS if not test_mode else [config.SEARCH_KEYWORDS[0]]
 
@@ -116,7 +140,9 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
             search_limit = getattr(config, "LINKEDIN_SEARCH_LIMIT", 6) if not test_mode else 1
             logger.info(f"🔍 Поиск в регионе '{loc}' по слову: '{kw}'...")
             jobs = scraper.search_jobs(keyword=kw, limit=search_limit)
-            logger.info(f"[{loc} / {kw}] Найдено карточек: {len(jobs)}")
+            seen_cnt, _ = log_and_track_batch(f"{loc} / {kw}", jobs, db)
+            total_scanned += len(jobs)
+            total_already_seen += seen_cnt
 
             for job in jobs:
                 job_id = job["id"]
@@ -129,7 +155,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                     logger.info(
                         f"🚫 [НЕ QA РОЛЬ] Отклонена по названию: '{job['title']}' @ {job['company']}"
                     )
+                    total_filtered += 1
+
                     db.add_job(job)
+
                     continue
 
                 # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны сразу, не делая HTTP-запрос за деталями)
@@ -137,7 +166,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                     logger.info(
                         f"🚫 [ГЕО-БЛОКИРОВКА] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
                     )
+                    total_filtered += 1
+
                     db.add_job(job)
+
                     continue
 
                 time.sleep(1.0)  # Вежливая задержка перед запросом деталей
@@ -169,7 +201,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                         logger.info(
                             f"🚫 [СТРОГИЙ ФИЛЬТР] Отклонена Hybrid вакансия (далеко): {job['title']} @ {job['company']} (Локация: {job['location']})"
                         )
+                        total_filtered += 1
+
                         db.add_job(job)
+
                         continue
 
                 # Вакансии с неясным форматом (unclear):
@@ -183,7 +218,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                         logger.info(
                             f"🚫 [СТРОГИЙ ФИЛЬТР] Отклонена вакансия с неясным форматом: {job['title']} @ {job['company']} (Локация: {job['location']})"
                         )
+                        total_filtered += 1
+
                         db.add_job(job)
+
                         continue
                     else:
                         logger.info(
@@ -231,7 +269,9 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
             max_pages = getattr(config, "DJINNI_MAX_PAGES", 5)
             limit = getattr(config, "DJINNI_LIMIT", 60)
             djinni_jobs = djinni.search_jobs(keyword=kw, max_pages=max_pages, limit=limit)
-            logger.info(f"[Djinni / {kw}] Найдено карточек: {len(djinni_jobs)}")
+            seen_cnt, _ = log_and_track_batch(f"Djinni / {kw}", djinni_jobs, db)
+            total_scanned += len(djinni_jobs)
+            total_already_seen += seen_cnt
 
             for job in djinni_jobs:
                 job_id = job["id"]
@@ -243,7 +283,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                     logger.info(
                         f"🚫 [НЕ QA РОЛЬ / Djinni] Отклонена по названию: '{job['title']}' @ {job['company']}"
                     )
+                    total_filtered += 1
+
                     db.add_job(job)
+
                     continue
 
                 # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
@@ -251,7 +294,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                     logger.info(
                         f"🚫 [ГЕО-БЛОКИРОВКА / Djinni] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job.get('location', '')})"
                     )
+                    total_filtered += 1
+
                     db.add_job(job)
+
                     continue
 
                 # Level 2: Стоп-фразы в описании
@@ -259,7 +305,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                     logger.info(
                         f"🚫 [СТОП-ОПИСАНИЕ / Djinni] Отклонена по описанию: '{job['title']}' @ {job['company']}"
                     )
+                    total_filtered += 1
+
                     db.add_job(job)
+
                     continue
 
                 workplace_type = job.get("workplace_type", "remote")
@@ -274,7 +323,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                         logger.info(
                             f"🚫 [СТРОГИЙ ФИЛЬТР / Djinni] Отклонена Hybrid вакансия (далеко): {job['title']} @ {job['company']} (Локация: {job.get('location', '')})"
                         )
+                        total_filtered += 1
+
                         db.add_job(job)
+
                         continue
 
                 # Фильтрация по разрешенным странам на Djinni (профиль кандидата в Ирландии)
@@ -286,7 +338,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                             f"🚫 [СТРОГИЙ ФИЛЬТР / Djinni] Отклонена (Ирландия не подходит): "
                             f"{job['title']} @ {job['company']} (Локация: {job.get('location', '')})"
                         )
+                        total_filtered += 1
+
                         db.add_job(job)
+
                         continue
 
                 total_new += 1
@@ -328,7 +383,9 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         dou_limit = getattr(config, "DOU_LIMIT", 50) if not test_mode else 10
         logger.info(f"🟡 Поиск на DOU (jobs.dou.ua, Категория: {dou_category}, Remote={dou_remote})...")
         dou_jobs = dou.search_jobs(category=dou_category, remote_only=dou_remote, limit=dou_limit)
-        logger.info(f"[DOU] Найдено карточек: {len(dou_jobs)}")
+        seen_cnt, _ = log_and_track_batch("DOU", dou_jobs, db)
+        total_scanned += len(dou_jobs)
+        total_already_seen += seen_cnt
 
         for job in dou_jobs:
             job_id = job["id"]
@@ -340,7 +397,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [НЕ QA РОЛЬ / DOU] Отклонена по названию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
@@ -348,7 +408,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [ГЕО-БЛОКИРОВКА / DOU] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
@@ -356,7 +419,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [СТОП-ОПИСАНИЕ / DOU] Отклонена по описанию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             workplace_type = job.get("workplace_type", "remote")
@@ -398,7 +464,9 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         nfj_limit = getattr(config, "NOFLUFF_LIMIT", 50) if not test_mode else 10
         logger.info(f"🔴 Поиск на No Fluff Jobs (Категория: {nfj_category}, Remote={nfj_remote}, Валюта={nfj_currency})...")
         nfj_jobs = nofluff.search_jobs(category=nfj_category, remote_only=nfj_remote, currency=nfj_currency, limit=nfj_limit)
-        logger.info(f"[No Fluff Jobs] Найдено карточек: {len(nfj_jobs)}")
+        seen_cnt, _ = log_and_track_batch("No Fluff Jobs", nfj_jobs, db)
+        total_scanned += len(nfj_jobs)
+        total_already_seen += seen_cnt
 
         for job in nfj_jobs:
             job_id = job["id"]
@@ -410,7 +478,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [НЕ QA РОЛЬ / NoFluff] Отклонена по названию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             # Level 0.5: Фильтр польских локальных вакансий
@@ -418,7 +489,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🇵🇱 [POLISH DOMESTIC / NoFluff] Отклонена по польскому названию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             workplace_type = job.get("workplace_type", "remote")
@@ -467,7 +541,9 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
             max_pages=jjit_pages,
             limit=jjit_limit,
         )
-        logger.info(f"[JustJoin.it] Найдено карточек: {len(jjit_jobs)}")
+        seen_cnt, _ = log_and_track_batch("JustJoin.it", jjit_jobs, db)
+        total_scanned += len(jjit_jobs)
+        total_already_seen += seen_cnt
 
         for job in jjit_jobs:
             job_id = job["id"]
@@ -479,7 +555,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [НЕ QA РОЛЬ / JustJoin] Отклонена по названию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             # Level 0.5: Фильтр польских локальных вакансий
@@ -487,7 +566,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🇵🇱 [POLISH DOMESTIC / JustJoin] Отклонена по польскому названию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             workplace_type = job.get("workplace_type", "remote")
@@ -537,7 +619,9 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 max_pages=adzuna_pages,
                 results_per_page=adzuna_limit,
             )
-            logger.info(f"[Adzuna] Найдено карточек: {len(adzuna_jobs)}")
+            seen_cnt, _ = log_and_track_batch("Adzuna", adzuna_jobs, db)
+            total_scanned += len(adzuna_jobs)
+            total_already_seen += seen_cnt
 
             for job in adzuna_jobs:
                 job_id = job["id"]
@@ -549,7 +633,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                     logger.info(
                         f"🚫 [НЕ QA РОЛЬ / Adzuna] Отклонена по названию: '{job['title']}' @ {job['company']}"
                     )
+                    total_filtered += 1
+
                     db.add_job(job)
+
                     continue
 
                 workplace_type = job.get("workplace_type", "remote")
@@ -590,7 +677,9 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         an_limit = getattr(config, "ARBEITNOW_LIMIT", 50) if not test_mode else 10
         logger.info(f"🌐 Поиск на Arbeitnow (Remote={an_remote}, Страниц: {an_pages})...")
         an_jobs = arbeitnow.search_jobs(remote_only=an_remote, max_pages=an_pages, limit=an_limit)
-        logger.info(f"[Arbeitnow] Найдено карточек: {len(an_jobs)}")
+        seen_cnt, _ = log_and_track_batch("Arbeitnow", an_jobs, db)
+        total_scanned += len(an_jobs)
+        total_already_seen += seen_cnt
 
         for job in an_jobs:
             job_id = job["id"]
@@ -602,7 +691,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [НЕ QA РОЛЬ / Arbeitnow] Отклонена по названию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
@@ -610,7 +702,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [ГЕО-БЛОКИРОВКА / Arbeitnow] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
@@ -618,7 +713,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [СТОП-ОПИСАНИЕ / Arbeitnow] Отклонена по описанию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             workplace_type = job.get("workplace_type", "remote")
@@ -660,7 +758,9 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         logger.info(f"🌱 Поиск в Greenhouse ATS (Компаний: {len(target_comps)}, Remote={gh_remote})...")
         greenhouse = GreenhouseJobScraper(companies=target_comps)
         gh_jobs = greenhouse.search_jobs(remote_only=gh_remote, limit_per_company=gh_limit)
-        logger.info(f"[Greenhouse] Найдено карточек: {len(gh_jobs)}")
+        seen_cnt, _ = log_and_track_batch("Greenhouse", gh_jobs, db)
+        total_scanned += len(gh_jobs)
+        total_already_seen += seen_cnt
 
         for job in gh_jobs:
             job_id = job["id"]
@@ -672,7 +772,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [НЕ QA РОЛЬ / Greenhouse] Отклонена по названию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
@@ -680,7 +783,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [ГЕО-БЛОКИРОВКА / Greenhouse] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
@@ -688,7 +794,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [СТОП-ОПИСАНИЕ / Greenhouse] Отклонена по описанию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             workplace_type = job.get("workplace_type", "remote")
@@ -730,7 +839,9 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         logger.info(f"⚡ Поиск в Lever ATS (Компаний: {len(target_lever_comps)}, Remote={lever_remote})...")
         lever = LeverJobScraper(companies=target_lever_comps)
         lever_jobs = lever.search_jobs(remote_only=lever_remote, limit_per_company=lever_limit)
-        logger.info(f"[Lever] Найдено карточек: {len(lever_jobs)}")
+        seen_cnt, _ = log_and_track_batch("Lever", lever_jobs, db)
+        total_scanned += len(lever_jobs)
+        total_already_seen += seen_cnt
 
         for job in lever_jobs:
             job_id = job["id"]
@@ -742,7 +853,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [НЕ QA РОЛЬ / Lever] Отклонена по названию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
@@ -750,7 +864,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [ГЕО-БЛОКИРОВКА / Lever] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
@@ -758,7 +875,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [СТОП-ОПИСАНИЕ / Lever] Отклонена по описанию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             workplace_type = job.get("workplace_type", "remote")
@@ -800,7 +920,9 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         logger.info(f"🪐 Поиск в Ashby ATS (Компаний: {len(target_ashby_comps)}, Remote={ashby_remote})...")
         ashby = AshbyJobScraper(companies=target_ashby_comps)
         ashby_jobs = ashby.search_jobs(remote_only=ashby_remote, limit_per_company=ashby_limit)
-        logger.info(f"[Ashby] Найдено карточек: {len(ashby_jobs)}")
+        seen_cnt, _ = log_and_track_batch("Ashby", ashby_jobs, db)
+        total_scanned += len(ashby_jobs)
+        total_already_seen += seen_cnt
 
         for job in ashby_jobs:
             job_id = job["id"]
@@ -812,7 +934,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [НЕ QA РОЛЬ / Ashby] Отклонена по названию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
@@ -820,7 +945,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [ГЕО-БЛОКИРОВКА / Ashby] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
@@ -828,7 +956,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [СТОП-ОПИСАНИЕ / Ashby] Отклонена по описанию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             workplace_type = job.get("workplace_type", "remote")
@@ -869,7 +1000,9 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         logger.info(f"🚀 Поиск на Remotive (Category={remotive_cat}, Remote={remotive_remote})...")
         remotive = RemotiveJobScraper(category=remotive_cat)
         remotive_jobs = remotive.search_jobs(category=remotive_cat, remote_only=remotive_remote, limit=remotive_limit)
-        logger.info(f"[Remotive] Найдено карточек: {len(remotive_jobs)}")
+        seen_cnt, _ = log_and_track_batch("Remotive", remotive_jobs, db)
+        total_scanned += len(remotive_jobs)
+        total_already_seen += seen_cnt
 
         for job in remotive_jobs:
             job_id = job["id"]
@@ -881,7 +1014,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [НЕ QA РОЛЬ / Remotive] Отклонена по названию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
@@ -889,7 +1025,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [ГЕО-БЛОКИРОВКА / Remotive] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
@@ -897,7 +1036,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [СТОП-ОПИСАНИЕ / Remotive] Отклонена по описанию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             workplace_type = job.get("workplace_type", "remote")
@@ -936,7 +1078,9 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         logger.info(f"💼 Поиск на WeWorkRemotely RSS...")
         wwr = WeWorkRemotelyJobScraper()
         wwr_jobs = wwr.search_jobs(remote_only=True, limit=wwr_limit)
-        logger.info(f"[WeWorkRemotely] Найдено карточек: {len(wwr_jobs)}")
+        seen_cnt, _ = log_and_track_batch("WeWorkRemotely", wwr_jobs, db)
+        total_scanned += len(wwr_jobs)
+        total_already_seen += seen_cnt
 
         for job in wwr_jobs:
             job_id = job["id"]
@@ -948,7 +1092,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [НЕ QA РОЛЬ / WeWorkRemotely] Отклонена по названию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
@@ -956,7 +1103,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [ГЕО-БЛОКИРОВКА / WeWorkRemotely] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
@@ -964,7 +1114,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [СТОП-ОПИСАНИЕ / WeWorkRemotely] Отклонена по описанию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             workplace_type = job.get("workplace_type", "remote")
@@ -1004,7 +1157,9 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         logger.info(f"🏔️ Поиск на Himalayas API (Страниц: {himalayas_max_pages})...")
         himalayas = HimalayasJobScraper(max_pages=himalayas_max_pages)
         himalayas_jobs = himalayas.search_jobs(remote_only=True, limit=himalayas_limit)
-        logger.info(f"[Himalayas] Найдено карточек: {len(himalayas_jobs)}")
+        seen_cnt, _ = log_and_track_batch("Himalayas", himalayas_jobs, db)
+        total_scanned += len(himalayas_jobs)
+        total_already_seen += seen_cnt
 
         for job in himalayas_jobs:
             job_id = job["id"]
@@ -1016,7 +1171,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [НЕ QA РОЛЬ / Himalayas] Отклонена по названию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             # Level 1: Гео-фильтр карточки
@@ -1024,7 +1182,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [ГЕО-БЛОКИРОВКА / Himalayas] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             # Level 2: Стоп-фразы в описании
@@ -1032,7 +1193,10 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 logger.info(
                     f"🚫 [СТОП-ОПИСАНИЕ / Himalayas] Отклонена по описанию: '{job['title']}' @ {job['company']}"
                 )
+                total_filtered += 1
+
                 db.add_job(job)
+
                 continue
 
             workplace_type = job.get("workplace_type", "remote")
@@ -1064,6 +1228,16 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 time.sleep(1.5)
 
             db.add_job(job)
+
+    logger.info("=" * 80)
+    logger.info("🏁 Проверка всех источников завершена успешно!")
+    logger.info("📊 ИТОГИ ЗАПУСКА:")
+    logger.info(f"   • Всего карточек просканировано: {total_scanned}")
+    logger.info(f"   • Ранее уже были в базе (пропущены без повторного спама): {total_already_seen}")
+    logger.info(f"   • Отклонено фильтрами (не QA / Onsite / гео-ограничения): {total_filtered}")
+    logger.info(f"   • Новых вакансий отправлено в Telegram: {total_new}")
+    logger.info(f"   • Всего записей в базе данных jobs_seen.db: {db.count_seen()}")
+    logger.info("=" * 80)
     return total_new
 
 
