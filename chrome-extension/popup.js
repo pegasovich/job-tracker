@@ -93,7 +93,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   schoolRationaleArea.value = stored.schoolRationale || DEFAULT_SCHOOL_RATIONALE;
   locationInput.value = stored.candidateLocation || "Cahersiveen, Co. Kerry, Ireland";
   phoneInput.value = stored.candidatePhone || "+353 83 395 9693";
-  linkedinInput.value = stored.candidateLinkedin || "";
+  linkedinInput.value = stored.candidateLinkedin || "https://www.linkedin.com/in/oleg-kryvokobylskyi/";
   githubInput.value = stored.candidateGithub || "https://github.com/pegasovich";
   if (stored.travelCommitment) travelCommitmentSelect.value = stored.travelCommitment;
 

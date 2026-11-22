@@ -507,7 +507,7 @@
       btnAutofill.disabled = true;
       const count = await autofillCanonicalStandardFields();
       statusEl.style.color = "#4ade80";
-      statusEl.textContent = `✅ Заполнено полей: ${count} (Degree, High School, Travel commitment, Agreement). Нажмите ✨ на вопросе по тестированию для генерации ответа по опыту.`;
+      statusEl.textContent = `✅ Заполнено полей: ${count} (LinkedIn, GitHub/Website, Degree, School, Travel, Agreement). Нажмите ✨ на вопросе по тестированию для генерации ответа по опыту.`;
       setTimeout(() => {
         btnAutofill.disabled = false;
       }, 2000);
@@ -521,11 +521,17 @@
     const stored = await chrome.storage.sync.get([
       "degreeResult",
       "schoolRationale",
-      "travelCommitment"
+      "travelCommitment",
+      "candidateLinkedin",
+      "candidateGithub",
+      "candidatePhone",
+      "candidateLocation"
     ]);
 
     const defaultDegree = "Bachelor of Engineering (B.E.) in Computer Science, National Technical University of Ukraine 'Kyiv Polytechnic Institute' (NTUU KPI). Degree result: 4.8 out of 5.0 (Grading system: 5-point scale where 5 is Excellent / Equivalent to First-Class Honours / Top 5% of class).";
     const defaultSchool = "Graduated secondary school with Gold Medal (Certificate of Secondary Education with Distinction / Honours), ranked in the top 5% of the graduating cohort. Maintained top grades (5.0 / 5.0) in Mathematics, Physics, and native language throughout high school. Regularly participated and placed in municipal and regional mathematics Olympiads.";
+    const defaultGithub = stored.candidateGithub || "https://github.com/pegasovich";
+    const defaultLinkedin = stored.candidateLinkedin || "https://www.linkedin.com/in/oleg-kryvokobylskyi/";
 
     let filledCount = 0;
 
@@ -533,6 +539,7 @@
     const allInputs = document.querySelectorAll("input, textarea");
     for (const el of allInputs) {
       const qContext = extractQuestionContext(el).toLowerCase();
+      const idOrName = ((el.name || "") + " " + (el.id || "")).toLowerCase();
 
       // Degree result
       if (qContext.includes("degree result") || qContext.includes("bachelor's university degree") || qContext.includes("expected result")) {
@@ -545,6 +552,22 @@
       // School rationale
       if (qContext.includes("rationale or evidence") || qContext.includes("high school performance selections") || qContext.includes("high school performance")) {
         el.value = stored.schoolRationale || defaultSchool;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        filledCount++;
+      }
+
+      // Website / GitHub
+      if (qContext === "website" || qContext.includes("website") || qContext.includes("portfolio") || idOrName.includes("website")) {
+        el.value = defaultGithub;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+        filledCount++;
+      }
+
+      // LinkedIn Profile
+      if (qContext.includes("linkedin") || idOrName.includes("linkedin")) {
+        el.value = defaultLinkedin;
         el.dispatchEvent(new Event("input", { bubbles: true }));
         el.dispatchEvent(new Event("change", { bubbles: true }));
         filledCount++;
