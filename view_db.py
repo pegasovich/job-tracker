@@ -53,12 +53,12 @@ def show_stats_and_latest(limit: int = 20, search_term: str = ""):
             query = """
                 SELECT job_id, title, company, location, url, first_seen_at
                 FROM seen_jobs
-                WHERE title LIKE ? OR company LIKE ? OR location LIKE ?
+                WHERE job_id LIKE ? OR title LIKE ? OR company LIKE ? OR location LIKE ?
                 ORDER BY first_seen_at DESC
                 LIMIT ?
             """
             wildcard = f"%{search_term}%"
-            cursor.execute(query, (wildcard, wildcard, wildcard, limit))
+            cursor.execute(query, (wildcard, wildcard, wildcard, wildcard, limit))
             print(f"🔎 Результаты поиска по запросу: '{search_term}' (макс. {limit}):\n")
         else:
             query = """
