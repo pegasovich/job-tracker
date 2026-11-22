@@ -374,7 +374,8 @@
     // Quickfill click
     if (btnQuickFill) {
       btnQuickFill.addEventListener("click", async () => {
-        const stored = await chrome.storage.sync.get(["degreeResult", "schoolRationale"]);
+        const stored = await getSafeStorage(["degreeResult", "schoolRationale"]);
+        if (!stored) return;
         if (isDegree) {
           const val = stored.degreeResult || "Bachelor of Engineering (B.E.) in Computer Science, NTUU KPI. Result: 4.8 out of 5.0 (Equivalent to First-Class Honours / Top 5% of class).";
           writeToField(field, val);
@@ -515,10 +516,26 @@
   }
 
   /**
+   * Safe storage fetch helper to prevent 'Extension context invalidated' errors
+   */
+  async function getSafeStorage(keys) {
+    try {
+      if (!chrome.runtime?.id) {
+        alert("Расширение Job Apply AI было обновлено в браузере. Пожалуйста, перезагрузите страницу вакансии (нажмите F5).");
+        return null;
+      }
+      return await chrome.storage.sync.get(keys);
+    } catch (e) {
+      alert("Расширение Job Apply AI было обновлено в браузере. Пожалуйста, перезагрузите страницу вакансии (нажмите F5).");
+      return null;
+    }
+  }
+
+  /**
    * Autofills known standard fields on Canonical/Greenhouse forms
    */
   async function autofillCanonicalStandardFields() {
-    const stored = await chrome.storage.sync.get([
+    const stored = await getSafeStorage([
       "degreeResult",
       "schoolRationale",
       "travelCommitment",
@@ -531,6 +548,8 @@
       "lastName",
       "candidateLocation"
     ]);
+
+    if (!stored) return 0;
 
     const defaultDegree = "Bachelor of Engineering (B.E.) in Computer Science, National Technical University of Ukraine 'Kyiv Polytechnic Institute' (NTUU KPI). Degree result: 4.8 out of 5.0 (Grading system: 5-point scale where 5 is Excellent / Equivalent to First-Class Honours / Top 5% of class).";
     const defaultSchool = "Graduated secondary school with Gold Medal (Certificate of Secondary Education with Distinction / Honours), ranked in the top 5% of the graduating cohort. Maintained top grades (5.0 / 5.0) in Mathematics, Physics, and native language throughout high school. Regularly participated and placed in municipal and regional mathematics Olympiads.";
