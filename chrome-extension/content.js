@@ -647,32 +647,163 @@
         qContext.includes("country") ||
         idOrName.includes("country")
       ) {
-        selectDropdownValue(sel, ["ireland", "ie", "irl", "+353"]);
-        filledCount++;
+        if (selectDropdownValue(sel, ["ireland", "ie", "irl", "+353"])) {
+          filledCount++;
+        }
+      }
+
+      // In which country do you currently work?
+      if (
+        qContext.includes("currently work") ||
+        qContext.includes("current location")
+      ) {
+        if (selectDropdownValue(sel, ["ireland", "ie", "irl"])) {
+          filledCount++;
+        }
+      }
+
+      // Recruitment Privacy Notice & Policy
+      if (
+        qContext.includes("privacy notice") ||
+        qContext.includes("privacy policy") ||
+        qContext.includes("agree to canonical's recruitment")
+      ) {
+        if (selectDropdownValue(sel, ["acknowledge/confirm", "acknowledge", "confirm", "agree", "yes"])) {
+          filledCount++;
+        }
+      }
+
+      // Gender / Which gender do you identify as?
+      if (
+        qContext.includes("gender do you identify as") ||
+        qContext === "gender" ||
+        idOrName.includes("gender")
+      ) {
+        if (selectDropdownValue(sel, ["male", "man"])) {
+          filledCount++;
+        }
+      }
+
+      // Nationality / Please indicate your nationality
+      if (
+        qContext.includes("nationality") ||
+        idOrName.includes("nationality")
+      ) {
+        if (selectDropdownValue(sel, ["ukrainian", "ukraine"])) {
+          filledCount++;
+        }
+      }
+
+      // Race or ethnicity / Please indicate your race or ethnicity / Please identify your race
+      if (
+        qContext.includes("race or ethnicity") ||
+        qContext.includes("identify your race") ||
+        qContext.includes("race") ||
+        idOrName.includes("race") ||
+        idOrName.includes("ethnicity")
+      ) {
+        if (selectDropdownValue(sel, ["white / european", "white (not hispanic or latino)", "white", "european"])) {
+          filledCount++;
+        }
+      }
+
+      // Are you Hispanic/Latino?
+      if (
+        qContext.includes("hispanic/latino") ||
+        qContext.includes("hispanic or latino") ||
+        qContext.includes("hispanic")
+      ) {
+        if (selectDropdownValue(sel, ["no"])) {
+          filledCount++;
+        }
+      }
+
+      // Veteran Status
+      if (
+        qContext.includes("veteran status") ||
+        qContext.includes("protected veteran") ||
+        qContext.includes("veteran")
+      ) {
+        if (selectDropdownValue(sel, ["i am not a protected veteran", "not a protected veteran", "not a veteran", "no"])) {
+          filledCount++;
+        }
+      }
+
+      // Disability Status
+      if (
+        qContext.includes("disability status") ||
+        qContext.includes("disability")
+      ) {
+        if (selectDropdownValue(sel, ["no, i don't have a disability", "no, i do not have a disability", "no"])) {
+          filledCount++;
+        }
       }
 
       // "During this application process I agree to use only my own words..."
       if (qContext.includes("use only my own words") || qContext.includes("disqualify my application") || qContext.includes("plagiarism")) {
-        selectDropdownValue(sel, ["yes", "да", "agree", "true"]);
-        filledCount++;
+        if (selectDropdownValue(sel, ["yes", "да", "agree", "true"])) {
+          filledCount++;
+        }
       }
 
       // Travel commitment (2-4 times a year, 1-2 weeks)
       if (qContext.includes("meet in person 2-4 times") || qContext.includes("international travel") || qContext.includes("commit to this")) {
-        selectDropdownValue(sel, ["yes", "да", "agree", "true"]);
-        filledCount++;
+        if (selectDropdownValue(sel, ["yes", "да", "agree", "true"])) {
+          filledCount++;
+        }
       }
 
       // High school mathematics performance
       if (qContext.includes("mathematics at high school") || qContext.includes("math at high school")) {
-        selectDropdownValue(sel, ["top 20%", "top 10%", "top 5%", "top"]);
-        filledCount++;
+        if (selectDropdownValue(sel, ["top 20%", "top 10%", "top 5%", "top"])) {
+          filledCount++;
+        }
       }
 
       // High school native language performance
       if (qContext.includes("native language at high school") || qContext.includes("language at high school")) {
-        selectDropdownValue(sel, ["top 20%", "top 10%", "top 5%", "top"]);
-        filledCount++;
+        if (selectDropdownValue(sel, ["top 20%", "top 10%", "top 5%", "top"])) {
+          filledCount++;
+        }
+      }
+    }
+
+    // 3. Radio inputs (in case Voluntary Self-Identification uses radios)
+    const allRadios = document.querySelectorAll("input[type='radio']");
+    for (const radio of allRadios) {
+      const qContext = extractQuestionContext(radio).toLowerCase();
+      const parentContext = (radio.closest(".field, .form-group, fieldset")?.innerText || "").toLowerCase();
+      const labelText = (radio.labels?.[0]?.innerText || radio.parentElement?.innerText || "").toLowerCase().trim();
+      const combinedQ = qContext + " " + parentContext;
+
+      // Hispanic/Latino -> No
+      if (combinedQ.includes("hispanic")) {
+        if (labelText === "no" || labelText.startsWith("no")) {
+          radio.checked = true;
+          radio.dispatchEvent(new Event("change", { bubbles: true }));
+          radio.dispatchEvent(new Event("click", { bubbles: true }));
+          filledCount++;
+        }
+      }
+
+      // Veteran -> Not a veteran
+      if (combinedQ.includes("veteran")) {
+        if (labelText.includes("not a protected veteran") || labelText.includes("i am not") || labelText === "no") {
+          radio.checked = true;
+          radio.dispatchEvent(new Event("change", { bubbles: true }));
+          radio.dispatchEvent(new Event("click", { bubbles: true }));
+          filledCount++;
+        }
+      }
+
+      // Gender -> Male
+      if (combinedQ.includes("gender")) {
+        if (labelText === "male") {
+          radio.checked = true;
+          radio.dispatchEvent(new Event("change", { bubbles: true }));
+          radio.dispatchEvent(new Event("click", { bubbles: true }));
+          filledCount++;
+        }
       }
     }
 
@@ -680,16 +811,38 @@
   }
 
   function selectDropdownValue(selectEl, matchKeywords) {
+    let matched = false;
     for (const opt of selectEl.options) {
-      const optText = (opt.text || "").toLowerCase();
-      const optVal = (opt.value || "").toLowerCase();
-      if (matchKeywords.some(kw => optText.includes(kw) || optVal === kw)) {
-        selectEl.value = opt.value;
-        selectEl.dispatchEvent(new Event("change", { bubbles: true }));
-        selectEl.dispatchEvent(new Event("input", { bubbles: true }));
+      const optText = (opt.text || "").toLowerCase().trim();
+      const optVal = (opt.value || "").toLowerCase().trim();
+      if (matchKeywords.some(kw => optText === kw || optText.includes(kw) || optVal === kw)) {
+        if (selectEl.multiple) {
+          opt.selected = true;
+        } else {
+          selectEl.value = opt.value;
+        }
+        matched = true;
+
+        // Visual update for Select2 (used by Greenhouse)
+        const wrapper = selectEl.closest(".field, .form-group, div");
+        const rendered = wrapper?.querySelector(".select2-selection__rendered, .select2-chosen");
+        if (rendered) {
+          rendered.textContent = opt.text;
+        }
         break;
       }
     }
+
+    if (matched) {
+      selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+      selectEl.dispatchEvent(new Event("input", { bubbles: true }));
+      try {
+        const evt = new CustomEvent("select2:select", { bubbles: true });
+        selectEl.dispatchEvent(evt);
+      } catch (e) {}
+    }
+
+    return matched;
   }
 
   function escapeHtml(text) {
