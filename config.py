@@ -187,7 +187,7 @@ JUSTJOIN_LIMIT = 30
 ENABLE_ADZUNA = True
 ADZUNA_APP_ID = os.getenv("ADZUNA_APP_ID", "").strip()
 ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY", "").strip()
-ADZUNA_COUNTRIES = ["ie", "gb"]  # Ireland and UK
+ADZUNA_COUNTRIES = ["gb"]  # Adzuna поддерживает 'gb' (UK & Northern Ireland, включая remote-роли)
 ADZUNA_KEYWORDS = [
     "QA Engineer",
     "SDET",
