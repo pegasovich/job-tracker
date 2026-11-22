@@ -1,12 +1,9 @@
 // Service worker for Job Apply AI Assistant (Gemini)
 
 const DEFAULT_MODEL = "gemini-2.0-flash";
-const FALLBACK_MODELS = [
-  "gemini-2.0-flash",
-  "gemini-1.5-flash",
-  "gemini-2.0-flash-lite",
-  "gemini-1.5-flash-8b"
-];
+
+let cachedValidModels = null;
+let lastModelFetch = 0;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "test_gemini_key") {
@@ -31,34 +28,67 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
+async function getAvailableModels(apiKey) {
+  const now = Date.now();
+  if (cachedValidModels && cachedValidModels.length > 0 && (now - lastModelFetch < 300000)) {
+    return cachedValidModels;
+  }
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      return ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+    }
+
+    const data = await response.json();
+    const valid = (data.models || [])
+      .filter(m => m.supportedGenerationMethods?.includes("generateContent"))
+      .map(m => m.name.replace("models/", ""))
+      .filter(name => !name.includes("2.5") && !name.includes("embedding") && !name.includes("aqa"));
+
+    // Prioritize 2.0-flash, then 1.5-flash, then 1.5-pro
+    const sorted = valid.sort((a, b) => {
+      const getPriority = name => {
+        if (name === "gemini-2.0-flash") return 1;
+        if (name === "gemini-1.5-flash") return 2;
+        if (name.includes("2.0-flash")) return 3;
+        if (name.includes("1.5-flash")) return 4;
+        if (name === "gemini-1.5-pro") return 5;
+        return 10;
+      };
+      return getPriority(a) - getPriority(b);
+    });
+
+    if (sorted.length > 0) {
+      cachedValidModels = sorted;
+      lastModelFetch = now;
+      return sorted;
+    }
+  } catch (e) {
+    console.warn("[JobApplyAI] Error fetching models list:", e);
+  }
+
+  return ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+}
+
 async function handleKeyTest(apiKey) {
   if (!apiKey || typeof apiKey !== "string" || apiKey.trim().length < 10) {
     return { success: false, error: "Ключ пустой или слишком короткий." };
   }
 
   const trimmedKey = apiKey.trim();
-  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${trimmedKey}`;
+  const available = await getAvailableModels(trimmedKey);
 
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      const errorJson = await response.json().catch(() => ({}));
-      const msg = errorJson.error?.message || `Ошибка HTTP ${response.status}: ${response.statusText}`;
-      return { success: false, error: msg };
-    }
-    const data = await response.json();
-    const flashModels = (data.models || [])
-      .filter(m => m.name && m.supportedGenerationMethods?.includes("generateContent"))
-      .map(m => m.name.replace("models/", ""));
-
+  if (available && available.length > 0) {
     return {
       success: true,
-      modelsCount: flashModels.length,
-      availableModels: flashModels
+      modelsCount: available.length,
+      availableModels: available
     };
-  } catch (e) {
-    return { success: false, error: `Сетевая ошибка: ${e.message}` };
   }
+
+  return { success: false, error: "Не удалось получить список поддерживаемых моделей для этого ключа." };
 }
 
 async function handleGenerateCoverLetter(params) {
@@ -78,9 +108,11 @@ async function handleGenerateCoverLetter(params) {
     };
   }
 
+  const availableModels = await getAvailableModels(apiKey);
+
   let modelChoice = params.model || stored.geminiModel || DEFAULT_MODEL;
-  if (modelChoice === "gemini-2.5-flash" || !modelChoice) {
-    modelChoice = DEFAULT_MODEL;
+  if (!availableModels.includes(modelChoice)) {
+    modelChoice = availableModels[0] || DEFAULT_MODEL;
   }
 
   const userProfile = params.userProfile || stored.userProfile || "Опытный Senior QA / SDET инженер.";
@@ -96,10 +128,11 @@ async function handleGenerateCoverLetter(params) {
     tone
   });
 
-  const validFallbacks = FALLBACK_MODELS.filter(m => m !== "gemini-2.5-flash");
-  const modelsToTry = [modelChoice, ...validFallbacks.filter(m => m !== modelChoice)];
+  const modelsToTry = [modelChoice, ...availableModels.filter(m => m !== modelChoice)];
 
+  let firstError = null;
   let lastError = null;
+
   for (const model of modelsToTry) {
     try {
       const result = await callGeminiApi(apiKey, model, prompt);
@@ -107,6 +140,7 @@ async function handleGenerateCoverLetter(params) {
         return { success: true, text: result.text, modelUsed: model };
       }
     } catch (err) {
+      if (!firstError) firstError = err;
       lastError = err;
       const errLower = (err.message || "").toLowerCase();
 
@@ -126,9 +160,10 @@ async function handleGenerateCoverLetter(params) {
     }
   }
 
+  const reportedError = firstError || lastError;
   return {
     success: false,
-    error: lastError ? lastError.message : "Не удалось сгенерировать ответ от Gemini API."
+    error: reportedError ? cleanErrorMessage(reportedError.message) : "Не удалось сгенерировать ответ от Gemini API."
   };
 }
 
@@ -150,9 +185,11 @@ async function handleAnswerScreeningQuestion(params) {
     };
   }
 
+  const availableModels = await getAvailableModels(apiKey);
+
   let modelChoice = params.model || stored.geminiModel || DEFAULT_MODEL;
-  if (modelChoice === "gemini-2.5-flash" || !modelChoice) {
-    modelChoice = DEFAULT_MODEL;
+  if (!availableModels.includes(modelChoice)) {
+    modelChoice = availableModels[0] || DEFAULT_MODEL;
   }
 
   const userProfile = params.userProfile || stored.userProfile || "";
@@ -173,10 +210,11 @@ async function handleAnswerScreeningQuestion(params) {
     schoolRationale: stored.schoolRationale
   });
 
-  const validFallbacks = FALLBACK_MODELS.filter(m => m !== "gemini-2.5-flash");
-  const modelsToTry = [modelChoice, ...validFallbacks.filter(m => m !== modelChoice)];
+  const modelsToTry = [modelChoice, ...availableModels.filter(m => m !== modelChoice)];
 
+  let firstError = null;
   let lastError = null;
+
   for (const model of modelsToTry) {
     try {
       const result = await callGeminiApi(apiKey, model, prompt);
@@ -184,6 +222,7 @@ async function handleAnswerScreeningQuestion(params) {
         return { success: true, text: result.text, modelUsed: model };
       }
     } catch (err) {
+      if (!firstError) firstError = err;
       lastError = err;
       const errLower = (err.message || "").toLowerCase();
 
@@ -203,10 +242,22 @@ async function handleAnswerScreeningQuestion(params) {
     }
   }
 
+  const reportedError = firstError || lastError;
   return {
     success: false,
-    error: lastError ? lastError.message : "Не удалось сгенерировать ответ на вопрос."
+    error: reportedError ? cleanErrorMessage(reportedError.message) : "Не удалось сгенерировать ответ на вопрос."
   };
+}
+
+function cleanErrorMessage(msg) {
+  if (!msg) return "Неизвестная ошибка API";
+  if (msg.includes("high demand") || msg.includes("503")) {
+    return "Модели Gemini сейчас испытывают высокую нагрузку (High Demand). Подождите 10-15 секунд и нажмите «Попробовать снова».";
+  }
+  if (msg.includes("RESOURCE_EXHAUSTED") || msg.includes("quota") || msg.includes("429")) {
+    return "Превышен лимит запросов в минуту (Free Tier Rate Limit). Подождите 30 секунд и попробуйте снова.";
+  }
+  return msg;
 }
 
 async function callGeminiApi(apiKey, model, prompt) {
