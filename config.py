@@ -220,6 +220,9 @@ GREENHOUSE_COMPANIES = [
     "reddit",
     "cockroachlabs",
     "airtable",
+    "vercel",
+    "affirm",
+    "circleci",
     # Major Dublin Engineering Hubs & European Employers
     "toast",        # Крупный инженерный центр в Дублине
     "intercom",     # Штаб-квартира и R&D в Дублине
@@ -232,9 +235,54 @@ GREENHOUSE_COMPANIES = [
     "deliveroo",    # UK & Ireland remote
     "monzo",        # UK & Ireland remote
     "pagerduty",    # Инженерные команды в Европе
+    "newrelic",     # Крупный инженерный хаб в Дублине
+    "asana",        # Дублинский хаб и EMEA remote
+    "wise",         # Европейский финтех / remote EMEA
+    "n26",          # Европейский digital bank
+    "contentful",   # EMEA remote / Берлин / Дублин
+    "celonis",      # EMEA tech лидер
+    "brex",         # Global remote tech
+    "gusto",        # Remote tech
+    "carta",        # Remote tech
+    "checkr",       # Remote tech
+    "launchdarkly", # Feature management remote
+    "algolia",      # Search API remote / EMEA
+    "sumologic",    # Observability remote
+    "typeform",     # Remote EMEA
+    "lattice",      # HR tech remote
+    "instacart",    # Tech platform remote
+    "duolingo",     # EdTech platform remote
+    "coursera",     # EdTech remote
+    "udacity",      # EdTech remote
+    "consensys",    # Web3 / Ethereum remote-first
 ]
 GREENHOUSE_REMOTE_ONLY = True
 GREENHOUSE_LIMIT_PER_COMPANY = 30
+
+# Lever ATS Settings (https://api.lever.co/v0/postings/{company})
+# Прямые ATS компаний, использующих Lever, с ремоут-ролями
+ENABLE_LEVER = True
+LEVER_COMPANIES = [
+    "palantir",     # Крупный tech / Data / AI
+    "spotify",      # Remote-first / Work From Anywhere policy
+    "wealthfront",  # Финтех / Remote
+    "outreach",     # Sales tech / Remote
+    "glide",        # No-code platform / Remote
+]
+LEVER_REMOTE_ONLY = True
+LEVER_LIMIT_PER_COMPANY = 30
+
+# Remotive Settings (https://remotive.com/api/remote-jobs)
+# 100% Remote агрегатор с фильтрацией по QA и локациям (Worldwide/Europe/Ireland)
+ENABLE_REMOTIVE = True
+REMOTIVE_CATEGORY = "qa"
+REMOTIVE_REMOTE_ONLY = True
+REMOTIVE_LIMIT = 50
+
+# WeWorkRemotely Settings (https://weworkremotely.com)
+# Курируемый RSS-поток 100% удалённых вакансий
+ENABLE_WEWORKREMOTELY = True
+WEWORKREMOTELY_LIMIT = 50
 
 # Language Filtering (пропускаем только вакансии с английским или без языковых требований)
 # Whitelist подход: если вакансия требует язык НЕ из этого списка — отсекаем

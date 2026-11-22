@@ -1,17 +1,17 @@
 # 🎯 QA / SDET Remote Job Intelligence & Automation Platform 🇮🇪 🇬🇧 🇪🇺 🌍
 
 [![Tests & Quality Gate](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml/badge.svg)](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml)
-![Python Version](https://img.shields.io/badge/python-3.12-blue.svg)
+![Python Version](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue.svg)
 ![Test Framework](https://img.shields.io/badge/tested_with-pytest-0A9EDC.svg)
-![Test Count](https://img.shields.io/badge/tests-139%20passed-brightgreen.svg)
+![Test Count](https://img.shields.io/badge/tests-182%20passed-brightgreen.svg)
 ![Code Coverage](https://img.shields.io/badge/coverage-core%2090%25%2B-brightgreen.svg)
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF.svg)
 
 An automated, multi-source job intelligence engine engineered for **QA & SDET professionals** seeking **Remote (Worldwide / Pan-European / Ireland)** and **B2B / Contractor** positions.
 
-The platform continuously aggregates, parses, filters, deduplicates, and alerts on verified openings across **8 major tech job boards, direct ATS systems, and APIs**, eliminating recruiter noise, domestic residency restrictions, and misleading "remote" listings.
+The platform continuously aggregates, parses, filters, deduplicates, and alerts on verified openings across **direct ATS systems, curated remote portals, and APIs**, eliminating recruiter noise, domestic residency restrictions, and misleading "remote" listings.
 
-Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (139 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
+Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (182 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
 
 ---
 
@@ -20,11 +20,11 @@ Built with a production-grade **Test Automation Framework (TAF)** and an automat
 Searching for genuine international remote QA roles is fraught with friction:
 1. **"Fake Remote" Listings:** Roles tagged as "Remote" that actually require domestic residency in Germany, Poland, France, Spain, or the UK due to local labor tax laws.
 2. **False Positives:** Non-QA roles (Backend Engineers doing TDD, DevOps, Scrum Masters) cluttering search feeds.
-3. **Information Fragmentation:** Tech jobs are scattered across global portals (LinkedIn), startup boards (Djinni), European tech hubs (No Fluff Jobs, JustJoin.it, DOU), open APIs (Arbeitnow), and regional aggregator networks (Adzuna).
+3. **Information Fragmentation:** Tech jobs are scattered across global portals (LinkedIn), startup boards (Djinni), direct company ATS systems (Greenhouse, Lever), curated remote aggregators (Remotive, WeWorkRemotely), European tech hubs (DOU), and open APIs (Arbeitnow).
 4. **Duplicate Spam:** The same role reposted across different boards or multi-device tracker runs.
 
 **This application solves all of the above automatically:**
-* 📡 **Aggregates 8 Sources** simultaneously with zero authentication risk.
+* 📡 **Aggregates Multiple High-Quality Sources** simultaneously with zero authentication risk.
 * 🛡 **Applies Multi-Level Quality Filters** (Role Title Validation, Geo Eligibility, Strict Remote vs Commutable Hybrid Heuristics).
 * 💰 **Extracts Transparent Salaries & B2B Rates** directly from structured API payloads and descriptions.
 * 💾 **Deduplicates Across Runs** using an idempotent SQLite storage layer.
@@ -32,18 +32,21 @@ Searching for genuine international remote QA roles is fraught with friction:
 
 ---
 
-## 🌐 Integrated Job Providers (8 Sources)
+## 🌐 Integrated Job Providers
 
-| Provider | Integration Type | Regional Focus | Highlights & Data Extracted |
-|---|---|---|---|
-| 🔵 **LinkedIn** | Guest API (`seeMoreJobPostings`) | Ireland, UK, Europe, Worldwide | Zero login/cookie risk; searches multiple targeted regions; cloud-optimized adaptive rate-limit backoff (10-15s) with non-destructive retry in next hourly cycle. |
-| 🟢 **Djinni.co** | Schema.org JSON-LD Parser | Pan-European & Worldwide | Structured Schema microdata; applicant location requirement validation; USD salary parsing. |
-| 🟡 **DOU** | Official RSS Feed (`feeds/?category=QA&remote`) | Europe, CEE, Remote & B2B | Real-time XML feed; full descriptions; automated B2B salary and country extraction. |
-| 🔴 **No Fluff Jobs** | Internal REST API (`api/search/posting`) | Central & Western Europe | 100% transparent B2B & Permanent salary brackets in EUR; tech stack tags and skill tiles. |
-| 🟣 **JustJoin.it** | Candidate REST API (`api/candidate-api/offers`) | Europe, CEE & Global Remote | Poland & Europe's top tech board; multi-currency conversions (EUR/USD); seniority & skill levels. |
-| 🌐 **Arbeitnow** | Open REST API (`api/job-board-api`) | European Union & Remote | Free public European API; zero authentication/keys needed; 300 jobs/page; tag extraction. |
-| 🟧 **Adzuna** | Official REST API (`api.adzuna.com`) | Ireland (`ie`) & UK (`gb`) | Official developer API; EUR (€) and GBP (£) salary ranges; contract type tags; graceful fallback. |
-| 🌱 **Greenhouse** | Direct Company ATS (`boards-api.greenhouse.io`) | Worldwide & Remote-first | Direct carrier portal API for top tech companies (Canonical, Cloudflare, GitLab, Stripe, etc.); zero recruiter middleman. |
+| Provider | Integration Type | Regional Focus | Highlights & Data Extracted | Status |
+|---|---|---|---|---|
+| 🔵 **LinkedIn** | Guest API (`seeMoreJobPostings`) | Ireland, UK, Europe, Worldwide | Zero login/cookie risk; searches multiple targeted regions; cloud-optimized adaptive rate-limit backoff (10-15s). | ✅ Enabled |
+| 🟢 **Djinni.co** | Schema.org JSON-LD Parser | Pan-European & Worldwide | Structured Schema microdata; applicant location requirement validation; USD salary parsing. | ✅ Enabled |
+| 🟡 **DOU** | Official RSS Feed (`feeds/?category=QA&remote`) | Europe, CEE, Remote & B2B | Real-time XML feed; full descriptions; automated B2B salary and country extraction. | ✅ Enabled |
+| 🌐 **Arbeitnow** | Open REST API (`api/job-board-api`) | European Union & Remote | Free public European API; zero authentication/keys needed; non-English heuristics filter. | ✅ Enabled |
+| 🌱 **Greenhouse** | Direct Company ATS (`boards-api.greenhouse.io`) | Worldwide & Remote-first | Direct carrier portal API for 40+ top tech companies (Stripe, Cloudflare, Datadog, Elastic, Toast, Intercom, etc.); zero recruiter middleman. | ✅ Enabled |
+| ⚡ **Lever** | Direct Company ATS (`api.lever.co/v0/postings`) | Worldwide & Remote-first | Direct carrier portal API for top tech companies (Palantir, Spotify, Wealthfront, Outreach, Glide); clean plain text descriptions. | ✅ Enabled |
+| 🚀 **Remotive** | Curated Remote API (`remotive.com/api/remote-jobs`) | Worldwide & Pan-European | Curated 100% remote positions with structured candidate location requirements validation; salary extraction. | ✅ Enabled |
+| 💼 **WeWorkRemotely** | Curated Remote RSS Feed (`weworkremotely.com`) | Worldwide & Global Remote | Leading global remote tech board with real-time XML streaming; automated title and salary extraction. | ✅ Enabled |
+| 🔴 **No Fluff Jobs** | Internal REST API (`api/search/posting`) | Central & Western Europe | Polish domestic B2B market (JDG/PL residency required). | ❌ Disabled |
+| 🟣 **JustJoin.it** | Candidate REST API (`api/candidate-api/offers`) | Europe, CEE & Global Remote | Polish domestic market (PLN currency / Polish B2B tax residency). | ❌ Disabled |
+| 🟧 **Adzuna** | Official REST API (`api.adzuna.com`) | Ireland (`ie`) & UK (`gb`) | Paid developer subscription model; no dedicated Ireland endpoint. | ❌ Disabled |
 
 ---
 

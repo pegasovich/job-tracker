@@ -54,6 +54,9 @@ from justjoin_scraper import JustJoinJobScraper
 from adzuna_scraper import AdzunaJobScraper
 from arbeitnow_scraper import ArbeitnowJobScraper
 from greenhouse_scraper import GreenhouseJobScraper
+from lever_scraper import LeverJobScraper
+from remotive_scraper import RemotiveJobScraper
+from weworkremotely_scraper import WeWorkRemotelyJobScraper
 from database import JobDatabase
 from telegram_notifier import TelegramNotifier
 
@@ -633,6 +636,164 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
             if dry_run:
                 print("\n" + "=" * 60)
                 print(f"[DRY RUN / Greenhouse] Новая вакансия ({workplace_type.upper()}):")
+                print(f"Позиция: {job['title']}")
+                print(f"Компания: {job['company']}")
+                print(f"Локация: {job['location']}")
+                if job.get("salary"):
+                    print(f"Зарплата: {job['salary']}")
+                print(f"Ссылка: {job['url']}")
+                if snippet:
+                    print(f"Фрагмент описания: {snippet[:200]}...")
+                print("=" * 60 + "\n")
+            else:
+                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
+                if sent:
+                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
+                else:
+                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
+                time.sleep(1.5)
+
+            db.add_job(job)
+
+    # --- Lever (Direct Company ATS) ---
+    if getattr(config, "ENABLE_LEVER", True):
+        lever_companies = getattr(config, "LEVER_COMPANIES", ["palantir", "spotify"])
+        lever_remote = getattr(config, "LEVER_REMOTE_ONLY", True)
+        lever_limit = getattr(config, "LEVER_LIMIT_PER_COMPANY", 30) if not test_mode else 10
+        target_lever_comps = lever_companies if not test_mode else [lever_companies[0]]
+        logger.info(f"⚡ Поиск в Lever ATS (Компаний: {len(target_lever_comps)}, Remote={lever_remote})...")
+        lever = LeverJobScraper(companies=target_lever_comps)
+        lever_jobs = lever.search_jobs(remote_only=lever_remote, limit_per_company=lever_limit)
+        logger.info(f"[Lever] Найдено карточек: {len(lever_jobs)}")
+
+        for job in lever_jobs:
+            job_id = job["id"]
+            if db.is_seen(job_id):
+                continue
+
+            # Level 0: Валидация названия роли
+            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
+                logger.info(
+                    f"🚫 [НЕ QA РОЛЬ / Lever] Отклонена по названию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
+            workplace_type = job.get("workplace_type", "remote")
+            total_new += 1
+            snippet = job.get("description", "")[:350]
+            if len(job.get("description", "")) > 350:
+                snippet = snippet.rstrip() + "..."
+
+            logger.info(f"✨ [Lever] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
+
+            if dry_run:
+                print("\n" + "=" * 60)
+                print(f"[DRY RUN / Lever] Новая вакансия ({workplace_type.upper()}):")
+                print(f"Позиция: {job['title']}")
+                print(f"Компания: {job['company']}")
+                print(f"Локация: {job['location']}")
+                if job.get("salary"):
+                    print(f"Зарплата: {job['salary']}")
+                print(f"Ссылка: {job['url']}")
+                if snippet:
+                    print(f"Фрагмент описания: {snippet[:200]}...")
+                print("=" * 60 + "\n")
+            else:
+                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
+                if sent:
+                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
+                else:
+                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
+                time.sleep(1.5)
+
+            db.add_job(job)
+
+    # --- Remotive (remotive.com API) ---
+    if getattr(config, "ENABLE_REMOTIVE", True):
+        remotive_cat = getattr(config, "REMOTIVE_CATEGORY", "qa")
+        remotive_remote = getattr(config, "REMOTIVE_REMOTE_ONLY", True)
+        remotive_limit = getattr(config, "REMOTIVE_LIMIT", 50) if not test_mode else 10
+        logger.info(f"🚀 Поиск на Remotive (Category={remotive_cat}, Remote={remotive_remote})...")
+        remotive = RemotiveJobScraper(category=remotive_cat)
+        remotive_jobs = remotive.search_jobs(category=remotive_cat, remote_only=remotive_remote, limit=remotive_limit)
+        logger.info(f"[Remotive] Найдено карточек: {len(remotive_jobs)}")
+
+        for job in remotive_jobs:
+            job_id = job["id"]
+            if db.is_seen(job_id):
+                continue
+
+            # Level 0: Валидация названия роли
+            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
+                logger.info(
+                    f"🚫 [НЕ QA РОЛЬ / Remotive] Отклонена по названию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
+            workplace_type = job.get("workplace_type", "remote")
+            total_new += 1
+            snippet = job.get("description", "")[:350]
+            if len(job.get("description", "")) > 350:
+                snippet = snippet.rstrip() + "..."
+
+            logger.info(f"✨ [Remotive] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
+
+            if dry_run:
+                print("\n" + "=" * 60)
+                print(f"[DRY RUN / Remotive] Новая вакансия ({workplace_type.upper()}):")
+                print(f"Позиция: {job['title']}")
+                print(f"Компания: {job['company']}")
+                print(f"Локация: {job['location']}")
+                if job.get("salary"):
+                    print(f"Зарплата: {job['salary']}")
+                print(f"Ссылка: {job['url']}")
+                if snippet:
+                    print(f"Фрагмент описания: {snippet[:200]}...")
+                print("=" * 60 + "\n")
+            else:
+                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
+                if sent:
+                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
+                else:
+                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
+                time.sleep(1.5)
+
+            db.add_job(job)
+
+    # --- WeWorkRemotely (weworkremotely.com RSS) ---
+    if getattr(config, "ENABLE_WEWORKREMOTELY", True):
+        wwr_limit = getattr(config, "WEWORKREMOTELY_LIMIT", 50) if not test_mode else 10
+        logger.info(f"💼 Поиск на WeWorkRemotely RSS...")
+        wwr = WeWorkRemotelyJobScraper()
+        wwr_jobs = wwr.search_jobs(remote_only=True, limit=wwr_limit)
+        logger.info(f"[WeWorkRemotely] Найдено карточек: {len(wwr_jobs)}")
+
+        for job in wwr_jobs:
+            job_id = job["id"]
+            if db.is_seen(job_id):
+                continue
+
+            # Level 0: Валидация названия роли
+            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
+                logger.info(
+                    f"🚫 [НЕ QA РОЛЬ / WeWorkRemotely] Отклонена по названию: '{job['title']}' @ {job['company']}"
+                )
+                db.add_job(job)
+                continue
+
+            workplace_type = job.get("workplace_type", "remote")
+            total_new += 1
+            snippet = job.get("description", "")[:350]
+            if len(job.get("description", "")) > 350:
+                snippet = snippet.rstrip() + "..."
+
+            logger.info(f"✨ [WeWorkRemotely] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
+
+            if dry_run:
+                print("\n" + "=" * 60)
+                print(f"[DRY RUN / WeWorkRemotely] Новая вакансия ({workplace_type.upper()}):")
                 print(f"Позиция: {job['title']}")
                 print(f"Компания: {job['company']}")
                 print(f"Локация: {job['location']}")

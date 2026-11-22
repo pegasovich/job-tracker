@@ -71,6 +71,12 @@ class TelegramNotifier:
             source_badge = "🌐 <b>Источник:</b> Arbeitnow (arbeitnow.com)"
         elif "greenhouse" in source.lower():
             source_badge = "🌱 <b>Источник:</b> Greenhouse (Direct ATS)"
+        elif "lever" in source.lower():
+            source_badge = "⚡ <b>Источник:</b> Lever (Direct ATS)"
+        elif "remotive" in source.lower():
+            source_badge = "🚀 <b>Источник:</b> Remotive (remotive.com)"
+        elif "weworkremotely" in source.lower():
+            source_badge = "💼 <b>Источник:</b> WeWorkRemotely (weworkremotely.com)"
         else:
             source_badge = "🔵 <b>Источник:</b> LinkedIn"
 
@@ -112,6 +118,12 @@ class TelegramNotifier:
             link_text = "Открыть вакансию на Arbeitnow"
         elif "greenhouse" in source.lower():
             link_text = "Открыть вакансию на Greenhouse"
+        elif "lever" in source.lower():
+            link_text = "Открыть вакансию на Lever"
+        elif "remotive" in source.lower():
+            link_text = "Открыть вакансию на Remotive"
+        elif "weworkremotely" in source.lower():
+            link_text = "Открыть вакансию на WeWorkRemotely"
         else:
             link_text = "Открыть вакансию на LinkedIn"
         msg += f"\n🔗 <a href=\"{url}\">{link_text}</a>"
