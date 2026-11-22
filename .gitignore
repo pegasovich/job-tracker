@@ -21,3 +21,7 @@ tracker.log
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Local exports
+*.csv
+jobs_seen.html
