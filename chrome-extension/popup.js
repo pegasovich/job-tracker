@@ -19,7 +19,9 @@ const DEFAULT_PROFILE = `Имя: Олег Кривокобыльский (Oleg K
 
 const DEFAULT_DEGREE_RESULT = `Bachelor of Engineering (B.E.) in Computer Science, National Technical University of Ukraine "Kyiv Polytechnic Institute" (NTUU KPI). Degree result: 4.8 out of 5.0 (Grading system: 5-point scale where 5 is Excellent / Equivalent to First-Class Honours / Top 5% of class).`;
 
-const DEFAULT_SCHOOL_RATIONALE = `Graduated secondary school with Gold Medal (Certificate of Secondary Education with Distinction / Honours), ranked in the top 5% of the graduating cohort. Maintained top grades (5.0 / 5.0) in Mathematics, Physics, and native language throughout high school. Regularly participated and placed in municipal and regional mathematics Olympiads.`;
+const DEFAULT_SCHOOL_RATIONALE = `I graduated from secondary school in Ukraine with an above-average academic standing, consistently placing in the top 20–25% (upper quartile) of my graduating cohort. Under the Ukrainian national educational grading system, my Certificate of Complete General Secondary Education reflected strong results across STEM disciplines, achieving an overall GPA of 4.3 out of 5.0 (equivalent to B+ / First-Class standing), with top marks in Mathematics, Physics, and native language.
+
+Furthermore, in the nation-wide state matriculation and entrance examinations (DPA / state testing), my scores in Mathematics and Physics ranked in the upper quartile nationally (top 20%). This above-average performance secured my competitive admission into the selective Bachelor of Science in Computer Science program at the National Technical University of Ukraine "Kyiv Polytechnic Institute" (NTUU KPI) — Ukraine's premier technical university, which admits applicants through a rigorous, high-cut-off national entrance competition.`;
 
 document.addEventListener("DOMContentLoaded", async () => {
   // Tab switching

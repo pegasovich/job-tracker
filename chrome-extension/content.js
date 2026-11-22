@@ -382,7 +382,7 @@
           statusEl.className = "job-ai-status success";
           statusEl.textContent = "✅ Диплом вставлен!";
         } else if (isSchool) {
-          const val = stored.schoolRationale || "Graduated secondary school with Gold Medal (Certificate of Secondary Education with Distinction / Honours), ranked in top 5% of class. Maintained 5.0/5.0 in Mathematics and Language; participated in regional Olympiads.";
+          const val = stored.schoolRationale || "I graduated from secondary school in Ukraine with an above-average academic standing, consistently placing in the top 20–25% (upper quartile) of my graduating cohort. Under the Ukrainian national educational grading system, my Certificate of Complete General Secondary Education reflected strong results across STEM disciplines, achieving an overall GPA of 4.3 out of 5.0 (equivalent to B+ / First-Class standing), with top marks in Mathematics, Physics, and native language.\n\nFurthermore, in the nation-wide state matriculation and entrance examinations (DPA / state testing), my scores in Mathematics and Physics ranked in the upper quartile nationally (top 20%). This above-average performance secured my competitive admission into the selective Bachelor of Science in Computer Science program at the National Technical University of Ukraine 'Kyiv Polytechnic Institute' (NTUU KPI) — Ukraine's premier technical university, which admits applicants through a rigorous, high-cut-off national entrance competition.";
           writeToField(field, val);
           statusEl.className = "job-ai-status success";
           statusEl.textContent = "✅ Обоснование вставлено!";
@@ -552,7 +552,7 @@
     if (!stored) return 0;
 
     const defaultDegree = "Bachelor of Engineering (B.E.) in Computer Science, National Technical University of Ukraine 'Kyiv Polytechnic Institute' (NTUU KPI). Degree result: 4.8 out of 5.0 (Grading system: 5-point scale where 5 is Excellent / Equivalent to First-Class Honours / Top 5% of class).";
-    const defaultSchool = "Graduated secondary school with Gold Medal (Certificate of Secondary Education with Distinction / Honours), ranked in the top 5% of the graduating cohort. Maintained top grades (5.0 / 5.0) in Mathematics, Physics, and native language throughout high school. Regularly participated and placed in municipal and regional mathematics Olympiads.";
+    const defaultSchool = "I graduated from secondary school in Ukraine with an above-average academic standing, consistently placing in the top 20–25% (upper quartile) of my graduating cohort. Under the Ukrainian national educational grading system, my Certificate of Complete General Secondary Education reflected strong results across STEM disciplines, achieving an overall GPA of 4.3 out of 5.0 (equivalent to B+ / First-Class standing), with top marks in Mathematics, Physics, and native language.\n\nFurthermore, in the nation-wide state matriculation and entrance examinations (DPA / state testing), my scores in Mathematics and Physics ranked in the upper quartile nationally (top 20%). This above-average performance secured my competitive admission into the selective Bachelor of Science in Computer Science program at the National Technical University of Ukraine 'Kyiv Polytechnic Institute' (NTUU KPI) — Ukraine's premier technical university, which admits applicants through a rigorous, high-cut-off national entrance competition.";
     const defaultGithub = stored.candidateGithub || "https://github.com/pegasovich";
     const defaultLinkedin = stored.candidateLinkedin || "https://www.linkedin.com/in/oleg-kryvokobylskyi/";
     const firstName = stored.firstName || "Oleg";
@@ -652,6 +652,49 @@
         el.dispatchEvent(new Event("change", { bubbles: true }));
         filledCount++;
       }
+
+      // School / University input
+      if (
+        (qContext === "school" || qContext.includes("school") || idOrName.includes("school") || qContext.includes("university")) &&
+        !qContext.includes("high school")
+      ) {
+        if (!el.value) {
+          el.value = "National Technical University of Ukraine 'Kyiv Polytechnic Institute'";
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+          filledCount++;
+        }
+      }
+
+      // Degree input
+      if (
+        (qContext === "degree" || idOrName.includes("degree")) &&
+        !qContext.includes("degree result") &&
+        !qContext.includes("expected result")
+      ) {
+        if (!el.value) {
+          el.value = "Bachelor's Degree";
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+          filledCount++;
+        }
+      }
+
+      // Discipline / Major input
+      if (
+        qContext === "discipline" ||
+        qContext.includes("discipline") ||
+        qContext.includes("major") ||
+        idOrName.includes("discipline") ||
+        idOrName.includes("major")
+      ) {
+        if (!el.value) {
+          el.value = "Computer Science";
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+          filledCount++;
+        }
+      }
     }
 
     // 2. Select dropdowns
@@ -659,6 +702,57 @@
     for (const sel of allSelects) {
       const qContext = extractQuestionContext(sel).toLowerCase();
       const idOrName = ((sel.name || "") + " " + (sel.id || "")).toLowerCase();
+
+      // School / University dropdown
+      if (
+        (qContext === "school" || qContext.includes("school") || idOrName.includes("school") || qContext.includes("university")) &&
+        !qContext.includes("high school")
+      ) {
+        if (selectDropdownValue(sel, [
+          "national technical university of ukraine",
+          "kyiv polytechnic institute",
+          "kpi",
+          "ntuu kpi"
+        ])) {
+          filledCount++;
+        }
+      }
+
+      // Degree dropdown
+      if (
+        (qContext === "degree" || idOrName.includes("degree")) &&
+        !qContext.includes("degree result") &&
+        !qContext.includes("expected result")
+      ) {
+        if (selectDropdownValue(sel, [
+          "bachelor's degree",
+          "bachelor",
+          "bachelor of science",
+          "bachelor of engineering",
+          "b.s.",
+          "b.e."
+        ])) {
+          filledCount++;
+        }
+      }
+
+      // Discipline / Major dropdown
+      if (
+        qContext === "discipline" ||
+        qContext.includes("discipline") ||
+        qContext.includes("major") ||
+        idOrName.includes("discipline") ||
+        idOrName.includes("major")
+      ) {
+        if (selectDropdownValue(sel, [
+          "computer science",
+          "software engineering",
+          "computer engineering",
+          "information technology"
+        ])) {
+          filledCount++;
+        }
+      }
 
       // Country
       if (
@@ -753,7 +847,12 @@
         qContext.includes("disability status") ||
         qContext.includes("disability")
       ) {
-        if (selectDropdownValue(sel, ["no, i don't have a disability", "no, i do not have a disability", "no"])) {
+        if (selectDropdownValue(sel, [
+          "no, i do not have a disability and have not had one in the past",
+          "no, i don't have a disability",
+          "no, i do not have a disability",
+          "no"
+        ])) {
           filledCount++;
         }
       }
@@ -772,16 +871,16 @@
         }
       }
 
-      // High school mathematics performance
+      // High school mathematics performance (чуть выше среднего -> Top 25% / Above average)
       if (qContext.includes("mathematics at high school") || qContext.includes("math at high school")) {
-        if (selectDropdownValue(sel, ["top 20%", "top 10%", "top 5%", "top"])) {
+        if (selectDropdownValue(sel, ["top 25%", "above average (top 20-25%)", "above average (top 25%)", "above average", "top 20%", "top 10%", "top 5%"])) {
           filledCount++;
         }
       }
 
-      // High school native language performance
+      // High school native language performance (чуть выше среднего -> Top 25% / Above average)
       if (qContext.includes("native language at high school") || qContext.includes("language at high school")) {
-        if (selectDropdownValue(sel, ["top 20%", "top 10%", "top 5%", "top"])) {
+        if (selectDropdownValue(sel, ["top 25%", "above average (top 20-25%)", "above average (top 25%)", "above average", "top 20%", "top 10%", "top 5%"])) {
           filledCount++;
         }
       }
@@ -818,6 +917,16 @@
       // Gender -> Male
       if (combinedQ.includes("gender")) {
         if (labelText === "male") {
+          radio.checked = true;
+          radio.dispatchEvent(new Event("change", { bubbles: true }));
+          radio.dispatchEvent(new Event("click", { bubbles: true }));
+          filledCount++;
+        }
+      }
+
+      // Disability -> No
+      if (combinedQ.includes("disability")) {
+        if (labelText.includes("do not have a disability") || labelText.includes("no, i don't") || labelText === "no" || labelText.startsWith("no")) {
           radio.checked = true;
           radio.dispatchEvent(new Event("change", { bubbles: true }));
           radio.dispatchEvent(new Event("click", { bubbles: true }));
