@@ -50,6 +50,12 @@
       const autocomplete = (element.getAttribute("autocomplete") || "").toLowerCase();
       const phoneCodeField = element.tagName === "SELECT" && isPhoneCodeField(element, context, autocomplete);
 
+      // PeopleHR uses an intl-tel-input combobox instead of a native <select>.
+      if (data.phoneCountryCode && isPhoneField(context, autocomplete, element.type) &&
+          choosePhonePrefixWidget(element, data.phoneCountryCode)) {
+        filledCount++;
+      }
+
       // Phone-code controls often start with a non-matching default such as +44.
       // Other non-empty fields are deliberately left alone.
       if (isAlreadyFilled(element) && !phoneCodeField) continue;
@@ -198,7 +204,8 @@
 
   function isPhoneField(context, autocomplete, type) {
     const normalized = normalize(context);
-    return autocomplete === "tel" || type === "tel" ||
+    const peopleHrPhoneInput = normalized.split(" ").includes("txtothercontact");
+    return autocomplete === "tel" || type === "tel" || peopleHrPhoneInput ||
       (hasAny(normalized, ["phone number", "phone", "mobile", "telephone"]) &&
         !hasAny(normalized, ["phone code", "country code", "dialing code", "dialling code", "phone prefix"]));
   }
@@ -267,6 +274,38 @@
       return text.includes(codeText) || digits === String(code) || (countryText && `${text} ${value}`.includes(countryText));
     });
     return setSelectOption(select, option);
+  }
+
+  function choosePhonePrefixWidget(phoneInput, code) {
+    if (!phoneInput.closest || !code) return false;
+    const root = phoneInput.closest(".iti, .intl-tel-input");
+    if (!root) return false;
+
+    const control = root.querySelector(".iti__selected-flag[role='combobox'], [role='combobox'][aria-haspopup='listbox'], [role='combobox']");
+    if (!control || typeof control.click !== "function") return false;
+
+    const controlText = [
+      control.textContent || "",
+      control.getAttribute("title") || "",
+      control.getAttribute("aria-label") || "",
+      root.querySelector(".iti__selected-dial-code")?.textContent || ""
+    ].join(" ");
+    if (new RegExp(`\\+\\s*${code}\\b`).test(controlText)) return false;
+
+    const alreadyExpanded = control.getAttribute("aria-expanded") === "true";
+    if (!alreadyExpanded) control.click();
+    const optionSelector = ".iti__country[data-dial-code], [role='option'][data-dial-code]";
+    const rootOptions = Array.from(root.querySelectorAll(optionSelector) || []);
+    const pageOptions = rootOptions.length ? rootOptions : Array.from(document.querySelectorAll(optionSelector));
+    const option = pageOptions.find(item => item.getAttribute("data-dial-code") === String(code) && isVisible(item));
+    if (option && typeof option.click === "function") {
+      option.click();
+      return true;
+    }
+
+    // Leave the page as we found it if this widget does not expose country options.
+    if (!alreadyExpanded) control.click();
+    return false;
   }
 
   function setSelectOption(select, option) {

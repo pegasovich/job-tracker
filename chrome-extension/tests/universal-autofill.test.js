@@ -6,7 +6,7 @@ const vm = require("node:vm");
 
 const script = fs.readFileSync(path.join(__dirname, "..", "universal-autofill.js"), "utf8");
 
-function createHarness(profile, elements) {
+function createHarness(profile, elements, extraElements = []) {
   const listeners = [];
   const attributes = new Set();
 
@@ -45,7 +45,7 @@ function createHarness(profile, elements) {
         hasAttribute: name => attributes.has(name),
         setAttribute: name => attributes.add(name)
       },
-      querySelectorAll: () => elements,
+      querySelectorAll: selector => selector === "input, textarea, select" ? elements : extraElements,
       getElementById: () => null
     },
     window: { getComputedStyle: () => ({ display: "block", visibility: "visible" }) },
@@ -224,4 +224,41 @@ test("uses the visible Find Address label before the ambiguous PeopleHR postcode
 
   assert.equal(result.filledCount, 0);
   assert.equal(findAddress.value, "", "the Eircode must not be typed into the address-search field");
+});
+
+test("selects the international prefix in PeopleHR's custom phone widget", async () => {
+  const phoneInput = createField({ id: "txtOtherContact", value: "83 395 9693" });
+  const widgetState = { open: false, dialCode: "44" };
+  const control = {
+    textContent: "United Kingdom +44",
+    getAttribute: name => name === "title" ? "United Kingdom: +44" : "",
+    click() { widgetState.open = !widgetState.open; }
+  };
+  const irelandOption = {
+    getAttribute: name => name === "data-dial-code" ? "353" : "",
+    getClientRects: () => widgetState.open ? [1] : [],
+    click() {
+      widgetState.dialCode = "353";
+      widgetState.open = false;
+      control.textContent = "Ireland +353";
+    }
+  };
+  const dialCode = { get textContent() { return widgetState.dialCode; } };
+  const widget = {
+    querySelector(selector) {
+      if (selector.includes("iti__selected-flag")) return control;
+      if (selector === ".iti__selected-dial-code") return dialCode;
+      return null;
+    },
+    querySelectorAll: () => [irelandOption]
+  };
+  phoneInput.closest = selector => selector.includes(".iti") ? widget : null;
+  const harness = createHarness({ candidatePhone: "+353 83 395 9693" }, [phoneInput], [irelandOption]);
+
+  const result = await harness.fill();
+
+  assert.equal(widgetState.dialCode, "353");
+  assert.equal(control.textContent, "Ireland +353");
+  assert.equal(phoneInput.value, "83 395 9693", "the existing national number should stay unchanged");
+  assert.equal(result.filledCount, 1);
 });
