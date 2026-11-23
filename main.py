@@ -59,6 +59,8 @@ from ashby_scraper import AshbyJobScraper
 from himalayas_scraper import HimalayasJobScraper, is_himalayas_location_eligible
 from remotive_scraper import RemotiveJobScraper
 from weworkremotely_scraper import WeWorkRemotelyJobScraper
+from jobicy_scraper import JobicyJobScraper
+from remoteok_scraper import RemoteOKJobScraper
 from database import JobDatabase
 from telegram_notifier import TelegramNotifier
 
@@ -107,6 +109,63 @@ def log_and_track_batch(source_name: str, jobs: List[Dict], db: JobDatabase) -> 
     else:
         logger.info(f"[{source_name}] Найдено карточек: {total} (все {total} новые, отправлены на проверку фильтрами)")
     return seen, new_cand
+
+
+def process_remote_feed_jobs(source_name: str, jobs: List[Dict], db: JobDatabase,
+                             notifier: TelegramNotifier, dry_run: bool) -> tuple[int, int]:
+    """Apply the shared QA/remote filters and deliver jobs from remote-only feeds."""
+    new_count = 0
+    filtered_count = 0
+    for job in jobs:
+        job_id = job["id"]
+        if db.is_seen(job_id):
+            continue
+
+        description = job.get("description", "")
+        reason = ""
+        if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
+            reason = "not a QA/SDET role"
+        elif job.get("workplace_type") != "remote":
+            reason = "not confirmed fully remote"
+        elif LinkedInJobScraper.is_location_blocked(job.get("location", "")):
+            reason = "location is incompatible"
+        elif LinkedInJobScraper.is_description_blocked(description):
+            reason = "description restricts candidate location"
+        elif config.EXCLUDE_POLISH_DOMESTIC_ROLES and is_polish_domestic_title(job.get("title", "")):
+            reason = "Polish domestic role"
+
+        if reason:
+            logger.info("🚫 [%s] Пропуск (%s): %s @ %s", source_name, reason, job.get("title"), job.get("company"))
+            filtered_count += 1
+            db.add_job(job)
+            continue
+
+        snippet = description[:350].rstrip()
+        if len(description) > 350:
+            snippet += "..."
+        logger.info("✨ [%s] Новая вакансия (remote): %s @ %s", source_name, job["title"], job["company"])
+        if dry_run:
+            print("\n" + "=" * 60)
+            print(f"[DRY RUN / {source_name}] Новая удалённая вакансия:")
+            print(f"Позиция: {job['title']}\nКомпания: {job['company']}\nЛокация: {job['location']}")
+            if job.get("employment_type"):
+                print(f"Тип: {job['employment_type']}")
+            if job.get("salary"):
+                print(f"Зарплата: {job['salary']}")
+            print(f"Ссылка: {job['url']}")
+            if snippet:
+                print(f"Фрагмент описания: {snippet[:200]}")
+            print("=" * 60 + "\n")
+            db.add_job(job)
+        elif notifier.send_job_alert(job, snippet=snippet, workplace_type="remote"):
+            logger.info("✅ Отправлено в Telegram: %s", job_id)
+            db.add_job(job)
+            time.sleep(1.5)
+        else:
+            # Leave it unseen so the next scheduled scan can retry the notification.
+            logger.error("❌ Ошибка отправки в Telegram: %s; вакансия будет повторно проверена", job_id)
+        new_count += 1
+    return new_count, filtered_count
 
 
 def run_tracker(dry_run: bool = False, test_mode: bool = False):
@@ -1228,6 +1287,43 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 time.sleep(1.5)
 
             db.add_job(job)
+
+    # --- Jobicy public API ---
+    if getattr(config, "ENABLE_JOBICY", True):
+        if db.claim_source_poll("jobicy", min_interval_seconds=3600):
+            logger.info("🟠 Поиск на Jobicy API...")
+            jobicy = JobicyJobScraper()
+            jobicy_jobs = jobicy.search_jobs(
+                tags=getattr(config, "JOBICY_TAGS", ["QA", "SDET", "test automation"]),
+                limit=getattr(config, "JOBICY_LIMIT", 100) if not test_mode else 20,
+            )
+            seen_cnt, _ = log_and_track_batch("Jobicy", jobicy_jobs, db)
+            total_scanned += len(jobicy_jobs)
+            total_already_seen += seen_cnt
+            new_count, filtered_count = process_remote_feed_jobs(
+                "Jobicy", jobicy_jobs, db, notifier, dry_run
+            )
+            total_new += new_count
+            total_filtered += filtered_count
+        else:
+            logger.info("[Jobicy] Пропуск опроса: предыдущий запрос был менее часа назад.")
+
+    # --- Remote OK public API ---
+    if getattr(config, "ENABLE_REMOTEOK", True):
+        logger.info("🌍 Поиск на Remote OK API...")
+        remoteok = RemoteOKJobScraper()
+        remoteok_jobs = remoteok.search_jobs(
+            tags=getattr(config, "REMOTEOK_TAGS", ["qa", "sdet", "test-automation"]),
+            limit=getattr(config, "REMOTEOK_LIMIT", 50) if not test_mode else 10,
+        )
+        seen_cnt, _ = log_and_track_batch("Remote OK", remoteok_jobs, db)
+        total_scanned += len(remoteok_jobs)
+        total_already_seen += seen_cnt
+        new_count, filtered_count = process_remote_feed_jobs(
+            "Remote OK", remoteok_jobs, db, notifier, dry_run
+        )
+        total_new += new_count
+        total_filtered += filtered_count
 
     logger.info("=" * 80)
     logger.info("🏁 Проверка всех источников завершена успешно!")

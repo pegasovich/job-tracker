@@ -81,6 +81,10 @@ class TelegramNotifier:
             source_badge = "🚀 <b>Источник:</b> Remotive (remotive.com)"
         elif "weworkremotely" in source.lower():
             source_badge = "💼 <b>Источник:</b> WeWorkRemotely (weworkremotely.com)"
+        elif "jobicy" in source.lower():
+            source_badge = "🟠 <b>Источник:</b> Jobicy"
+        elif "remote ok" in source.lower():
+            source_badge = "🌍 <b>Источник:</b> Remote OK"
         else:
             source_badge = "🔵 <b>Источник:</b> LinkedIn"
 
@@ -94,6 +98,8 @@ class TelegramNotifier:
         region = html.escape(job.get("region", ""))
         region_badge = f"\n🌍 <b>Регион поиска:</b> {region}" if region else ""
         salary_line = f"\n💰 <b>Зарплата:</b> {salary}" if salary else ""
+        employment_type = html.escape(job.get("employment_type", ""))
+        employment_line = f"\n🧾 <b>Тип:</b> {employment_type}" if employment_type else ""
         keyword_line = f"\n🔎 <b>Поиск:</b> #{keyword.replace(' ', '_')}" if keyword else ""
 
         msg = (
@@ -101,7 +107,7 @@ class TelegramNotifier:
             f"{source_badge}\n"
             f"🏢 <b>Компания:</b> {company}\n"
             f"📍 <b>Локация:</b> {location}\n"
-            f"{work_type_badge}{region_badge}{salary_line}{keyword_line}\n"
+            f"{work_type_badge}{region_badge}{salary_line}{employment_line}{keyword_line}\n"
         )
 
         if snippet:
@@ -132,6 +138,10 @@ class TelegramNotifier:
             link_text = "Открыть вакансию на Remotive"
         elif "weworkremotely" in source.lower():
             link_text = "Открыть вакансию на WeWorkRemotely"
+        elif "jobicy" in source.lower():
+            link_text = "Открыть вакансию на Jobicy"
+        elif "remote ok" in source.lower():
+            link_text = "Открыть вакансию на Remote OK"
         else:
             link_text = "Открыть вакансию на LinkedIn"
         msg += f"\n🔗 <a href=\"{url}\">{link_text}</a>"

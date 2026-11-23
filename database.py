@@ -33,7 +33,39 @@ class JobDatabase:
                 )
                 """
             )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS source_sync_state (
+                    source TEXT PRIMARY KEY,
+                    last_attempt_at TEXT NOT NULL
+                )
+                """
+            )
             conn.commit()
+
+    def claim_source_poll(self, source: str, min_interval_seconds: int = 3600) -> bool:
+        """Atomically rate-limit a source across local and GitHub Actions runs."""
+        now = datetime.datetime.now(datetime.timezone.utc)
+        with self._get_connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT last_attempt_at FROM source_sync_state WHERE source = ?", (source,)
+            ).fetchone()
+            if row:
+                try:
+                    last_attempt = datetime.datetime.fromisoformat(row[0])
+                    if (now - last_attempt).total_seconds() < min_interval_seconds:
+                        conn.rollback()
+                        return False
+                except (TypeError, ValueError):
+                    pass
+            conn.execute(
+                "INSERT INTO source_sync_state(source, last_attempt_at) VALUES (?, ?) "
+                "ON CONFLICT(source) DO UPDATE SET last_attempt_at = excluded.last_attempt_at",
+                (source, now.isoformat()),
+            )
+            conn.commit()
+        return True
 
     def is_seen(self, job_id: str) -> bool:
         with self._get_connection() as conn:
@@ -95,6 +127,22 @@ class JobDatabase:
                 FROM source_db.seen_jobs
                 """
             )
+            source_tables = {
+                row[0] for row in conn.execute(
+                    "SELECT name FROM source_db.sqlite_master WHERE type = 'table'"
+                )
+            }
+            if "source_sync_state" in source_tables:
+                conn.execute(
+                    """
+                    INSERT INTO source_sync_state(source, last_attempt_at)
+                    SELECT source, last_attempt_at FROM source_db.source_sync_state
+                    WHERE 1
+                    ON CONFLICT(source) DO UPDATE SET last_attempt_at =
+                        CASE WHEN excluded.last_attempt_at > source_sync_state.last_attempt_at
+                        THEN excluded.last_attempt_at ELSE source_sync_state.last_attempt_at END
+                    """
+                )
             conn.commit()
             try:
                 conn.execute("DETACH DATABASE source_db")

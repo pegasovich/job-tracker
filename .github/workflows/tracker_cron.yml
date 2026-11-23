@@ -6,6 +6,10 @@ on:
 permissions:
   contents: write # Grants permissions to commit and push updated jobs_seen.db
 
+concurrency:
+  group: remote-job-tracker
+  cancel-in-progress: false
+
 jobs:
   track-jobs:
     name: Execute Job Tracker & Alert

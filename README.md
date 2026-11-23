@@ -44,6 +44,8 @@ Searching for genuine international remote QA roles is fraught with friction:
 | ⚡ **Lever** | Direct Company ATS (`api.lever.co/v0/postings`) | Worldwide & Remote-first | Direct carrier portal API for top tech companies (Palantir, Spotify, Wealthfront, Outreach, Glide); clean plain text descriptions. | ✅ Enabled |
 | 🪐 **Ashby** | Direct Company ATS (`api.ashbyhq.com/posting-api`) | Worldwide & Remote-first | Direct carrier portal API for top modern tech/AI companies (Linear, Synthesia, Notion, PostHog, Snyk, Zapier, OpenAI, Cursor, Modal); zero middleman. | ✅ Enabled |
 | 🏔️ **Himalayas** | Curated Remote REST API (`himalayas.app/jobs/api`) | Global & EMEA Remote | Pure 100% remote board; structured location & timezone restrictions (UTC+0/+1 Irish overlap verification); salary parsing. | ✅ Enabled |
+| 🟠 **Jobicy** | Public Remote Jobs API (`jobicy.com/api/jobs`) | Europe, Ireland & Worldwide | QA/SDET keyword feeds; requires explicit Ireland/Europe/worldwide eligibility; poll limited to once per hour; source link retained. | ✅ Enabled |
+| 🌍 **Remote OK** | Public JSON API (`remoteok.com/api`) | Worldwide & regional remote | QA/SDET tag feeds; rejects country-ineligible and explicit hybrid/office roles; links to original listing. | ✅ Enabled |
 | 🚀 **Remotive** | Curated Remote API (`remotive.com/api/remote-jobs`) | Worldwide & Pan-European | Curated 100% remote positions with structured candidate location requirements validation; salary extraction. | ✅ Enabled |
 | 💼 **WeWorkRemotely** | Curated Remote RSS Feed (`weworkremotely.com`) | Worldwide & Global Remote | Leading global remote tech board with real-time XML streaming; automated title and salary extraction. | ✅ Enabled |
 | 🔴 **No Fluff Jobs** | Internal REST API (`api/search/posting`) | Central & Western Europe | Polish domestic B2B market (JDG/PL residency required). | ❌ Disabled |
@@ -151,6 +153,8 @@ job-tracker/
 ├── lever_scraper.py         # Lever Direct Company ATS scraper
 ├── ashby_scraper.py         # Ashby Direct Company ATS scraper
 ├── himalayas_scraper.py     # Himalayas Curated Remote REST API scraper
+├── jobicy_scraper.py        # Jobicy public remote jobs API and Ireland eligibility filter
+├── remoteok_scraper.py      # Remote OK public JSON feed and location filter
 ├── view_db.py               # Database CLI inspector, search & CSV/HTML exporter
 └── telegram_notifier.py     # Telegram Bot API notification engine
 ```
@@ -190,7 +194,7 @@ TELEGRAM_CHAT_ID=your_telegram_chat_id
 ADZUNA_APP_ID=your_adzuna_app_id
 ADZUNA_APP_KEY=your_adzuna_app_key
 ```
-*(If Adzuna credentials are left empty, the tracker will automatically skip Adzuna and run all other 7 providers without errors.)*
+*(If Adzuna credentials are left empty, the tracker skips Adzuna and continues with the other enabled providers.)*
 
 ### 3. Running the Test Suite
 ```bash

@@ -350,6 +350,16 @@ HIMALAYAS_LIMIT_PER_PAGE = 20
 HIMALAYAS_ALLOWED_TIMEZONES = [-2, -1, 0, 1, 2, 3, 4]  # EMEA / Ireland overlap
 HIMALAYAS_LIMIT = 50
 
+# Additional remote job APIs. Jobicy is rate-limited to one poll per hour.
+ENABLE_JOBICY = True
+JOBICY_TAGS = ["QA", "SDET", "test automation"]
+JOBICY_LIMIT = 100
+
+# Remote OK public API (remote listings; eligibility is checked against the job's location).
+ENABLE_REMOTEOK = True
+REMOTEOK_TAGS = ["qa", "sdet", "test-automation"]
+REMOTEOK_LIMIT = 50
+
 # Language Filtering (пропускаем только вакансии с английским или без языковых требований)
 # Whitelist подход: если вакансия требует язык НЕ из этого списка — отсекаем
 ALLOWED_LANGUAGE_CODES = ["en", "english"]
