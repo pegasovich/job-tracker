@@ -62,6 +62,9 @@ BLOCKED_LOCATION_PATTERNS = [
     r'\bnew\s+zealand\b',
     r'\bafrica\b',
     r'\bnigeria\b',
+    # Country-only remote restrictions do not include candidates in Ireland.
+    # Broad Europe / EMEA / Worldwide markers are checked first and still pass.
+    r'\b(germany|france|spain|portugal|italy|netherlands|poland|sweden|norway|denmark|finland|switzerland|austria|belgium|czechia|czech republic|romania|bulgaria|greece|croatia|estonia|latvia|lithuania|cyprus|malta|slovakia|slovenia|hungary|luxembourg|iceland|serbia|bosnia|montenegro|albania|north macedonia|moldova|ukraine|turkey|türkiye)\b',
 ]
 
 

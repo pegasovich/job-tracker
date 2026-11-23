@@ -28,13 +28,10 @@ USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0",
 ]
 
-EUROPEAN_AND_CTA_COUNTRIES = {
-    "ireland", "united kingdom", "uk", "germany", "france", "spain", "portugal",
-    "italy", "netherlands", "poland", "sweden", "norway", "denmark", "finland",
-    "switzerland", "austria", "belgium", "czechia", "czech republic", "romania",
-    "bulgaria", "greece", "croatia", "estonia", "latvia", "lithuania", "cyprus",
-    "malta", "slovakia", "slovenia", "hungary", "luxembourg", "iceland",
-    "europe", "european union", "eu", "emea",
+IRELAND_ELIGIBLE_LOCATION_SCOPES = {
+    "ireland", "republic of ireland", "united kingdom", "uk",
+    "europe", "pan-european", "european union", "eu", "emea",
+    "worldwide", "anywhere", "global",
 }
 
 
@@ -44,21 +41,18 @@ def is_himalayas_location_eligible(
     allowed_timezones: Optional[List[float]] = None,
 ) -> bool:
     """
-    Check if a Himalayas role's location and timezone restrictions are compatible
-    with a candidate based in Ireland (Stamp 4 / EU / UK-IE CTA).
+    Check whether Himalayas explicitly allows a candidate in Ireland (and the
+    user's accepted UK / broad Europe / worldwide scopes).
     - Empty loc_restrictions indicates open worldwide.
-    - If loc_restrictions is non-empty, it must contain Ireland, UK, or a European country.
+    - A country-specific restriction must name Ireland or the UK; another EU
+      country (for example, the Netherlands) does not make the role Ireland-eligible.
+    - Broad scopes such as Europe, EMEA, or Worldwide are accepted.
     - If tz_restrictions is specified, it must overlap with Irish / EMEA timezones (-2 to +4).
     """
     # 1. Location restrictions check
     if loc_restrictions:
         locs_lower = {str(l).lower().strip() for l in loc_restrictions}
-        has_allowed = (
-            bool(locs_lower.intersection(EUROPEAN_AND_CTA_COUNTRIES))
-            or "worldwide" in locs_lower
-            or "anywhere" in locs_lower
-            or "global" in locs_lower
-        )
+        has_allowed = bool(locs_lower.intersection(IRELAND_ELIGIBLE_LOCATION_SCOPES))
         if not has_allowed:
             return False
 

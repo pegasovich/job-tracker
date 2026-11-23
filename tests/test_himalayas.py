@@ -80,8 +80,15 @@ class TestHimalayasEligibility:
     def test_allowed_when_ireland_or_europe_specified(self):
         assert is_himalayas_location_eligible(["Ireland"]) is True
         assert is_himalayas_location_eligible(["United Kingdom"]) is True
-        assert is_himalayas_location_eligible(["Germany", "France"]) is True
         assert is_himalayas_location_eligible(["Europe"]) is True
+        assert is_himalayas_location_eligible(["EMEA"]) is True
+        assert is_himalayas_location_eligible(["Worldwide"]) is True
+
+    def test_country_specific_restrictions_must_include_ireland_or_accepted_scope(self):
+        assert is_himalayas_location_eligible(["Netherlands"]) is False
+        assert is_himalayas_location_eligible(["Poland", "Portugal", "Serbia", "Croatia"]) is False
+        assert is_himalayas_location_eligible(["Ireland", "Netherlands"]) is True
+        assert is_himalayas_location_eligible(["Europe", "Netherlands"]) is True
 
     def test_blocked_when_domestic_foreign_country(self):
         assert is_himalayas_location_eligible(["United States"]) is False
@@ -100,6 +107,20 @@ class TestHimalayasEligibility:
 
 class TestHimalayasScraper:
     """Tests for Himalayas scraper."""
+
+    def test_parse_single_job_rejects_netherlands_only_remote_project(self):
+        scraper = HimalayasJobScraper()
+        job_raw = {
+            "guid": "tester-work-netherlands",
+            "title": "App Testers wanted in the Netherlands!",
+            "companyName": "Tester Work",
+            "companySlug": "tester-work",
+            "locationRestrictions": ["Netherlands"],
+            "timezoneRestrictions": [0, 1, 2],
+            "description": "Flexible part-time remote app testing project.",
+            "applicationLink": "https://himalayas.app/companies/tester-work/jobs/app-testers-wanted-in-the-netherlands",
+        }
+        assert scraper._parse_single_job(job_raw) is None
 
     def test_parse_single_job_extracts_correct_fields(self):
         scraper = HimalayasJobScraper()

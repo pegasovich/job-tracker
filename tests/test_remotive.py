@@ -78,6 +78,10 @@ class TestRemotiveScraper:
         assert is_remotive_location_eligible("India") is False
         assert is_remotive_location_eligible("APAC") is False
         assert is_remotive_location_eligible("Brazil") is False
+        assert is_remotive_location_eligible("Netherlands") is False
+        assert is_remotive_location_eligible("Remote (Netherlands)") is False
+        assert is_remotive_location_eligible("Poland, Portugal, Serbia, Croatia") is False
+        assert is_remotive_location_eligible("Netherlands, Europe") is True
 
     def test_parse_single_job_extracts_correct_fields(self):
         scraper = RemotiveJobScraper()
