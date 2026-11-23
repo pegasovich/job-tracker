@@ -15,6 +15,11 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -25,6 +30,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
+
+      - name: Test Chrome extension autofill
+        run: node --test chrome-extension/tests/universal-autofill.test.js
 
       - name: Run Pytest with coverage
         run: |

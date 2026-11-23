@@ -135,6 +135,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const lastNameInput = document.getElementById("last-name");
   const emailInput = document.getElementById("candidate-email");
   const countryInput = document.getElementById("candidate-country");
+  const findAddressInput = document.getElementById("candidate-find-address");
+  const addressLine1Input = document.getElementById("candidate-address-line1");
+  const addressLine2Input = document.getElementById("candidate-address-line2");
+  const cityInput = document.getElementById("candidate-city");
+  const countyInput = document.getElementById("candidate-county");
+  const postcodeInput = document.getElementById("candidate-postcode");
+  const otherContactDetailsInput = document.getElementById("candidate-other-contact-details");
   const locationInput = document.getElementById("candidate-location");
   const phoneInput = document.getElementById("candidate-phone");
   const linkedinInput = document.getElementById("candidate-linkedin");
@@ -155,6 +162,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     "lastName",
     "candidateEmail",
     "candidateCountry",
+    "candidateFindAddress",
+    "candidateAddressLine1",
+    "candidateAddressLine2",
+    "candidateCity",
+    "candidateCounty",
+    "candidatePostcode",
+    "candidateOtherContactDetails",
     "degreeResult",
     "schoolRationale",
     "candidateLocation",
@@ -180,6 +194,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (lastNameInput) lastNameInput.value = stored.lastName || "Kryvokobylskyi";
   if (emailInput) emailInput.value = stored.candidateEmail || "pegasovich@gmail.com";
   if (countryInput) countryInput.value = stored.candidateCountry || "Ireland";
+  if (findAddressInput) findAddressInput.value = stored.candidateFindAddress || "";
+  if (addressLine1Input) addressLine1Input.value = stored.candidateAddressLine1 || "";
+  if (addressLine2Input) addressLine2Input.value = stored.candidateAddressLine2 || "";
+  if (cityInput) cityInput.value = stored.candidateCity || "Cahersiveen";
+  if (countyInput) countyInput.value = stored.candidateCounty || "Kerry";
+  if (postcodeInput) postcodeInput.value = stored.candidatePostcode || "";
 
   degreeResultArea.value = stored.degreeResult || DEFAULT_DEGREE_RESULT;
   schoolRationaleArea.value = stored.schoolRationale || DEFAULT_SCHOOL_RATIONALE;
@@ -187,6 +207,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   phoneInput.value = stored.candidatePhone || "+353 83 395 9693";
   linkedinInput.value = stored.candidateLinkedin || "https://www.linkedin.com/in/oleg-kryvokobylskyi/";
   githubInput.value = stored.candidateGithub || "https://github.com/pegasovich";
+  if (otherContactDetailsInput) {
+    otherContactDetailsInput.value = stored.candidateOtherContactDetails !== undefined
+      ? stored.candidateOtherContactDetails
+      : `LinkedIn: ${linkedinInput.value}\nGitHub: ${githubInput.value}`;
+  }
   if (stored.travelCommitment) travelCommitmentSelect.value = stored.travelCommitment;
 
   // Toggle API key visibility
@@ -255,6 +280,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     const lastName = lastNameInput ? lastNameInput.value.trim() : "Kryvokobylskyi";
     const candidateEmail = emailInput ? emailInput.value.trim() : "pegasovich@gmail.com";
     const candidateCountry = countryInput ? countryInput.value.trim() : "Ireland";
+    const candidateFindAddress = findAddressInput ? findAddressInput.value.trim() : "";
+    const candidateAddressLine1 = addressLine1Input ? addressLine1Input.value.trim() : "";
+    const candidateAddressLine2 = addressLine2Input ? addressLine2Input.value.trim() : "";
+    const candidateCity = cityInput ? cityInput.value.trim() : "Cahersiveen";
+    const candidateCounty = countyInput ? countyInput.value.trim() : "Kerry";
+    const candidatePostcode = postcodeInput ? postcodeInput.value.trim() : "";
+    const candidateOtherContactDetails = otherContactDetailsInput ? otherContactDetailsInput.value.trim() : "";
     const candidateLocation = locationInput.value.trim();
     const candidatePhone = phoneInput.value.trim();
     const candidateLinkedin = linkedinInput.value.trim();
@@ -276,6 +308,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         lastName,
         candidateEmail,
         candidateCountry,
+        candidateFindAddress,
+        candidateAddressLine1,
+        candidateAddressLine2,
+        candidateCity,
+        candidateCounty,
+        candidatePostcode,
+        candidateOtherContactDetails,
         degreeResult,
         schoolRationale,
         candidateLocation,

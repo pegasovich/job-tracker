@@ -337,7 +337,7 @@
     <!-- Tab 2: Questionnaire & Autofill -->
     <div id="tab-autofill" class="tab-pane">
       <div class="info-box">
-        💡 Эти данные автоматически подставляются в анкеты Greenhouse / Canonical (Имя, Email, Телефон, Страна, LinkedIn, GitHub, Диплом) по кнопке <b>⚡ Автозаполнить</b>.
+        💡 Эти данные автоматически подставляются в распознанные поля заявки по кнопке <b>⚡ Автозаполнить</b>. Уже заполненные значения остаются без изменений.
       </div>
 
       <div class="row-2">
@@ -363,6 +363,49 @@
       </div>
 
       <div class="form-group">
+        <label for="candidate-find-address">Адрес для поиска (Find Address):</label>
+        <input type="text" id="candidate-find-address" placeholder="Оставьте пустым, если адресный поиск не нужен">
+      </div>
+
+      <div class="row-2">
+        <div class="form-group">
+          <label for="candidate-address-line1">Адрес, строка 1:</label>
+          <input type="text" id="candidate-address-line1" placeholder="Улица и номер дома">
+        </div>
+        <div class="form-group">
+          <label for="candidate-address-line2">Адрес, строка 2:</label>
+          <input type="text" id="candidate-address-line2" placeholder="Квартира, корпус и т. п.">
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="form-group">
+          <label for="candidate-city">Город / населённый пункт:</label>
+          <input type="text" id="candidate-city" placeholder="Cahersiveen">
+        </div>
+        <div class="form-group">
+          <label for="candidate-county">Графство / регион:</label>
+          <input type="text" id="candidate-county" placeholder="Kerry">
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="form-group">
+          <label for="candidate-postcode">Почтовый индекс / Eircode:</label>
+          <input type="text" id="candidate-postcode" placeholder="Укажите свой Eircode">
+        </div>
+        <div class="form-group">
+          <label for="candidate-phone">Телефон:</label>
+          <input type="text" id="candidate-phone" placeholder="+353 83 395 9693">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="candidate-other-contact-details">Другие контактные данные:</label>
+        <textarea id="candidate-other-contact-details" style="min-height: 55px;" placeholder="LinkedIn / GitHub или другие контакты"></textarea>
+      </div>
+
+      <div class="form-group">
         <label for="degree-result">Диплом и оценка (Degree Result & Grading):</label>
         <textarea id="degree-result" style="min-height: 55px;" placeholder="Bachelor of Engineering in Computer Science..."></textarea>
       </div>
@@ -372,15 +415,9 @@
         <textarea id="school-rationale" style="min-height: 75px;" placeholder="I graduated from secondary school in Ukraine with an above-average academic standing (top 20-25%)..."></textarea>
       </div>
 
-      <div class="row-2">
-        <div class="form-group">
-          <label for="candidate-location">Локация:</label>
-          <input type="text" id="candidate-location" placeholder="Cahersiveen, Co. Kerry, Ireland">
-        </div>
-        <div class="form-group">
-          <label for="candidate-phone">Телефон:</label>
-          <input type="text" id="candidate-phone" placeholder="+353 83 395 9693">
-        </div>
+      <div class="form-group">
+        <label for="candidate-location">Локация:</label>
+        <input type="text" id="candidate-location" placeholder="Cahersiveen, Co. Kerry, Ireland">
       </div>
 
       <div class="row-2">

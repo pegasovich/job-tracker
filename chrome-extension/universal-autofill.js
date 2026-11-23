@@ -14,51 +14,118 @@
 
   async function fillContactFields() {
     const profile = await chrome.storage.sync.get([
-      "firstName", "lastName", "candidateEmail", "candidatePhone", "candidateCountry"
+      "firstName", "lastName", "candidateEmail", "candidatePhone", "candidateCountry",
+      "candidateFindAddress", "candidateAddressLine1", "candidateAddressLine2",
+      "candidateCity", "candidateCounty", "candidatePostcode", "candidateOtherContactDetails",
+      "candidateLinkedin", "candidateGithub"
     ]);
+    const phone = splitInternationalPhone(profile.candidatePhone || "+353 83 395 9693");
+    const linkedin = profile.candidateLinkedin || "https://www.linkedin.com/in/oleg-kryvokobylskyi/";
+    const github = profile.candidateGithub || "https://github.com/pegasovich";
     const data = {
       firstName: profile.firstName || "Oleg",
       lastName: profile.lastName || "Kryvokobylskyi",
       email: profile.candidateEmail || "pegasovich@gmail.com",
-      phone: profile.candidatePhone || "+353 83 395 9693",
-      country: profile.candidateCountry || "Ireland"
+      phone: phone.nationalNumber,
+      phoneCountryCode: phone.countryCode,
+      phoneCountry: phone.country,
+      country: profile.candidateCountry || "Ireland",
+      findAddress: profile.candidateFindAddress || "",
+      addressLine1: profile.candidateAddressLine1 || "",
+      addressLine2: profile.candidateAddressLine2 || "",
+      city: profile.candidateCity || "Cahersiveen",
+      county: profile.candidateCounty || "Kerry",
+      postcode: profile.candidatePostcode || "",
+      otherContactDetails: profile.candidateOtherContactDetails !== undefined
+        ? profile.candidateOtherContactDetails
+        : `LinkedIn: ${linkedin}\nGitHub: ${github}`
     };
     let filledCount = 0;
 
     for (const element of document.querySelectorAll("input, textarea, select")) {
-      if (element.disabled || element.readOnly || !isVisible(element) || isAlreadyFilled(element)) continue;
+      if (element.disabled || element.readOnly || !isVisible(element)) continue;
       if (element.matches('input[type="hidden"], input[type="file"], input[type="checkbox"], input[type="radio"], input[type="submit"], input[type="button"], input[type="password"]')) continue;
 
       const context = getContext(element);
-      const type = (element.getAttribute("type") || "").toLowerCase();
       const autocomplete = (element.getAttribute("autocomplete") || "").toLowerCase();
-      let value = null;
+      const phoneCodeField = element.tagName === "SELECT" && isPhoneCodeField(element, context, autocomplete);
+
+      // Phone-code controls often start with a non-matching default such as +44.
+      // Other non-empty fields are deliberately left alone.
+      if (isAlreadyFilled(element) && !phoneCodeField) continue;
 
       if (element.tagName === "SELECT") {
-        if (isCountryField(context, autocomplete)) {
-          if (chooseOption(element, ["ireland", "republic of ireland", "ie", "irl"])) filledCount++;
+        if (phoneCodeField) {
+          if (data.phoneCountryCode && choosePhoneCode(element, data.phoneCountryCode, data.phoneCountry)) filledCount++;
+        } else if (isCountryField(context, autocomplete)) {
+          if (chooseOption(element, [data.country, "Ireland", "Republic of Ireland", "IE", "IRL"])) filledCount++;
+        } else {
+          const value = getAddressFieldValue(context, autocomplete, data);
+          if (value && chooseOption(element, [value])) filledCount++;
         }
         continue;
       }
 
-      if (autocomplete === "given-name" || hasAny(context, ["first name", "given name", "firstname", "first_name"])) {
-        value = data.firstName;
-      } else if (autocomplete === "family-name" || hasAny(context, ["last name", "family name", "surname", "lastname", "last_name"])) {
-        value = data.lastName;
-      } else if (autocomplete === "name" || hasAny(context, ["full name", "your name", "fullname"]) || context.trim() === "name") {
-        value = `${data.firstName} ${data.lastName}`;
-      } else if (autocomplete === "email" || type === "email" || hasAny(context, ["email", "e-mail"])) {
-        value = data.email;
-      } else if (autocomplete === "tel" || type === "tel" || hasAny(context, ["phone number", "phone", "mobile", "telephone"])) {
-        if (!hasAny(context, ["phone code", "country code", "dialing code"])) value = data.phone;
-      } else if (isCountryField(context, autocomplete)) {
-        value = data.country;
-      }
-
-      if (value !== null && setValue(element, value)) filledCount++;
+      const value = getFieldValue(context, autocomplete, element, data);
+      if (value && setValue(element, value)) filledCount++;
     }
 
     return filledCount;
+  }
+
+  function getFieldValue(context, autocomplete, element, data) {
+    const normalized = normalize(context);
+    if (autocomplete === "given-name" || hasAny(normalized, ["first name", "given name", "firstname"])) {
+      return data.firstName;
+    }
+    if (autocomplete === "family-name" || hasAny(normalized, ["last name", "family name", "surname", "lastname"])) {
+      return data.lastName;
+    }
+    if (autocomplete === "name" || hasAny(normalized, ["full name", "your name", "fullname"]) || normalized.trim() === "name") {
+      return `${data.firstName} ${data.lastName}`;
+    }
+    if (autocomplete === "email" || element.type === "email" || hasAny(normalized, ["email", "e mail"])) {
+      return data.email;
+    }
+    if (isCountryField(normalized, autocomplete)) return data.country;
+
+    const addressValue = getAddressFieldValue(normalized, autocomplete, data);
+    if (addressValue !== null) return addressValue;
+
+    if (autocomplete === "tel-country-code") return data.phoneCountryCode ? `+${data.phoneCountryCode}` : null;
+    if (isPhoneField(normalized, autocomplete, element.type)) return data.phone;
+    return null;
+  }
+
+  function getAddressFieldValue(context, autocomplete, data) {
+    const normalized = normalize(context);
+    if (hasAny(normalized, ["find address", "address search", "address lookup"])) {
+      return data.findAddress || null;
+    }
+    if (autocomplete === "street-address") {
+      const streetAddress = [data.addressLine1, data.addressLine2].filter(Boolean).join(", ");
+      return streetAddress || null;
+    }
+    if (autocomplete === "address-line2" || hasAny(normalized, ["address line 2", "address 2", "address2", "apartment", "suite", "unit number"])) {
+      return data.addressLine2 || null;
+    }
+    if (autocomplete === "address-line1" || hasAny(normalized, ["address line 1", "address 1", "address1", "street address"]) ||
+        (hasAny(normalized, ["address"]) && !hasAny(normalized, ["find", "search", "lookup"]))) {
+      return data.addressLine1 || null;
+    }
+    if (autocomplete === "address-level2" || hasAny(normalized, ["town", "city", "municipality", "locality"])) {
+      return data.city || null;
+    }
+    if (autocomplete === "address-level1" || hasAny(normalized, ["county", "state", "province", "region"])) {
+      return data.county || null;
+    }
+    if (autocomplete === "postal-code" || hasAny(normalized, ["postal code", "postcode", "post code", "zip code", "zip"])) {
+      return data.postcode || null;
+    }
+    if (hasAny(normalized, ["other contact details", "additional contact details", "other contact", "contact details"])) {
+      return data.otherContactDetails || null;
+    }
+    return null;
   }
 
   function getContext(element) {
@@ -76,25 +143,29 @@
     const label = wrapper?.querySelector("label, legend, [class*='label']");
     if (label && !parts.includes(label.innerText)) parts.push(label.innerText);
 
-    // Some application forms render labels as plain sibling elements without
-    // label/for, aria-label, or useful input names. Look for the nearest small
-    // preceding text block that contains a recognizable contact-field label.
-    const labelTerms = ["first name", "first_name", "given name", "last name", "last_name", "family name", "surname", "email", "e-mail", "phone", "mobile", "telephone", "country", "name"];
-    if (!hasAny(parts.join(" ").toLowerCase(), labelTerms)) {
+    // Some sites render labels as plain siblings without label/for or useful input names.
+    const labelTerms = [
+      "first name", "first_name", "given name", "last name", "last_name", "family name", "surname",
+      "email", "e-mail", "phone", "mobile", "telephone", "country", "name", "find address",
+      "address", "street", "town", "city", "county", "state", "province", "postal", "postcode",
+      "post code", "zip", "contact details"
+    ];
+    if (!hasAny(normalize(parts.join(" ")), labelTerms.map(normalize))) {
       let current = element;
       for (let depth = 0; depth < 4 && current.parentElement; depth++) {
+        const previousPartCount = parts.length;
         const siblings = Array.from(current.parentElement.children);
         const currentIndex = siblings.indexOf(current);
         for (let index = currentIndex - 1; index >= 0; index--) {
           const sibling = siblings[index];
           if (sibling.querySelector("input, textarea, select")) continue;
           const text = (sibling.innerText || "").replace(/\s+/g, " ").trim();
-          if (text.length <= 100 && hasAny(text.toLowerCase(), labelTerms)) {
+          if (text.length <= 100 && hasAny(normalize(text), labelTerms.map(normalize))) {
             parts.push(text);
             break;
           }
         }
-        if (parts.length > 0) break;
+        if (parts.length > previousPartCount) break;
         current = current.parentElement;
       }
     }
@@ -103,12 +174,45 @@
   }
 
   function isCountryField(context, autocomplete) {
-    return (autocomplete === "country-name" || hasAny(context, ["country", "residence country", "country of residence"])) &&
-      !hasAny(context, ["phone code", "country code", "dialing code", "county"]);
+    const normalized = normalize(context);
+    return (autocomplete === "country-name" || hasAny(normalized, ["country", "residence country", "country of residence"])) &&
+      !hasAny(normalized, ["phone code", "country code", "dialing code", "dialling code", "county"]);
+  }
+
+  function isPhoneCodeField(element, context, autocomplete) {
+    const normalized = normalize(context);
+    if (autocomplete === "tel-country-code" || hasAny(normalized, ["phone code", "country code", "dial code", "dialing code", "dialling code", "calling code", "phone prefix"])) {
+      return true;
+    }
+    return element.tagName === "SELECT" && hasAny(normalized, ["phone", "telephone", "mobile", "tel"]) &&
+      Array.from(element.options || []).some(option => /\+\s*\d{1,3}/.test(`${option.text || ""} ${option.value || ""}`));
+  }
+
+  function isPhoneField(context, autocomplete, type) {
+    const normalized = normalize(context);
+    return autocomplete === "tel" || type === "tel" ||
+      (hasAny(normalized, ["phone number", "phone", "mobile", "telephone"]) &&
+        !hasAny(normalized, ["phone code", "country code", "dialing code", "dialling code", "phone prefix"]));
+  }
+
+  function splitInternationalPhone(phone) {
+    const raw = String(phone || "").trim();
+    const match = raw.match(/^\+(\d{1,3})[\s().-]+(.+)$/);
+    if (!match) return { countryCode: "", country: "", nationalNumber: raw };
+
+    const countryCode = match[1];
+    const countryNames = { "353": "Ireland", "44": "United Kingdom", "1": "United States" };
+    let nationalNumber = match[2].trim().replace(/\s+/g, " ");
+    if (nationalNumber.startsWith("0")) nationalNumber = nationalNumber.slice(1).trim();
+    return { countryCode, country: countryNames[countryCode] || "", nationalNumber };
   }
 
   function hasAny(text, terms) {
     return terms.some(term => text.includes(term));
+  }
+
+  function normalize(text) {
+    return String(text || "").toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
   }
 
   function isVisible(element) {
@@ -125,6 +229,7 @@
   }
 
   function setValue(element, value) {
+    if (!String(value || "").trim()) return false;
     const prototype = element.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
     const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
     if (setter) setter.call(element, value);
@@ -137,11 +242,27 @@
 
   function chooseOption(select, matches) {
     const option = Array.from(select.options).find(item => {
-      const text = (item.text || "").trim().toLowerCase();
-      const value = (item.value || "").trim().toLowerCase();
-      return matches.some(match => text === match || value === match || text.includes(match));
+      const text = normalize(item.text || "");
+      const value = normalize(item.value || "");
+      return matches.some(match => text === normalize(match) || value === normalize(match) || text.includes(normalize(match)));
     });
-    if (!option) return false;
+    return setSelectOption(select, option);
+  }
+
+  function choosePhoneCode(select, code, country) {
+    const codeText = `+${code}`;
+    const countryText = normalize(country);
+    const option = Array.from(select.options).find(item => {
+      const text = String(item.text || "").toLowerCase();
+      const value = String(item.value || "").toLowerCase();
+      const digits = value.replace(/\D/g, "");
+      return text.includes(codeText) || digits === String(code) || (countryText && `${text} ${value}`.includes(countryText));
+    });
+    return setSelectOption(select, option);
+  }
+
+  function setSelectOption(select, option) {
+    if (!option || select.value === option.value) return false;
     const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")?.set;
     if (setter) setter.call(select, option.value);
     else select.value = option.value;
