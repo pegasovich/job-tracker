@@ -192,137 +192,6 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
     total_new = 0
     keywords = config.SEARCH_KEYWORDS if not test_mode else [config.SEARCH_KEYWORDS[0]]
 
-    for loc in locations:
-        scraper = LinkedInJobScraper(
-            location=loc,
-            remote_only=config.REMOTE_ONLY,
-            time_filter=getattr(config, "LINKEDIN_TIME_FILTER", "r86400"),
-            sort_by=getattr(config, "LINKEDIN_SORT_BY", "DD"),
-        )
-        for kw in keywords:
-            search_limit = getattr(config, "LINKEDIN_SEARCH_LIMIT", 6) if not test_mode else 1
-            logger.info(f"🔍 Поиск в регионе '{loc}' по слову: '{kw}'...")
-            jobs = scraper.search_jobs(keyword=kw, limit=search_limit)
-            seen_cnt, _ = log_and_track_batch(f"{loc} / {kw}", jobs, db)
-            total_scanned += len(jobs)
-            total_already_seen += seen_cnt
-
-            for job in jobs:
-                job_id = job["id"]
-                job["region"] = loc
-                if db.is_seen(job_id):
-                    continue
-
-                # Level 0: Валидация названия роли (отсекаем разработчиков, DevOps, PM и т.д. без QA)
-                if not scraper.is_qa_title(job.get("title", "")):
-                    logger.info(
-                        f"🚫 [НЕ QA РОЛЬ] Отклонена по названию: '{job['title']}' @ {job['company']}"
-                    )
-                    total_filtered += 1
-
-                    db.add_job(job)
-
-                    continue
-
-                # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны сразу, не делая HTTP-запрос за деталями)
-                if scraper.is_location_blocked(job.get("location", "")):
-                    logger.info(
-                        f"🚫 [ГЕО-БЛОКИРОВКА] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                    )
-                    total_filtered += 1
-
-                    db.add_job(job)
-
-                    continue
-
-                time.sleep(1.0)  # Вежливая задержка перед запросом деталей
-                full_desc = scraper.get_job_description(job_id)
-                if not full_desc and getattr(scraper, "last_hit_rate_limit", False):
-                    logger.warning(
-                        f"⏳ Пропускаем вакансию '{job['title']}' @ {job['company']} из-за лимита запросов LinkedIn (будет проверена в следующем запуске)."
-                    )
-                    continue
-
-                snippet = full_desc[:350].rstrip() + "..." if len(full_desc) > 350 else full_desc
-                workplace_type = scraper.detect_workplace_type(job["title"], job["location"], full_desc)
-
-                # Строгая фильтрация формата работы
-                if workplace_type == "onsite" and not config.ALLOW_ONSITE:
-                    logger.info(
-                        f"🚫 [СТРОГИЙ ФИЛЬТР] Отклонена On-site вакансия: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                    )
-                    db.add_job(job)  # Запоминаем, чтобы не проверять повторно
-                    continue
-
-                if workplace_type == "hybrid" and not config.ALLOW_HYBRID:
-                    # Проверяем, может это рядом с Cahersiveen?
-                    if is_hybrid_nearby(job["location"]):
-                        logger.info(
-                            f"✅ [ГИБРИД РЯДОМ] Пропущена через фильтр: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                        )
-                    else:
-                        logger.info(
-                            f"🚫 [СТРОГИЙ ФИЛЬТР] Отклонена Hybrid вакансия (далеко): {job['title']} @ {job['company']} (Локация: {job['location']})"
-                        )
-                        total_filtered += 1
-
-                        db.add_job(job)
-
-                        continue
-
-                # Вакансии с неясным форматом (unclear):
-                # - Generic Ireland (без города) — пропускаем, скорее всего remote
-                # - Рядом с Керри — пропускаем
-                # - Всё остальное — отклоняем
-                if workplace_type == "unclear":
-                    loc_stripped = job.get("location", "").strip().lower()
-                    is_generic_ireland = loc_stripped in ("ireland", "")
-                    if not is_generic_ireland and not is_hybrid_nearby(job.get("location", "")):
-                        logger.info(
-                            f"🚫 [СТРОГИЙ ФИЛЬТР] Отклонена вакансия с неясным форматом: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                        )
-                        total_filtered += 1
-
-                        db.add_job(job)
-
-                        continue
-                    else:
-                        logger.info(
-                            f"🟡 [UNCLEAR → ПРОПУСК] Вакансия с неясным форматом, но generic Ireland/nearby: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                        )
-
-                total_new += 1
-                logger.info(f"✨ Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
-
-                if dry_run:
-                    print("\n" + "=" * 60)
-                    print(f"[DRY RUN] Новая вакансия ({workplace_type.upper()} | {loc}):")
-                    print(f"Позиция: {job['title']}")
-                    print(f"Компания: {job['company']}")
-                    print(f"Локация: {job['location']}")
-                    print(f"Ссылка: {job['url']}")
-                    if snippet:
-                        print(f"Фрагмент описания: {snippet[:200]}...")
-                    print("=" * 60 + "\n")
-                else:
-                    sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
-                    if sent:
-                        logger.info(f"✅ Отправлено в Telegram: {job_id}")
-                    else:
-                        logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
-                    time.sleep(1.5)  # Задержка между отправками сообщений
-
-                # Сохраняем в базу данных, чтобы не дублировать
-                db.add_job(job)
-
-            # Пауза между запросами по разным ключевым словам
-            if scraper.last_hit_rate_limit:
-                scraper.last_hit_rate_limit = False
-                time.sleep(random.uniform(12.0, 18.0))
-            else:
-                time.sleep(random.uniform(4.0, 6.5))
-        time.sleep(random.uniform(7.0, 12.0))  # Пауза между регионами
-
     # --- Djinni.co ---
     if config.ENABLE_DJINNI:
         djinni = DjinniJobScraper()
@@ -1366,6 +1235,138 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
             total_filtered += filtered_count
         else:
             logger.info("[TechJobs.ie] Пропуск опроса: источник опрашивался менее часа назад.")
+
+    # --- LinkedIn searches run last to keep 429 backoff from delaying other sources ---
+    for loc in locations:
+        scraper = LinkedInJobScraper(
+            location=loc,
+            remote_only=config.REMOTE_ONLY,
+            time_filter=getattr(config, "LINKEDIN_TIME_FILTER", "r86400"),
+            sort_by=getattr(config, "LINKEDIN_SORT_BY", "DD"),
+        )
+        for kw in keywords:
+            search_limit = getattr(config, "LINKEDIN_SEARCH_LIMIT", 6) if not test_mode else 1
+            logger.info(f"🔍 Поиск в регионе '{loc}' по слову: '{kw}'...")
+            jobs = scraper.search_jobs(keyword=kw, limit=search_limit)
+            seen_cnt, _ = log_and_track_batch(f"{loc} / {kw}", jobs, db)
+            total_scanned += len(jobs)
+            total_already_seen += seen_cnt
+
+            for job in jobs:
+                job_id = job["id"]
+                job["region"] = loc
+                if db.is_seen(job_id):
+                    continue
+
+                # Level 0: Валидация названия роли (отсекаем разработчиков, DevOps, PM и т.д. без QA)
+                if not scraper.is_qa_title(job.get("title", "")):
+                    logger.info(
+                        f"🚫 [НЕ QA РОЛЬ] Отклонена по названию: '{job['title']}' @ {job['company']}"
+                    )
+                    total_filtered += 1
+
+                    db.add_job(job)
+
+                    continue
+
+                # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны сразу, не делая HTTP-запрос за деталями)
+                if scraper.is_location_blocked(job.get("location", "")):
+                    logger.info(
+                        f"🚫 [ГЕО-БЛОКИРОВКА] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                    )
+                    total_filtered += 1
+
+                    db.add_job(job)
+
+                    continue
+
+                time.sleep(1.0)  # Вежливая задержка перед запросом деталей
+                full_desc = scraper.get_job_description(job_id)
+                if not full_desc and getattr(scraper, "last_hit_rate_limit", False):
+                    logger.warning(
+                        f"⏳ Пропускаем вакансию '{job['title']}' @ {job['company']} из-за лимита запросов LinkedIn (будет проверена в следующем запуске)."
+                    )
+                    continue
+
+                snippet = full_desc[:350].rstrip() + "..." if len(full_desc) > 350 else full_desc
+                workplace_type = scraper.detect_workplace_type(job["title"], job["location"], full_desc)
+
+                # Строгая фильтрация формата работы
+                if workplace_type == "onsite" and not config.ALLOW_ONSITE:
+                    logger.info(
+                        f"🚫 [СТРОГИЙ ФИЛЬТР] Отклонена On-site вакансия: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                    )
+                    db.add_job(job)  # Запоминаем, чтобы не проверять повторно
+                    continue
+
+                if workplace_type == "hybrid" and not config.ALLOW_HYBRID:
+                    # Проверяем, может это рядом с Cahersiveen?
+                    if is_hybrid_nearby(job["location"]):
+                        logger.info(
+                            f"✅ [ГИБРИД РЯДОМ] Пропущена через фильтр: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                        )
+                    else:
+                        logger.info(
+                            f"🚫 [СТРОГИЙ ФИЛЬТР] Отклонена Hybrid вакансия (далеко): {job['title']} @ {job['company']} (Локация: {job['location']})"
+                        )
+                        total_filtered += 1
+
+                        db.add_job(job)
+
+                        continue
+
+                # Вакансии с неясным форматом (unclear):
+                # - Generic Ireland (без города) — пропускаем, скорее всего remote
+                # - Рядом с Керри — пропускаем
+                # - Всё остальное — отклоняем
+                if workplace_type == "unclear":
+                    loc_stripped = job.get("location", "").strip().lower()
+                    is_generic_ireland = loc_stripped in ("ireland", "")
+                    if not is_generic_ireland and not is_hybrid_nearby(job.get("location", "")):
+                        logger.info(
+                            f"🚫 [СТРОГИЙ ФИЛЬТР] Отклонена вакансия с неясным форматом: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                        )
+                        total_filtered += 1
+
+                        db.add_job(job)
+
+                        continue
+                    else:
+                        logger.info(
+                            f"🟡 [UNCLEAR → ПРОПУСК] Вакансия с неясным форматом, но generic Ireland/nearby: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                        )
+
+                total_new += 1
+                logger.info(f"✨ Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
+
+                if dry_run:
+                    print("\n" + "=" * 60)
+                    print(f"[DRY RUN] Новая вакансия ({workplace_type.upper()} | {loc}):")
+                    print(f"Позиция: {job['title']}")
+                    print(f"Компания: {job['company']}")
+                    print(f"Локация: {job['location']}")
+                    print(f"Ссылка: {job['url']}")
+                    if snippet:
+                        print(f"Фрагмент описания: {snippet[:200]}...")
+                    print("=" * 60 + "\n")
+                else:
+                    sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
+                    if sent:
+                        logger.info(f"✅ Отправлено в Telegram: {job_id}")
+                    else:
+                        logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
+                    time.sleep(1.5)  # Задержка между отправками сообщений
+
+                # Сохраняем в базу данных, чтобы не дублировать
+                db.add_job(job)
+
+            # Пауза между запросами по разным ключевым словам
+            if scraper.last_hit_rate_limit:
+                scraper.last_hit_rate_limit = False
+                time.sleep(random.uniform(12.0, 18.0))
+            else:
+                time.sleep(random.uniform(4.0, 6.5))
+        time.sleep(random.uniform(7.0, 12.0))  # Пауза между регионами
 
     logger.info("=" * 80)
     logger.info("🏁 Проверка всех источников завершена успешно!")
