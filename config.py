@@ -89,6 +89,8 @@ LINKEDIN_BLOCKED_LOCATIONS = [
 # Stop-phrases in description indicating regional restriction incompatible with Europe/Ireland
 LINKEDIN_DESCRIPTION_STOP_PATTERNS = [
     # Explicit domestic role/candidate location restrictions (e.g. Jobgether country-specific clones, Expleo PT only, etc.)
+    # A country-only Locations list is an eligibility restriction, not proof of Europe-wide remote work.
+    r'\b(?:eligible\s+)?locations?\s*:\s*(?![^.;\n]{0,160}\b(?:ireland|europe|european\s+union|eu|emea|worldwide|global|anywhere)\b)[^.;\n]{1,160}',
     r'\blooking\s+for\s+(?:an?|the)\s+.*?\s+(?:based|living|residing|located)\s+in\s+(?!ireland|europe|the\s+eu\b|eu\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\b',
     r'\b(?:role|position|job|engineer|tester|sdet|developer|candidate|applicant|someone|you|individual|person)\b[^\.\n;]{0,40}\b(?:based|living|residing|located)\s+in\s+(?!ireland|europe|the\s+eu\b|eu\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\b',
     r'\b(?:must|should|need\s+to|required\s+to)\s+(?:already\s+|currently\s+)?(?:be\s+)?(?:based|located|resident|living|residing|live|reside)\s+in\s+(?!ireland|europe|the\s+eu\b|eu\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\b',

@@ -491,4 +491,25 @@ class TestDescriptionStopPatterns:
         """European, Ireland, and global contractor descriptions must not be blocked."""
         assert linkedin_scraper.is_description_blocked(text) is False
 
+    def test_country_only_locations_block_even_when_b2b_contract_is_remote(self, linkedin_scraper):
+        """A B2B contract does not make a role eligible when its listed hiring countries exclude Ireland."""
+        description = (
+            "We are looking for a Middle QA Automation Engineer. B2B contract; "
+            "Overlap: CET business hours; Locations: Poland, Portugal, Serbia, Croatia."
+        )
+        assert linkedin_scraper.is_description_blocked(description) is True
+        assert linkedin_scraper.detect_workplace_type(
+            title="Middle QA Automation Engineer",
+            location="Poland",
+            description=description,
+        ) == "onsite"
+
+    @pytest.mark.parametrize(
+        "location_list",
+        ["Ireland, Poland", "Europe, Portugal", "EU, Serbia", "Worldwide, Croatia"],
+    )
+    def test_locations_including_ireland_or_a_wider_region_are_allowed(self, linkedin_scraper, location_list):
+        """Explicitly eligible Ireland, Europe, EU, or worldwide lists remain candidates for remote work."""
+        assert linkedin_scraper.is_description_blocked(f"Locations: {location_list}.") is False
+
 
