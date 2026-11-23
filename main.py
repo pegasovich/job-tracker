@@ -61,6 +61,8 @@ from remotive_scraper import RemotiveJobScraper
 from weworkremotely_scraper import WeWorkRemotelyJobScraper
 from jobicy_scraper import JobicyJobScraper
 from remoteok_scraper import RemoteOKJobScraper
+from workremotely_eu_scraper import WorkRemotelyEUScraper
+from techjobs_ie_scraper import TechJobsIEScraper
 from database import JobDatabase
 from telegram_notifier import TelegramNotifier
 
@@ -1326,6 +1328,44 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         )
         total_new += new_count
         total_filtered += filtered_count
+
+    # --- WorkRemotely.eu Ireland contractor/freelance results ---
+    if getattr(config, "ENABLE_WORKREMOTELY_EU", True):
+        poll_interval = getattr(config, "WORKREMOTELY_EU_POLL_INTERVAL_SECONDS", 3600)
+        if db.claim_source_poll("workremotely_eu", min_interval_seconds=poll_interval):
+            logger.info("🔎 Поиск QA/SDET контрактов WorkRemotely.eu (Ireland eligibility)...")
+            source = WorkRemotelyEUScraper()
+            limit = getattr(config, "WORKREMOTELY_EU_LIMIT", 50) if not test_mode else 10
+            jobs = source.search_jobs(limit=limit)
+            seen_cnt, _ = log_and_track_batch("WorkRemotely.eu", jobs, db)
+            total_scanned += len(jobs)
+            total_already_seen += seen_cnt
+            new_count, filtered_count = process_remote_feed_jobs(
+                "WorkRemotely.eu", jobs, db, notifier, dry_run
+            )
+            total_new += new_count
+            total_filtered += filtered_count
+        else:
+            logger.info("[WorkRemotely.eu] Пропуск опроса: источник опрашивался менее часа назад.")
+
+    # --- TechJobs.ie Irish QA board ---
+    if getattr(config, "ENABLE_TECHJOBS_IE", True):
+        poll_interval = getattr(config, "TECHJOBS_IE_POLL_INTERVAL_SECONDS", 3600)
+        if db.claim_source_poll("techjobs_ie", min_interval_seconds=poll_interval):
+            logger.info("🇮🇪 Поиск удалённых QA/SDET вакансий TechJobs.ie...")
+            source = TechJobsIEScraper()
+            limit = getattr(config, "TECHJOBS_IE_LIMIT", 50) if not test_mode else 10
+            jobs = source.search_jobs(limit=limit)
+            seen_cnt, _ = log_and_track_batch("TechJobs.ie", jobs, db)
+            total_scanned += len(jobs)
+            total_already_seen += seen_cnt
+            new_count, filtered_count = process_remote_feed_jobs(
+                "TechJobs.ie", jobs, db, notifier, dry_run
+            )
+            total_new += new_count
+            total_filtered += filtered_count
+        else:
+            logger.info("[TechJobs.ie] Пропуск опроса: источник опрашивался менее часа назад.")
 
     logger.info("=" * 80)
     logger.info("🏁 Проверка всех источников завершена успешно!")

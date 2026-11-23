@@ -1,9 +1,9 @@
-# 🎯 QA / SDET Remote Job Intelligence & Automation Platform 🇮🇪 🇬🇧 🇪🇺 🌍
+# 🎯 QA / SDET Remote Job Intelligence & Automation Platform 🇮🇪 🇪🇺 🌍
 
 [![Tests & Quality Gate](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml/badge.svg)](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml)
 ![Python Version](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue.svg)
 ![Test Framework](https://img.shields.io/badge/tested_with-pytest-0A9EDC.svg)
-![Test Count](https://img.shields.io/badge/tests-269%20passed-brightgreen.svg)
+![Test Count](https://img.shields.io/badge/tests-273%20passed-brightgreen.svg)
 ![Code Coverage](https://img.shields.io/badge/coverage-core%2090%25%2B-brightgreen.svg)
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF.svg)
 
@@ -11,7 +11,7 @@ An automated, multi-source job intelligence engine engineered for **QA & SDET pr
 
 The platform continuously aggregates, parses, filters, deduplicates, and alerts on verified openings across **direct ATS systems, curated remote portals, and APIs**, eliminating recruiter noise, domestic residency restrictions, and misleading "remote" listings.
 
-Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (269 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
+Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (273 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
 
 See the [changelog](./CHANGELOG.md) for notable fixes and updates.
 
@@ -38,7 +38,7 @@ Searching for genuine international remote QA roles is fraught with friction:
 
 | Provider | Integration Type | Regional Focus | Highlights & Data Extracted | Status |
 |---|---|---|---|---|
-| 🔵 **LinkedIn** | Guest API (`seeMoreJobPostings`) | Ireland, Europe, Worldwide | Zero login/cookie risk; searches multiple targeted regions; cloud-optimized adaptive rate-limit backoff (10-15s). | ✅ Enabled |
+| 🔵 **LinkedIn** | Guest API (`seeMoreJobPostings`) | Ireland, Europe, Worldwide | Zero login/cookie risk; searches multiple targeted regions over the past 7 days; cloud-optimized adaptive rate-limit backoff (10-15s). | ✅ Enabled |
 | 🟢 **Djinni.co** | Schema.org JSON-LD Parser | Pan-European & Worldwide | Structured Schema microdata; applicant location requirement validation; USD salary parsing. | ✅ Enabled |
 | 🟡 **DOU** | Official RSS Feed (`feeds/?category=QA&remote`) | Europe, CEE, Remote & B2B | Real-time XML feed; full descriptions; automated B2B salary and country extraction. | ✅ Enabled |
 | 🌐 **Arbeitnow** | Open REST API (`api/job-board-api`) | European Union & Remote | Free public European API; zero authentication/keys needed; non-English heuristics filter. | ✅ Enabled |
@@ -48,8 +48,10 @@ Searching for genuine international remote QA roles is fraught with friction:
 | 🏔️ **Himalayas** | Curated Remote REST API (`himalayas.app/jobs/api`) | Global & EMEA Remote | Pure 100% remote board; structured location & timezone restrictions (UTC+0/+1 Irish overlap verification); salary parsing. | ✅ Enabled |
 | 🟠 **Jobicy** | Public Remote Jobs API (`jobicy.com/api/jobs`) | Europe, Ireland & Worldwide | QA/SDET keyword feeds; requires explicit Ireland/Europe/worldwide eligibility; poll limited to once per hour; source link retained. | ✅ Enabled |
 | 🌍 **Remote OK** | Public JSON API (`remoteok.com/api`) | Worldwide & regional remote | QA/SDET tag feeds; rejects country-ineligible and explicit hybrid/office roles; links to original listing. | ✅ Enabled |
+| 🇮🇪 **TechJobs.ie** | Public Irish QA listings | Ireland | Only explicit remote roles with Ireland-compatible location scope; hourly polling; stores concise card metadata. | ✅ Enabled |
 | 🚀 **Remotive** | Curated Remote API (`remotive.com/api/remote-jobs`) | Worldwide & Pan-European | Curated 100% remote positions with structured candidate location requirements validation; salary extraction. | ✅ Enabled |
 | 💼 **WeWorkRemotely** | Curated Remote RSS Feed (`weworkremotely.com`) | Worldwide & Global Remote | Leading global remote tech board with real-time XML streaming; automated title and salary extraction. | ✅ Enabled |
+| 🌍 **WorkRemotely.eu** | Public Ireland contractor/freelance results | Ireland, Europe & Worldwide where explicitly stated | QA/SDET roles only; hourly polling; requires visible Ireland-compatible scope and keeps a short source note instead of copying descriptions. | ✅ Enabled |
 | 🔴 **No Fluff Jobs** | Internal REST API (`api/search/posting`) | Central & Western Europe | Polish domestic B2B market (JDG/PL residency required). | ❌ Disabled |
 | 🟣 **JustJoin.it** | Candidate REST API (`api/candidate-api/offers`) | Europe, CEE & Global Remote | Polish domestic market (PLN currency / Polish B2B tax residency). | ❌ Disabled |
 | 🟧 **Adzuna** | Official REST API (`api.adzuna.com`) | Ireland (`ie`) & UK (`gb`) | Paid developer subscription model; no dedicated Ireland endpoint. | ❌ Disabled |
@@ -157,6 +159,8 @@ job-tracker/
 ├── himalayas_scraper.py     # Himalayas Curated Remote REST API scraper
 ├── jobicy_scraper.py        # Jobicy public remote jobs API and Ireland eligibility filter
 ├── remoteok_scraper.py      # Remote OK public JSON feed and location filter
+├── techjobs_ie_scraper.py   # TechJobs.ie Irish remote QA listings
+├── workremotely_eu_scraper.py # WorkRemotely.eu Ireland contractor results
 ├── view_db.py               # Database CLI inspector, search & CSV/HTML exporter
 └── telegram_notifier.py     # Telegram Bot API notification engine
 ```
@@ -165,7 +169,7 @@ job-tracker/
 Every `git push` and Pull Request automatically triggers the test pipeline:
 1. Provisions an Ubuntu runner on Python 3.12.
 2. Installs runtime and testing dependencies with pip caching.
-3. Runs all **269 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
+3. Runs all **273 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
 4. Enforces the Quality Gate before merging.
 
 ---
@@ -200,7 +204,7 @@ ADZUNA_APP_KEY=your_adzuna_app_key
 
 ### 3. Running the Test Suite
 ```bash
-# Run all 269 tests
+# Run all 273 tests
 pytest -q
 
 # Run with coverage report
@@ -269,7 +273,7 @@ Located in [`chrome-extension/`](./chrome-extension/): A lightweight Manifest V3
 ## 🛠 Tech Stack
 
 * **Language:** Python 3.12
-* **Testing Framework:** Pytest 9, Pytest-Cov, Unittest.Mock (269 automated tests)
+* **Testing Framework:** Pytest 9, Pytest-Cov, Unittest.Mock (273 automated tests)
 * **CI/CD:** GitHub Actions 24/7 Cloud Automation & Quality Gate
 * **Persistence:** SQLite3 (WAL mode, idempotent schemas, Git-backed sync)
 * **Networking & Parsing:** Standard library (`urllib.request`), JSON, XML (`xml.etree.ElementTree`)
@@ -313,7 +317,7 @@ ADZUNA_APP_KEY=your_adzuna_app_key
 ### 4. Verify Local Tests
 ```bash
 pytest -q
-# Expecting: 269 passed
+# Expecting: 273 passed
 ```
 
 ### 5. Load the Chrome Extension on Laptop

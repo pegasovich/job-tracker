@@ -22,6 +22,14 @@ def is_eligible_for_ireland(location: str, description: str = "") -> bool:
         return False
     if LinkedInJobScraper.is_location_blocked(loc):
         return False
+    eligibility_text = f"{loc} {description or ''}"
+    if re.search(
+        r"\b(?:excluding|except|outside)\s+(?:the\s+)?(?:republic\s+of\s+)?ireland\b|"
+        r"\bireland\s+(?:is\s+)?(?:excluded|not\s+eligible|not\s+allowed)\b",
+        eligibility_text,
+        re.IGNORECASE,
+    ):
+        return False
     allowed = re.search(
         r"\b(ireland|europe|european union|\beu\b|emea|worldwide|anywhere|global)\b",
         loc,

@@ -28,7 +28,7 @@ TARGET_LOCATIONS = [
 REMOTE_ONLY = True  # LinkedIn filter f_WT=2
 
 # LinkedIn Search Time & Sort Settings
-LINKEDIN_TIME_FILTER = "r86400"  # r86400 = Past 24 hours, None = All time
+LINKEDIN_TIME_FILTER = "r604800"  # r604800 = Past 7 days, None = All time
 LINKEDIN_SORT_BY = "DD"          # DD = Most recent (date descending), None = Most relevant
 LINKEDIN_SEARCH_LIMIT = int(os.getenv("LINKEDIN_SEARCH_LIMIT", "6"))
 LINKEDIN_MAX_RETRIES = int(os.getenv("LINKEDIN_MAX_RETRIES", "1"))
@@ -322,6 +322,18 @@ REMOTIVE_LIMIT = 50
 # Курируемый RSS-поток 100% удалённых вакансий
 ENABLE_WEWORKREMOTELY = True
 WEWORKREMOTELY_LIMIT = 50
+
+# WorkRemotely.eu Ireland contractor view. The public page is polled hourly;
+# the scraper identifies itself and stores only QA/SDET card metadata.
+ENABLE_WORKREMOTELY_EU = True
+WORKREMOTELY_EU_POLL_INTERVAL_SECONDS = 3600
+WORKREMOTELY_EU_LIMIT = 50
+
+# Irish technology job board's QA category. Only explicit remote roles eligible
+# for Ireland are accepted; keep the public listing poll to once per hour.
+ENABLE_TECHJOBS_IE = True
+TECHJOBS_IE_POLL_INTERVAL_SECONDS = 3600
+TECHJOBS_IE_LIMIT = 50
 
 # Ashby ATS Settings (https://api.ashbyhq.com/posting-api/job-board/{company})
 # Прямые ATS современных tech-компаний и AI-стартапов, нанимающих удалённо (Ashby)
