@@ -106,14 +106,12 @@
       const streetAddress = [data.addressLine1, data.addressLine2].filter(Boolean).join(", ");
       return streetAddress || null;
     }
-    if (autocomplete === "address-line2" || hasAny(normalized, ["address line 2", "address 2", "address2", "apartment", "suite", "unit number"])) {
+    if (autocomplete === "address-line2" || hasAny(normalized, [
+      "address line 2", "address line2", "addressline2", "address 2", "address2", "apartment", "suite", "unit number"
+    ])) {
       return data.addressLine2 || null;
     }
-    if (autocomplete === "address-line1" || hasAny(normalized, ["address line 1", "address 1", "address1", "street address"]) ||
-        (hasAny(normalized, ["address"]) && !hasAny(normalized, ["find", "search", "lookup"]))) {
-      return data.addressLine1 || null;
-    }
-    if (autocomplete === "address-level2" || hasAny(normalized, ["town", "city", "municipality", "locality"])) {
+    if (autocomplete === "address-level2" || hasAny(normalized, ["town", "city", "municipality", "locality", "addressline3"])) {
       return data.city || null;
     }
     if (autocomplete === "address-level1" || hasAny(normalized, ["county", "state", "province", "region"])) {
@@ -122,26 +120,32 @@
     if (autocomplete === "postal-code" || hasAny(normalized, ["postal code", "postcode", "post code", "zip code", "zip"])) {
       return data.postcode || null;
     }
-    if (hasAny(normalized, ["other contact details", "additional contact details", "other contact", "contact details"])) {
+    if (hasAny(normalized, ["other contact details", "othercontactdetails", "additional contact details", "contact details"])) {
       return data.otherContactDetails || null;
+    }
+    if (autocomplete === "address-line1" || hasAny(normalized, [
+      "address line 1", "address line1", "addressline1", "address 1", "address1", "street address", "address"
+    ])) {
+      return data.addressLine1 || null;
     }
     return null;
   }
 
   function getContext(element) {
-    const parts = [
+    const labelParts = [
       element.labels ? Array.from(element.labels).map(label => label.innerText).join(" ") : "",
       element.getAttribute("aria-label") || "",
-      element.getAttribute("placeholder") || "",
       element.getAttribute("aria-labelledby")
         ? element.getAttribute("aria-labelledby").split(/\s+/).map(id => document.getElementById(id)?.innerText || "").join(" ")
-        : "",
-      element.name || "",
-      element.id || ""
+        : ""
     ];
+    const placeholder = element.getAttribute("placeholder") || "";
     const wrapper = element.closest(".form-group, .form-field, .field, [class*='question'], [class*='field']");
     const label = wrapper?.querySelector("label, legend, [class*='label']");
-    if (label && !parts.includes(label.innerText)) parts.push(label.innerText);
+    const wrapperControls = wrapper?.querySelectorAll?.("input, textarea, select");
+    if (label && (!wrapperControls || wrapperControls.length <= 1) && !labelParts.includes(label.innerText)) {
+      labelParts.push(label.innerText);
+    }
 
     // Some sites render labels as plain siblings without label/for or useful input names.
     const labelTerms = [
@@ -149,28 +153,32 @@
       "email", "e-mail", "phone", "mobile", "telephone", "country", "name", "find address",
       "address", "street", "town", "city", "county", "state", "province", "postal", "postcode",
       "post code", "zip", "contact details"
-    ];
-    if (!hasAny(normalize(parts.join(" ")), labelTerms.map(normalize))) {
+    ].map(normalize);
+    const nearbyLabels = [];
+    if (!hasAny(normalize(labelParts.join(" ")), labelTerms)) {
       let current = element;
       for (let depth = 0; depth < 4 && current.parentElement; depth++) {
-        const previousPartCount = parts.length;
         const siblings = Array.from(current.parentElement.children);
         const currentIndex = siblings.indexOf(current);
         for (let index = currentIndex - 1; index >= 0; index--) {
           const sibling = siblings[index];
           if (sibling.querySelector("input, textarea, select")) continue;
           const text = (sibling.innerText || "").replace(/\s+/g, " ").trim();
-          if (text.length <= 100 && hasAny(normalize(text), labelTerms.map(normalize))) {
-            parts.push(text);
+          if (text.length <= 100 && hasAny(normalize(text), labelTerms)) {
+            nearbyLabels.push(text);
             break;
           }
         }
-        if (parts.length > previousPartCount) break;
+        if (nearbyLabels.length) break;
         current = current.parentElement;
       }
     }
 
-    return parts.join(" ").replace(/\s+/g, " ").toLowerCase();
+    return [...labelParts, ...nearbyLabels, placeholder, element.name || "", element.id || ""]
+      .filter(Boolean)
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .toLowerCase();
   }
 
   function isCountryField(context, autocomplete) {
@@ -184,7 +192,7 @@
     if (autocomplete === "tel-country-code" || hasAny(normalized, ["phone code", "country code", "dial code", "dialing code", "dialling code", "calling code", "phone prefix"])) {
       return true;
     }
-    return element.tagName === "SELECT" && hasAny(normalized, ["phone", "telephone", "mobile", "tel"]) &&
+    return element.tagName === "SELECT" &&
       Array.from(element.options || []).some(option => /\+\s*\d{1,3}/.test(`${option.text || ""} ${option.value || ""}`));
   }
 

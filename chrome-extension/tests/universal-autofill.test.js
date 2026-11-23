@@ -67,7 +67,7 @@ function createHarness(profile, elements) {
   };
 }
 
-function createField({ tag = "INPUT", label, value = "", type = "text", autocomplete = "", options = [] }) {
+function createField({ tag = "INPUT", label, id = "", value = "", type = "text", autocomplete = "", options = [] }) {
   const field = {
     tagName: tag,
     type,
@@ -79,7 +79,7 @@ function createField({ tag = "INPUT", label, value = "", type = "text", autocomp
     readOnly: false,
     events: [],
     name: "",
-    id: "",
+    id,
     getAttribute(name) {
       return name === "autocomplete" ? autocomplete : "";
     },
@@ -130,7 +130,6 @@ test("fills address and contact fields and corrects the phone country prefix", a
     createField({ label: "Post Code" }),
     createField({
       tag: "SELECT",
-      label: "Phone Numbers",
       value: "+44",
       options: [
         { value: "+44", text: "United Kingdom +44" },
@@ -186,4 +185,43 @@ test("leaves unknown street and postal fields empty instead of guessing", async 
 
   assert.equal(result.filledCount, 0);
   assert.deepEqual(fields.map(field => field.value), ["", "", ""]);
+});
+
+test("maps PeopleHR address field IDs to the matching profile values", async () => {
+  const fields = [
+    createField({ id: "ucSection_txtAddressline1" }),
+    createField({ id: "ucSection_txtAddressline2" }),
+    createField({ id: "ucSection_txtAddressline3" }),
+    createField({ id: "ucSection_txtState" }),
+    createField({ id: "ucSection_txtAddressPostCode" })
+  ];
+  const harness = createHarness({
+    candidateAddressLine1: "O'Connell 5",
+    candidateAddressLine2: "Apartment 1",
+    candidateCity: "Cahersiveen",
+    candidateCounty: "Kerry",
+    candidatePostcode: "V23 DP40"
+  }, fields);
+
+  await harness.fill();
+
+  assert.deepEqual(fields.map(field => field.value), [
+    "O'Connell 5", "Apartment 1", "Cahersiveen", "Kerry", "V23 DP40"
+  ]);
+});
+
+test("uses the visible Find Address label before the ambiguous PeopleHR postcode ID", async () => {
+  const findAddress = createField({ id: "txtPostcode" });
+  const labelNode = { innerText: "Find Address", querySelector: () => null };
+  const wrapper = { children: [findAddress], parentElement: null, querySelector: () => null };
+  const row = { children: [labelNode, wrapper], parentElement: null };
+  findAddress.parentElement = wrapper;
+  wrapper.parentElement = row;
+
+  const harness = createHarness({ candidatePostcode: "V23 DP40" }, [findAddress]);
+
+  const result = await harness.fill();
+
+  assert.equal(result.filledCount, 0);
+  assert.equal(findAddress.value, "", "the Eircode must not be typed into the address-search field");
 });
