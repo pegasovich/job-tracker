@@ -3,6 +3,7 @@ Configuration settings for Ireland Remote QA/SDET Job Tracker.
 """
 
 import os
+import re
 from pathlib import Path
 
 # Load from .env if present
@@ -163,6 +164,7 @@ NON_QA_OVERRIDE_PATTERNS = [
     r'\b(?:a\/b|cro)\s+test',
     # Foreign language specific tester roles (requiring non-English native fluency)
     r'\b(?:with|speaking|fluent|native)\s+(?:french|german|deutsch|italian|spanish|polish|dutch|swedish|danish|norwegian|finnish|japanese|mandarin|hebrew)\b',
+    r'\b(?:french|german|deutsch|italian|spanish|polish|dutch|swedish|danish|norwegian|finnish|japanese|mandarin|hebrew)\b(?:[\s-]+[\w-]+){0,2}\s+\b(?:speaker|speaking|fluent|native|linguistic|language|locali[sz]ation)\b',
     r'\b(?:french|german|deutsch|italian|spanish|polish|dutch|japanese)\s+speaker\b',
     r'\b(?:french|german|deutsch|italian|spanish|polish|dutch)\s+language\b',
 ]
@@ -363,6 +365,25 @@ REMOTEOK_LIMIT = 50
 # Language Filtering (пропускаем только вакансии с английским или без языковых требований)
 # Whitelist подход: если вакансия требует язык НЕ из этого списка — отсекаем
 ALLOWED_LANGUAGE_CODES = ["en", "english"]
+
+NON_ALLOWED_LANGUAGE_NAMES = [
+    "french", "german", "deutsch", "italian", "spanish", "polish", "dutch",
+    "swedish", "danish", "norwegian", "finnish", "japanese", "mandarin", "hebrew",
+]
+
+
+def has_non_allowed_language_requirement(text: str) -> bool:
+    """Return True when a non-English language is explicitly part of the role."""
+    if not text:
+        return False
+    requirement = r"speaker|speaking|fluent|native|linguistic|language|locali[sz]ation|proficiency|fluency|proficient"
+    for language in NON_ALLOWED_LANGUAGE_NAMES:
+        language_pattern = re.escape(language)
+        if re.search(rf"\b{language_pattern}\b.{{0,40}}\b(?:{requirement})\b", text, re.IGNORECASE):
+            return True
+        if re.search(rf"\b(?:{requirement})\b.{{0,40}}\b{language_pattern}\b", text, re.IGNORECASE):
+            return True
+    return False
 
 # Polish Domestic Role & Language Filtering (отсекаем вакансии, требующие польский язык или локальный рынок)
 EXCLUDE_POLISH_DOMESTIC_ROLES = True

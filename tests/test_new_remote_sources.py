@@ -2,6 +2,7 @@ import json
 from unittest.mock import patch
 
 from database import JobDatabase
+from config import has_non_allowed_language_requirement
 from jobicy_scraper import JobicyJobScraper, is_eligible_for_ireland
 from remoteok_scraper import RemoteOKJobScraper
 
@@ -60,6 +61,13 @@ def test_jobicy_skips_non_qa_and_country_restricted_listings():
     scraper = JobicyJobScraper()
     with patch.object(scraper, "_fetch", return_value=raw_jobs):
         assert scraper.search_jobs(tags=["QA"], limit=10) == []
+
+
+def test_foreign_language_tester_roles_are_excluded():
+    assert has_non_allowed_language_requirement("Finnish Tech Linguistic Tester")
+    assert has_non_allowed_language_requirement("German Language QA Tester")
+    assert not has_non_allowed_language_requirement("English Language QA Tester")
+    assert has_non_allowed_language_requirement("Fluent in French required")
 
 
 def test_remoteok_parses_worldwide_qa_role_and_skips_hybrid():

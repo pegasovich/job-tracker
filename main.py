@@ -131,6 +131,8 @@ def process_remote_feed_jobs(source_name: str, jobs: List[Dict], db: JobDatabase
             reason = "location is incompatible"
         elif LinkedInJobScraper.is_description_blocked(description):
             reason = "description restricts candidate location"
+        elif config.has_non_allowed_language_requirement(f"{job.get('title', '')} {description}"):
+            reason = "requires a non-English language"
         elif config.EXCLUDE_POLISH_DOMESTIC_ROLES and is_polish_domestic_title(job.get("title", "")):
             reason = "Polish domestic role"
 
