@@ -130,8 +130,10 @@ job-tracker/
 │   ├── content.js           # DOM parser for <textarea> & Froala rich-text editors
 │   ├── content.css          # Injected UI toolbar styles
 │   ├── popup.html           # Settings UI (API keys, Candidate Profile, Tone)
-│   ├── popup.js             # Storage management & key validator
-│   └── icons/               # Extension icons
+│   ├── popup.js             # Settings, current-tab autofill and frame access
+│   ├── universal-autofill.js # Contact autofill on the active page and accessible frames
+│   ├── icons/               # Extension icons
+│   └── README.md            # Extension installation and usage guide
 ├── tests/
 │   ├── conftest.py          # Pytest fixtures (tmp_path DB, test clients, dummy jobs)
 │   ├── test_filters.py      # Unit & parameterized tests for workplace/geo/Polish rules (60+ cases)
@@ -263,6 +265,7 @@ The platform includes an automated cloud workflow (`.github/workflows/tracker_cr
 Located in [`chrome-extension/`](./chrome-extension/): A lightweight Manifest V3 browser extension that automatically analyzes job descriptions and drafts tailored, honest cover letters directly into application forms.
 
 * **Supported Platforms:** DOU (`jobs.dou.ua`), Djinni (`djinni.co`), LinkedIn, PeopleForce ATS (`*.peopleforce.io`), Greenhouse, Lever, Workable, Breezy HR, and standard job boards.
+* **Cross-Site Contact Autofill:** On demand, fills blank name, email, phone, and country fields on the active page; it also checks accessible embedded frames and requests access only to a detected form domain when needed. It never submits the application.
 * **Rich-Text & Plain Text Support:** Seamlessly autofills both native `<textarea>` and rich-text editors (Froala, contenteditable) with proper DOM change events.
 * **AI Engine:** Powered by Google's free **Gemini API** (`gemini-2.0-flash` / `gemini-3.8-flash` with automatic fallback).
 * **Anti-Hallucination & Transferable Skills:** Strictly enforces truthful positioning based on the candidate's actual profile; bridges skill gaps via fundamental engineering concepts without fabricating experience.
@@ -278,7 +281,7 @@ Located in [`chrome-extension/`](./chrome-extension/): A lightweight Manifest V3
 * **Persistence:** SQLite3 (WAL mode, idempotent schemas, Git-backed sync)
 * **Networking & Parsing:** Standard library (`urllib.request`), JSON, XML (`xml.etree.ElementTree`)
 * **Integrations:** Telegram Bot API, LinkedIn Guest API, Djinni Schema.org, DOU RSS, No Fluff Jobs API, JustJoin.it API, Adzuna API, Arbeitnow API, Greenhouse ATS
-* **AI Extension:** Chrome Manifest V3, Google Gemini API (2.0/3.8 Flash), Froala & DOM parser
+* **AI Extension:** Chrome Manifest V3, Google Gemini API (2.0/3.8 Flash), frame-aware form autofill, Froala & DOM parser
 
 ---
 

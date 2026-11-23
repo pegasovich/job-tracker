@@ -1,10 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Job Apply AI Assistant (Gemini)",
-  "version": "1.1.0",
-  "description": "Автоматическая генерация персонализированных откликов, ответов на анкеты и автозаполнение полей (Greenhouse, Lever, DOU, Djinni, LinkedIn) через бесплатный Gemini API",
+  "version": "1.2.0",
+  "description": "Автоматическая генерация откликов, ответов на анкеты и автозаполнение стандартных полей на разных сайтах",
   "permissions": [
-    "storage"
+    "storage",
+    "activeTab",
+    "scripting"
   ],
   "host_permissions": [
     "https://generativelanguage.googleapis.com/*",
@@ -21,6 +23,9 @@
     "*://*.breezy.hr/*",
     "*://*.recruitee.com/*",
     "*://*.smartrecruiters.com/*"
+  ],
+  "optional_host_permissions": [
+    "*://*/*"
   ],
   "background": {
     "service_worker": "background.js"
