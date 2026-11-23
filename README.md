@@ -13,6 +13,8 @@ The platform continuously aggregates, parses, filters, deduplicates, and alerts 
 
 Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (259 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
 
+See the [changelog](./CHANGELOG.md) for notable fixes and updates.
+
 ---
 
 ## 💡 What This Application Does
