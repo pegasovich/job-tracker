@@ -101,13 +101,21 @@ class TelegramNotifier:
         employment_type = html.escape(job.get("employment_type", ""))
         employment_line = f"\n🧾 <b>Тип:</b> {employment_type}" if employment_type else ""
         keyword_line = f"\n🔎 <b>Поиск:</b> #{keyword.replace(' ', '_')}" if keyword else ""
+        screening_reminder = ""
+        if "linkedin" in source.lower():
+            screening_reminder = (
+                "\n\n⚠️ <b>Перед Easy Apply:</b> проверь вопросы работодателя "
+                "и укажи реальный стаж. Screening-требования LinkedIn могут "
+                "не отображаться в этой карточке."
+            )
 
         msg = (
             f"🎯 <b>{title}</b>\n\n"
             f"{source_badge}\n"
             f"🏢 <b>Компания:</b> {company}\n"
             f"📍 <b>Локация:</b> {location}\n"
-            f"{work_type_badge}{region_badge}{salary_line}{employment_line}{keyword_line}\n"
+            f"{work_type_badge}{region_badge}{salary_line}{employment_line}{keyword_line}"
+            f"{screening_reminder}\n"
         )
 
         if snippet:

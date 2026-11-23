@@ -1,5 +1,6 @@
 from unittest.mock import patch, MagicMock
 import urllib.error
+import json
 import pytest
 
 
@@ -54,3 +55,32 @@ class TestTelegramNotifier:
             sample_job, snippet="Short snippet description", workplace_type="remote"
         )
         assert result is True
+
+    @patch("urllib.request.urlopen")
+    def test_linkedin_alert_reminds_user_to_check_screening_questions(
+        self, mock_urlopen, notifier_configured, sample_job
+    ):
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+        assert notifier_configured.send_job_alert(sample_job) is True
+
+        payload = json.loads(mock_urlopen.call_args[0][0].data.decode("utf-8"))
+        assert "Перед Easy Apply" in payload["text"]
+        assert "укажи реальный стаж" in payload["text"]
+        assert "могут не отображаться в этой карточке" in payload["text"]
+
+    @patch("urllib.request.urlopen")
+    def test_non_linkedin_alert_does_not_show_linkedin_screening_reminder(
+        self, mock_urlopen, notifier_configured, sample_job
+    ):
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+        sample_job["source"] = "Remote OK"
+
+        assert notifier_configured.send_job_alert(sample_job) is True
+
+        payload = json.loads(mock_urlopen.call_args[0][0].data.decode("utf-8"))
+        assert "Перед Easy Apply" not in payload["text"]
