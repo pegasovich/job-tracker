@@ -3,7 +3,7 @@
 [![Tests & Quality Gate](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml/badge.svg)](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml)
 ![Python Version](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue.svg)
 ![Test Framework](https://img.shields.io/badge/tested_with-pytest-0A9EDC.svg)
-![Test Count](https://img.shields.io/badge/tests-263%20passed-brightgreen.svg)
+![Test Count](https://img.shields.io/badge/tests-269%20passed-brightgreen.svg)
 ![Code Coverage](https://img.shields.io/badge/coverage-core%2090%25%2B-brightgreen.svg)
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF.svg)
 
@@ -11,7 +11,7 @@ An automated, multi-source job intelligence engine engineered for **QA & SDET pr
 
 The platform continuously aggregates, parses, filters, deduplicates, and alerts on verified openings across **direct ATS systems, curated remote portals, and APIs**, eliminating recruiter noise, domestic residency restrictions, and misleading "remote" listings.
 
-Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (263 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
+Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (269 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
 
 See the [changelog](./CHANGELOG.md) for notable fixes and updates.
 
@@ -38,7 +38,7 @@ Searching for genuine international remote QA roles is fraught with friction:
 
 | Provider | Integration Type | Regional Focus | Highlights & Data Extracted | Status |
 |---|---|---|---|---|
-| 🔵 **LinkedIn** | Guest API (`seeMoreJobPostings`) | Ireland, UK, Europe, Worldwide | Zero login/cookie risk; searches multiple targeted regions; cloud-optimized adaptive rate-limit backoff (10-15s). | ✅ Enabled |
+| 🔵 **LinkedIn** | Guest API (`seeMoreJobPostings`) | Ireland, Europe, Worldwide | Zero login/cookie risk; searches multiple targeted regions; cloud-optimized adaptive rate-limit backoff (10-15s). | ✅ Enabled |
 | 🟢 **Djinni.co** | Schema.org JSON-LD Parser | Pan-European & Worldwide | Structured Schema microdata; applicant location requirement validation; USD salary parsing. | ✅ Enabled |
 | 🟡 **DOU** | Official RSS Feed (`feeds/?category=QA&remote`) | Europe, CEE, Remote & B2B | Real-time XML feed; full descriptions; automated B2B salary and country extraction. | ✅ Enabled |
 | 🌐 **Arbeitnow** | Open REST API (`api/job-board-api`) | European Union & Remote | Free public European API; zero authentication/keys needed; non-English heuristics filter. | ✅ Enabled |
@@ -165,7 +165,7 @@ job-tracker/
 Every `git push` and Pull Request automatically triggers the test pipeline:
 1. Provisions an Ubuntu runner on Python 3.12.
 2. Installs runtime and testing dependencies with pip caching.
-3. Runs all **263 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
+3. Runs all **269 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
 4. Enforces the Quality Gate before merging.
 
 ---
@@ -200,7 +200,7 @@ ADZUNA_APP_KEY=your_adzuna_app_key
 
 ### 3. Running the Test Suite
 ```bash
-# Run all 263 tests
+# Run all 269 tests
 pytest -q
 
 # Run with coverage report
@@ -269,7 +269,7 @@ Located in [`chrome-extension/`](./chrome-extension/): A lightweight Manifest V3
 ## 🛠 Tech Stack
 
 * **Language:** Python 3.12
-* **Testing Framework:** Pytest 9, Pytest-Cov, Unittest.Mock (263 automated tests)
+* **Testing Framework:** Pytest 9, Pytest-Cov, Unittest.Mock (269 automated tests)
 * **CI/CD:** GitHub Actions 24/7 Cloud Automation & Quality Gate
 * **Persistence:** SQLite3 (WAL mode, idempotent schemas, Git-backed sync)
 * **Networking & Parsing:** Standard library (`urllib.request`), JSON, XML (`xml.etree.ElementTree`)
@@ -313,7 +313,7 @@ ADZUNA_APP_KEY=your_adzuna_app_key
 ### 4. Verify Local Tests
 ```bash
 pytest -q
-# Expecting: 263 passed
+# Expecting: 269 passed
 ```
 
 ### 5. Load the Chrome Extension on Laptop

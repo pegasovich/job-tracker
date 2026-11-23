@@ -279,6 +279,17 @@ class LinkedInJobScraper:
         loc = (location or "").strip()
         if not loc:
             return False
+        # UK-only remote roles are domestic to the UK. Ireland and broad scopes
+        # remain eligible when explicitly included in the location label.
+        loc_without_northern_ireland = re.sub(r'\bnorthern\s+ireland\b', '', loc, flags=re.IGNORECASE)
+        uk_only = re.search(r'\b(?:united kingdom|uk|england|scotland|wales|northern ireland)\b', loc, re.IGNORECASE)
+        ireland_or_broad_scope = re.search(
+            r'\b(?:ireland|europe|european union|eu|emea|worldwide|anywhere|global)\b',
+            loc_without_northern_ireland,
+            re.IGNORECASE,
+        )
+        if uk_only and not ireland_or_broad_scope:
+            return True
         blocked_list = getattr(config, "LINKEDIN_BLOCKED_LOCATIONS", [])
         for pattern in blocked_list:
             regex = pattern if pattern.startswith(r"\b") else r"\b" + re.escape(pattern) + r"\b"

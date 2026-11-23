@@ -1,6 +1,7 @@
 from unittest.mock import patch, MagicMock
 import urllib.error
 import pytest
+import config
 from main import is_hybrid_nearby
 from djinni_scraper import is_djinni_country_eligible
 
@@ -450,13 +451,20 @@ class TestGeoBlockedLocations:
             "Home Based - EMEA",
             "Worldwide",
             "Anywhere",
-            "London, UK",
+            "Remote (UK & Ireland)",
             "Remote",
         ],
     )
     def test_compatible_locations_allowed(self, linkedin_scraper, location):
-        """Ireland, Europe, EMEA, UK, and Worldwide locations must not be blocked."""
+        """Ireland and broad Europe/EMEA/Worldwide locations must not be blocked."""
         assert linkedin_scraper.is_location_blocked(location) is False
+
+    @pytest.mark.parametrize("location", ["UK", "Remote (UK)", "London, United Kingdom", "Northern Ireland"])
+    def test_uk_only_locations_blocked_for_candidate_in_ireland(self, linkedin_scraper, location):
+        assert linkedin_scraper.is_location_blocked(location) is True
+
+    def test_linkedin_search_does_not_target_uk_only(self):
+        assert "United Kingdom" not in config.TARGET_LOCATIONS
 
 
 class TestDescriptionStopPatterns:
@@ -471,6 +479,7 @@ class TestDescriptionStopPatterns:
             "Remote work is only permitted within the US.",
             "Candidates must be living in the US.",
             "Work authorization in the United States is required.",
+            "This fully remote role is for UK candidates only.",
             "For positions based in San Francisco or Los Angeles: Affirm considers qualified applicants.",
         ],
     )

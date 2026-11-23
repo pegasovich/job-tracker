@@ -29,7 +29,7 @@ USER_AGENTS = [
 ]
 
 IRELAND_ELIGIBLE_LOCATION_SCOPES = {
-    "ireland", "republic of ireland", "united kingdom", "uk",
+    "ireland", "republic of ireland",
     "europe", "pan-european", "european union", "eu", "emea",
     "worldwide", "anywhere", "global",
 }
@@ -41,11 +41,11 @@ def is_himalayas_location_eligible(
     allowed_timezones: Optional[List[float]] = None,
 ) -> bool:
     """
-    Check whether Himalayas explicitly allows a candidate in Ireland (and the
-    user's accepted UK / broad Europe / worldwide scopes).
+    Check whether Himalayas explicitly allows a candidate in Ireland or a broad
+    region that includes Ireland.
     - Empty loc_restrictions indicates open worldwide.
-    - A country-specific restriction must name Ireland or the UK; another EU
-      country (for example, the Netherlands) does not make the role Ireland-eligible.
+    - A country-specific restriction must name Ireland; another country such as
+      the UK or Netherlands does not make the role Ireland-eligible.
     - Broad scopes such as Europe, EMEA, or Worldwide are accepted.
     - If tz_restrictions is specified, it must overlap with Irish / EMEA timezones (-2 to +4).
     """
@@ -165,8 +165,6 @@ class HimalayasJobScraper:
             location_label = "Remote (Worldwide)"
         elif "Ireland" in loc_restrictions:
             location_label = "Remote (Ireland)"
-        elif any(c in loc_restrictions for c in ["United Kingdom", "UK"]):
-            location_label = "Remote (UK & Ireland)"
         else:
             loc_summary = ", ".join(loc_restrictions[:3])
             location_label = f"Remote ({loc_summary})"

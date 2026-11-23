@@ -19,10 +19,9 @@ if env_path.exists():
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip()
 
-# Target Search Settings (Широкий поиск по всем доступным регионам)
+# Target Search Settings (Ireland plus broad regions open to Irish candidates)
 TARGET_LOCATIONS = [
     "Ireland",
-    "United Kingdom",
     "Europe",
     "Worldwide",
 ]
@@ -96,11 +95,13 @@ LINKEDIN_DESCRIPTION_STOP_PATTERNS = [
     r'\b(?:must|should|need\s+to|required\s+to)\s+(?:already\s+|currently\s+)?(?:be\s+)?(?:based|located|resident|living|residing|live|reside)\s+in\s+(?!ireland|europe|the\s+eu\b|eu\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\b',
     r'\b(?:remotely|remote[\s,-]+)\s*(?:based|located)\s+in\s+(?!ireland|europe|the\s+eu\b|eu\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\b',
     r'\bbased\s+in\s+(?:germany|netherlands|romania|united\s+kingdom|uk\b|poland|france|spain|italy|portugal|sweden|denmark|norway|finland|austria|switzerland|belgium|czech(?:\s+republic)?|hungary|bulgaria|croatia|greece|slovakia)\s*[\(\[]?\s*remote',
+    r'\b(?:uk|united kingdom|england|scotland|wales|northern ireland)[\s-]+only\b',
+    r'\b(?:uk|united kingdom|england|scotland|wales|northern ireland)\s+(?:based\s+)?(?:candidates?|applicants?|residents?)\s+only\b',
     # Specific regional restrictions (Americas, Asia, Africa)
     r'\b(?:role|position|job|opportunity)\s+(?:is\s+)?(?:strictly\s+)?for\s+(?:latam|latin\s+america|apac|north\s+america|south\s+america)\b',
     r'\b(?:only\s+)?for\s+(?:latam|latin\s+america)\b',
     r'\b(?:remote\s+(?:role|position|opportunity)\s+)?for\s+latam\b',
-    r'\b(?:fully\s+)?remote\s+role\s+for\s+(?!ireland|europe|eu\b|uk\b)[a-z\s]+',
+    r'\b(?:fully\s+)?remote\s+role\s+(?:is\s+)?for\s+(?!ireland|europe|eu\b)[a-z\s]+',
     r'\b(?:must\s+be\s+)?(?:located|based|residing|living)\s+in\s+(?:latam|latin\s+america|south\s+america|north\s+america|apac|argentina|brazil|colombia|mexico|chile|india|philippines|pakistan|usa?|united\s+states|canada)\b',
     r'\b(?:latam|latin\s+america|south\s+america|apac|us|usa|canada)\s+only\b',
     r'\b(?:latam|latin\s+america)\s+candidates?\s+only\b',

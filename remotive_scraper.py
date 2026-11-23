@@ -36,8 +36,6 @@ ALLOWED_LOCATION_PATTERNS = [
     r'\beu\b',
     r'\bemea\b',
     r'\bireland\b',
-    r'\buk\b',
-    r'\bunited\s+kingdom\b',
     r'\ball\b',
 ]
 
@@ -64,7 +62,7 @@ BLOCKED_LOCATION_PATTERNS = [
     r'\bnigeria\b',
     # Country-only remote restrictions do not include candidates in Ireland.
     # Broad Europe / EMEA / Worldwide markers are checked first and still pass.
-    r'\b(germany|france|spain|portugal|italy|netherlands|poland|sweden|norway|denmark|finland|switzerland|austria|belgium|czechia|czech republic|romania|bulgaria|greece|croatia|estonia|latvia|lithuania|cyprus|malta|slovakia|slovenia|hungary|luxembourg|iceland|serbia|bosnia|montenegro|albania|north macedonia|moldova|ukraine|turkey|türkiye)\b',
+    r'\b(united kingdom|uk|england|scotland|wales|northern ireland|germany|france|spain|portugal|italy|netherlands|poland|sweden|norway|denmark|finland|switzerland|austria|belgium|czechia|czech republic|romania|bulgaria|greece|croatia|estonia|latvia|lithuania|cyprus|malta|slovakia|slovenia|hungary|luxembourg|iceland|serbia|bosnia|montenegro|albania|north macedonia|moldova|ukraine|turkey|türkiye)\b',
 ]
 
 
@@ -72,7 +70,7 @@ def is_remotive_location_eligible(location: str) -> bool:
     """
     Check if a Remotive candidate location allows Ireland/Europe/Worldwide candidates.
     If location is empty, assume open.
-    If it explicitly specifies an allowed region (worldwide, europe, emea, ireland, uk), return True.
+    If it explicitly specifies an allowed region (worldwide, europe, emea, or Ireland), return True.
     If it only specifies a blocked region (e.g. USA, LATAM, APAC) without allowed regions, return False.
     """
     if not location or not location.strip():
@@ -80,7 +78,9 @@ def is_remotive_location_eligible(location: str) -> bool:
 
     loc_lower = location.lower().strip()
 
-    is_allowed = any(re.search(pat, loc_lower) for pat in ALLOWED_LOCATION_PATTERNS)
+    # "Northern Ireland" must not pass just because it contains the word Ireland.
+    loc_for_ireland_match = re.sub(r'\bnorthern\s+ireland\b', '', loc_lower)
+    is_allowed = any(re.search(pat, loc_for_ireland_match) for pat in ALLOWED_LOCATION_PATTERNS)
     if is_allowed:
         return True
 

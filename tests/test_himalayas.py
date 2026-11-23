@@ -79,15 +79,17 @@ class TestHimalayasEligibility:
 
     def test_allowed_when_ireland_or_europe_specified(self):
         assert is_himalayas_location_eligible(["Ireland"]) is True
-        assert is_himalayas_location_eligible(["United Kingdom"]) is True
         assert is_himalayas_location_eligible(["Europe"]) is True
         assert is_himalayas_location_eligible(["EMEA"]) is True
         assert is_himalayas_location_eligible(["Worldwide"]) is True
 
-    def test_country_specific_restrictions_must_include_ireland_or_accepted_scope(self):
+    def test_country_specific_restrictions_must_include_ireland_or_broad_scope(self):
+        assert is_himalayas_location_eligible(["United Kingdom"]) is False
+        assert is_himalayas_location_eligible(["UK"]) is False
         assert is_himalayas_location_eligible(["Netherlands"]) is False
         assert is_himalayas_location_eligible(["Poland", "Portugal", "Serbia", "Croatia"]) is False
         assert is_himalayas_location_eligible(["Ireland", "Netherlands"]) is True
+        assert is_himalayas_location_eligible(["Ireland", "United Kingdom"]) is True
         assert is_himalayas_location_eligible(["Europe", "Netherlands"]) is True
 
     def test_blocked_when_domestic_foreign_country(self):
