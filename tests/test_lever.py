@@ -121,3 +121,69 @@ class TestLeverScraper:
             assert "Senior SDET" in msg
             assert "Remote (Удалёнка)" in msg
             assert "Открыть вакансию на Lever" in msg
+
+    def test_search_jobs_rejects_apac_and_hong_kong_lever_postings(self):
+        apac_jobs = [
+            {
+                "id": "binance-hk-1",
+                "text": "Web/App Test Engineer",
+                "createdAt": 1732000000000,
+                "categories": {
+                    "commitment": "Full-time: Remote",
+                    "location": "Hong Kong",
+                    "team": "QA",
+                    "allLocations": ["Hong Kong", "Taiwan, Taipei", "Asia"],
+                },
+                "workplaceType": "remote",
+                "country": "HK",
+                "hostedUrl": "https://jobs.lever.co/binance/binance-hk-1",
+                "descriptionPlain": "Cross-platform Web/App QA automation role.",
+            },
+            {
+                "id": "generic-remote-apac-2",
+                "text": "Senior QA Engineer",
+                "createdAt": 1732000000000,
+                "categories": {
+                    "commitment": "Full-time: Remote",
+                    "location": "Remote",
+                    "team": "QA",
+                    "allLocations": ["Remote", "Hong Kong"],
+                },
+                "workplaceType": "remote",
+                "country": "HK",
+                "hostedUrl": "https://jobs.lever.co/binance/generic-remote-apac-2",
+                "descriptionPlain": "Automation role with Python and Playwright.",
+            },
+        ]
+
+        scraper = LeverJobScraper(companies=["binance"])
+        with patch.object(scraper, "_fetch_company_jobs", return_value=apac_jobs):
+            jobs = scraper.search_jobs(remote_only=True, qa_only=True)
+
+        assert jobs == []
+
+    def test_search_jobs_keeps_multi_region_lever_posting_when_europe_or_ireland_listed(self):
+        multi_region_job = [
+            {
+                "id": "multi-eu-1",
+                "text": "Senior SDET",
+                "createdAt": 1732000000000,
+                "categories": {
+                    "commitment": "Full-time: Remote",
+                    "location": "Hong Kong",
+                    "team": "QA",
+                    "allLocations": ["Hong Kong", "Remote - Europe"],
+                },
+                "workplaceType": "remote",
+                "country": "HK",
+                "hostedUrl": "https://jobs.lever.co/example/multi-eu-1",
+                "descriptionPlain": "Pan-European and APAC QA automation team.",
+            }
+        ]
+
+        scraper = LeverJobScraper(companies=["example"])
+        with patch.object(scraper, "_fetch_company_jobs", return_value=multi_region_job):
+            jobs = scraper.search_jobs(remote_only=True, qa_only=True)
+
+        assert len(jobs) == 1
+        assert jobs[0]["id"] == "lever_example_multi-eu-1"

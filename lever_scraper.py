@@ -116,12 +116,30 @@ class LeverJobScraper:
         company = company_fallback.capitalize()
         categories = job.get("categories") or {}
         loc_name = (categories.get("location") or "").strip()
+        all_locations = [
+            str(item).strip()
+            for item in (categories.get("allLocations") or [])
+            if str(item).strip()
+        ]
+        location_candidates = list(dict.fromkeys(loc for loc in (loc_name, *all_locations) if loc))
+        country = (job.get("country") or "").strip().lower()
         workplace_type_raw = (job.get("workplaceType") or "").strip().lower()
 
         # Geographical location filter (reject US, Latam, APAC, etc. for remote candidate in Ireland)
         from linkedin_scraper import LinkedInJobScraper
-        if remote_only and LinkedInJobScraper.is_location_blocked(loc_name):
-            return None
+        if remote_only:
+            has_eligible_scope = any(
+                LinkedInJobScraper.has_eligible_remote_scope(loc)
+                for loc in location_candidates
+            )
+            blocked_country_codes = (
+                getattr(config, "BLOCKED_DOMESTIC_COUNTRY_CODES", set()) if config else set()
+            )
+            if not has_eligible_scope and (
+                (country and country in blocked_country_codes)
+                or any(LinkedInJobScraper.is_location_blocked(loc) for loc in location_candidates)
+            ):
+                return None
 
         # Remote / workplace classification
         text_for_remote = f"{title} {loc_name} {workplace_type_raw}".lower()

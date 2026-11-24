@@ -131,3 +131,19 @@ class TestSmartRecruitersJobScraper:
         scraper = SmartRecruitersJobScraper(companies=["Mirantis"])
         with patch("smartrecruiters_scraper.urllib.request.urlopen", side_effect=urllib.error.URLError("timeout")):
             assert scraper.search_jobs(queries=["QA"]) == []
+
+    def test_blocks_hong_kong_country_code_before_detail_fetch(self):
+        list_items = [
+            {
+                "id": "sr_hk",
+                "name": "Senior QA Engineer",
+                "location": {"fullLocation": "Hong Kong", "country": "hk", "remote": True, "hybrid": False},
+            }
+        ]
+        scraper = SmartRecruitersJobScraper(companies=["Mirantis"])
+        with (
+            patch.object(scraper, "_fetch_company_postings", return_value=list_items),
+            patch.object(scraper, "_fetch_posting_detail") as mock_detail,
+        ):
+            assert scraper.search_jobs(queries=["QA"], remote_only=True, qa_only=True) == []
+        mock_detail.assert_not_called()

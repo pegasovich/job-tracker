@@ -70,7 +70,7 @@ LINKEDIN_BLOCKED_LOCATIONS = [
     "panama", "guatemala", "el salvador", "honduras", "nicaragua",
     "latam", "latin america", "south america",
     # North America (domestic US/Canada roles)
-    "united states", r"\busa\b", r"\bu\.s\.a?\b", r"\bu\.?s\.?\b", "canada",
+    "north america", "united states", r"\busa\b", r"\bu\.s\.a?\b", r"\bu\.?s\.?\b", "canada",
     r"\bremote\s*[-–,(/]\s*u\.?s\.?\b",
     r"\bu\.?s\.?\s*[-–,)/]\s*remote\b",
     r"\bus\s+only\b",
@@ -79,12 +79,20 @@ LINKEDIN_BLOCKED_LOCATIONS = [
     # Asia & Pacific
     "india", "pakistan", "bangladesh", "philippines", "vietnam", "indonesia",
     "malaysia", "singapore", "thailand", "china", "japan", "korea", "taiwan",
-    "sri lanka", "nepal", "australia", "new zealand", "apac",
+    "hong kong", "sri lanka", "nepal", "australia", "new zealand", "apac", "asia",
     # Africa
     "nigeria", "kenya", "south africa", "egypt", "ghana", "morocco", "uganda",
     # Middle East
     r"\buae\b", "united arab emirates", "dubai", "saudi arabia", "qatar", "israel", "turkey", "türkiye",
 ]
+
+# Country codes outside Ireland/EU that represent domestic non-Irish markets in ATS feeds
+BLOCKED_DOMESTIC_COUNTRY_CODES = {
+    "us", "ca", "in", "br", "mx", "ar", "co", "cl", "pe",
+    "au", "nz", "ph", "pk", "bd", "vn", "id", "my", "sg",
+    "th", "cn", "jp", "kr", "tw", "hk", "za", "ng", "ke", "eg",
+    "ae", "sa", "qa", "il", "tr", "gb", "uk", "kz",
+}
 
 # Stop-phrases in description indicating regional restriction incompatible with Europe/Ireland
 LINKEDIN_DESCRIPTION_STOP_PATTERNS = [

@@ -279,6 +279,19 @@ class LinkedInJobScraper:
         return has_qa
 
     @staticmethod
+    def has_eligible_remote_scope(location: str) -> bool:
+        """Return True when a location names Ireland (excluding Northern Ireland) or a broad eligible region."""
+        loc = (location or "").strip()
+        if not loc:
+            return False
+        loc_without_northern_ireland = re.sub(r'\bnorthern\s+ireland\b', '', loc, flags=re.IGNORECASE)
+        return bool(re.search(
+            r'\b(?:ireland|europe|european union|eu|emea|worldwide|anywhere|global)\b',
+            loc_without_northern_ireland,
+            re.IGNORECASE,
+        ))
+
+    @staticmethod
     def is_location_blocked(location: str) -> bool:
         """
         Check if a job card's location string points to a region incompatible with a candidate in Ireland.
@@ -291,14 +304,8 @@ class LinkedInJobScraper:
             return False
         # UK-only remote roles are domestic to the UK. Ireland and broad scopes
         # remain eligible when explicitly included in the location label.
-        loc_without_northern_ireland = re.sub(r'\bnorthern\s+ireland\b', '', loc, flags=re.IGNORECASE)
         uk_only = re.search(r'\b(?:united kingdom|uk|england|scotland|wales|northern ireland)\b', loc, re.IGNORECASE)
-        ireland_or_broad_scope = re.search(
-            r'\b(?:ireland|europe|european union|eu|emea|worldwide|anywhere|global)\b',
-            loc_without_northern_ireland,
-            re.IGNORECASE,
-        )
-        if uk_only and not ireland_or_broad_scope:
+        if uk_only and not LinkedInJobScraper.has_eligible_remote_scope(loc):
             return True
         blocked_list = getattr(config, "LINKEDIN_BLOCKED_LOCATIONS", [])
         for pattern in blocked_list:

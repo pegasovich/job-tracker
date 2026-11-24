@@ -17,6 +17,7 @@ Notable project changes are recorded here.
 
 ### Fixed
 
+- Block Hong Kong, Asia, and North America remote roles in `config.py`, and inspect Lever `categories.allLocations` plus `country` codes (alongside `SmartRecruiters` via shared `BLOCKED_DOMESTIC_COUNTRY_CODES`) so APAC postings without Europe/Ireland scope are rejected.
 - Consolidate duplicated non-LinkedIn scraper loops in `main.py` into `process_standard_jobs` and `_deliver_job_alert`, ensuring failed Telegram deliveries stay unseen for retry instead of being marked seen.
 - Add missing `WorkRemotely.eu` presentation (alongside `TechJobs.ie`) in `telegram_notifier.py`, deduplicate source badge/link resolution, escape URLs cleanly, and format boolean search queries in `<code>` tags.
 - Close SQLite connections deterministically in `database.py` and `view_db.py`, and restrict HTML export links in `view_db.py` to `http://` / `https://` schemes.

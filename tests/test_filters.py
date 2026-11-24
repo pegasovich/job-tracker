@@ -455,6 +455,11 @@ class TestGeoBlockedLocations:
             "India (Remote)",
             "Remote - Latam",
             "Remote - APAC",
+            "Hong Kong",
+            "Remote (Hong Kong)",
+            "Asia",
+            "Remote - Asia",
+            "North America",
         ],
     )
     def test_incompatible_locations_blocked(self, linkedin_scraper, location):

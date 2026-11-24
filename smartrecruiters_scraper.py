@@ -33,12 +33,17 @@ USER_AGENTS = [
 
 # Country codes outside Ireland that represent domestic non-Irish markets
 # unless the posting body explicitly confirms pan-European/worldwide remote eligibility.
-_BLOCKED_DOMESTIC_COUNTRIES = {
+_DEFAULT_BLOCKED_DOMESTIC_COUNTRIES = {
     "us", "ca", "in", "br", "mx", "ar", "co", "cl", "pe",
     "au", "nz", "ph", "pk", "bd", "vn", "id", "my", "sg",
-    "th", "cn", "jp", "kr", "tw", "za", "ng", "ke", "eg",
+    "th", "cn", "jp", "kr", "tw", "hk", "za", "ng", "ke", "eg",
     "ae", "sa", "qa", "il", "tr", "gb", "uk", "kz",
 }
+_BLOCKED_DOMESTIC_COUNTRIES = (
+    getattr(config, "BLOCKED_DOMESTIC_COUNTRY_CODES", _DEFAULT_BLOCKED_DOMESTIC_COUNTRIES)
+    if config
+    else _DEFAULT_BLOCKED_DOMESTIC_COUNTRIES
+)
 
 
 class SmartRecruitersJobScraper:
