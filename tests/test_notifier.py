@@ -84,3 +84,43 @@ class TestTelegramNotifier:
 
         payload = json.loads(mock_urlopen.call_args[0][0].data.decode("utf-8"))
         assert "Перед Easy Apply" not in payload["text"]
+
+    @pytest.mark.parametrize(
+        "source,expected_badge,expected_link",
+        [
+            ("WorkRemotely.eu", "WorkRemotely.eu", "Открыть вакансию на WorkRemotely.eu"),
+            ("TechJobs.ie", "TechJobs.ie", "Открыть вакансию на TechJobs.ie"),
+            ("WeWorkRemotely", "WeWorkRemotely", "Открыть вакансию на WeWorkRemotely"),
+        ],
+    )
+    @patch("urllib.request.urlopen")
+    def test_source_presentation_matches_new_irish_and_eu_boards(
+        self, mock_urlopen, notifier_configured, sample_job, source, expected_badge, expected_link
+    ):
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+        sample_job["source"] = source
+
+        assert notifier_configured.send_job_alert(sample_job) is True
+
+        payload = json.loads(mock_urlopen.call_args[0][0].data.decode("utf-8"))
+        assert expected_badge in payload["text"]
+        assert expected_link in payload["text"]
+        assert "Перед Easy Apply" not in payload["text"]
+
+    @patch("urllib.request.urlopen")
+    def test_boolean_keyword_and_url_query_are_html_escaped_cleanly(
+        self, mock_urlopen, notifier_configured, sample_job
+    ):
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_urlopen.return_value.__enter__.return_value = mock_resp
+        sample_job["keyword"] = '("SDET" OR "QA Automation") AND ("Contract" OR "B2B")'
+        sample_job["url"] = "https://example.com/jobs?id=1&ref=tracker"
+
+        assert notifier_configured.send_job_alert(sample_job) is True
+
+        payload = json.loads(mock_urlopen.call_args[0][0].data.decode("utf-8"))
+        assert "<code>(&quot;SDET&quot; OR &quot;QA Automation&quot;) AND (&quot;Contract&quot; OR &quot;B2B&quot;)</code>" in payload["text"]
+        assert 'href="https://example.com/jobs?id=1&amp;ref=tracker"' in payload["text"]

@@ -2,9 +2,11 @@
 SQLite Database manager for tracking seen LinkedIn jobs.
 """
 
+import contextlib
 import sqlite3
 import datetime
 import os
+from contextlib import contextmanager
 from typing import Dict, Any
 
 
@@ -16,8 +18,15 @@ class JobDatabase:
     def _get_connection(self) -> sqlite3.Connection:
         return sqlite3.connect(self.db_path)
 
+    @contextmanager
+    def _session(self):
+        """Open a SQLite connection, commit/rollback transaction, and always close."""
+        with contextlib.closing(self._get_connection()) as conn:
+            with conn:
+                yield conn
+
     def _init_db(self):
-        with self._get_connection() as conn:
+        with self._session() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -58,7 +67,7 @@ class JobDatabase:
             raise ValueError("item_count must be greater than zero")
 
         now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        with self._get_connection() as conn:
+        with self._session() as conn:
             conn.execute("BEGIN IMMEDIATE")
             row = conn.execute(
                 "SELECT next_index FROM rotation_state WHERE state_key = ?", (state_key,)
@@ -77,7 +86,7 @@ class JobDatabase:
     def claim_source_poll(self, source: str, min_interval_seconds: int = 3600) -> bool:
         """Atomically rate-limit a source across local and GitHub Actions runs."""
         now = datetime.datetime.now(datetime.timezone.utc)
-        with self._get_connection() as conn:
+        with self._session() as conn:
             conn.execute("BEGIN IMMEDIATE")
             row = conn.execute(
                 "SELECT last_attempt_at FROM source_sync_state WHERE source = ?", (source,)
@@ -99,13 +108,13 @@ class JobDatabase:
         return True
 
     def is_seen(self, job_id: str) -> bool:
-        with self._get_connection() as conn:
+        with self._session() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT 1 FROM seen_jobs WHERE job_id = ?", (job_id,))
             return cursor.fetchone() is not None
 
     def add_job(self, job: Dict[str, Any]):
-        with self._get_connection() as conn:
+        with self._session() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -127,7 +136,7 @@ class JobDatabase:
             conn.commit()
 
     def count_seen(self) -> int:
-        with self._get_connection() as conn:
+        with self._session() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM seen_jobs")
             row = cursor.fetchone()
@@ -142,7 +151,7 @@ class JobDatabase:
         if not os.path.exists(source_db_path):
             return 0
 
-        with self._get_connection() as conn:
+        with self._session() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM seen_jobs")
             count_before = cursor.fetchone()[0]

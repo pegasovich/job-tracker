@@ -30,7 +30,8 @@ REMOTE_ONLY = True  # LinkedIn filter f_WT=2
 # LinkedIn Search Time & Sort Settings
 LINKEDIN_TIME_FILTER = "r604800"  # r604800 = Past 7 days, None = All time
 LINKEDIN_SORT_BY = "DD"          # DD = Most recent (date descending), None = Most relevant
-LINKEDIN_SEARCH_LIMIT = int(os.getenv("LINKEDIN_SEARCH_LIMIT", "6"))
+LINKEDIN_SEARCH_LIMIT = int(os.getenv("LINKEDIN_SEARCH_LIMIT", "10"))
+LINKEDIN_MAX_DETAIL_FETCHES = int(os.getenv("LINKEDIN_MAX_DETAIL_FETCHES", "8"))
 LINKEDIN_MAX_RETRIES = int(os.getenv("LINKEDIN_MAX_RETRIES", "1"))
 LINKEDIN_RETRY_BASE_WAIT = float(os.getenv("LINKEDIN_RETRY_BASE_WAIT", "10.0"))
 
@@ -173,17 +174,13 @@ NON_QA_OVERRIDE_PATTERNS = [
 ]
 
 # Target keywords to monitor for QA/SDET (Manual & Automation)
-# Boolean targeted B2B/Contract queries + standard role titles
+# Compact boolean groups (<= 4 phrases each) keep one search per run reliable on LinkedIn Guest API
+# while shrinking the full 3-region rotation to 12 slots (~6 hours at 30-min intervals).
 SEARCH_KEYWORDS = [
     '("SDET" OR "QA Automation") AND ("Contract" OR "B2B" OR "Deel")',
     '("QA Engineer" OR "Software Tester") AND ("Contract" OR "B2B" OR "Deel")',
-    "QA Engineer",
-    "SDET",
-    "Automation QA",
-    "Test Automation",
-    "Manual QA",
-    "QA Tester",
-    "Software Tester",
+    '("SDET" OR "QA Automation" OR "Automation QA" OR "Test Automation")',
+    '("QA Engineer" OR "Manual QA" OR "QA Tester" OR "Software Tester")',
 ]
 
 # Djinni.co Settings (Официальные категории Djinni для QA)

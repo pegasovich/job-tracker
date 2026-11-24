@@ -82,4 +82,38 @@ def test_view_db_exports(tmp_path, monkeypatch):
 
     view_db.export_html(str(html_path))
     assert html_path.exists()
-    assert "SDET Lead" in html_path.read_text(encoding="utf-8")
+    html_text = html_path.read_text(encoding="utf-8")
+    assert "SDET Lead" in html_text
+    assert 'rel="noopener noreferrer"' in html_text
+
+
+def test_view_db_export_html_ignores_unsafe_url_schemes(tmp_path, monkeypatch):
+    db_file = tmp_path / "test_unsafe.db"
+    conn = sqlite3.connect(db_file)
+    conn.execute(
+        """
+        CREATE TABLE seen_jobs (
+            job_id TEXT PRIMARY KEY,
+            title TEXT,
+            company TEXT,
+            location TEXT,
+            url TEXT,
+            posted_date TEXT,
+            keyword TEXT,
+            first_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    conn.execute(
+        """
+        INSERT INTO seen_jobs (job_id, title, company, location, url, first_seen_at)
+        VALUES ('bad_1', 'QA Engineer', 'Test Co', 'Ireland', 'javascript:alert(1)', '2026-11-22T20:00:00')
+        """
+    )
+    conn.commit()
+    conn.close()
+
+    monkeypatch.setattr(view_db, "get_db_path", lambda: db_file)
+    html_path = tmp_path / "unsafe.html"
+    view_db.export_html(str(html_path))
+    assert "javascript:alert(1)" not in html_path.read_text(encoding="utf-8")

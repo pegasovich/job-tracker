@@ -8,7 +8,7 @@ import io
 import time
 import random
 import logging
-from typing import List, Dict
+from typing import List, Dict, Optional, Callable
 
 # Ensure UTF-8 stdout/stderr on Windows when running in a console
 if sys.platform == "win32":
@@ -113,62 +113,234 @@ def log_and_track_batch(source_name: str, jobs: List[Dict], db: JobDatabase) -> 
     return seen, new_cand
 
 
-def process_remote_feed_jobs(source_name: str, jobs: List[Dict], db: JobDatabase,
-                             notifier: TelegramNotifier, dry_run: bool) -> tuple[int, int]:
-    """Apply the shared QA/remote filters and deliver jobs from remote-only feeds."""
+def _deliver_job_alert(
+    source_name: str,
+    job: Dict,
+    snippet: str,
+    workplace_type: str,
+    db: JobDatabase,
+    notifier: TelegramNotifier,
+    dry_run: bool,
+    region_label: str = "",
+) -> bool:
+    """Print (dry-run) or send a Telegram alert and persist only on successful delivery."""
+    logger.info("✨ [%s] Новая вакансия [%s] (%s): %s @ %s", source_name, job["id"], workplace_type, job["title"], job["company"])
+    if dry_run:
+        header_meta = f"{workplace_type.upper()} | {region_label}" if region_label else workplace_type.upper()
+        print("\n" + "=" * 60)
+        print(f"[DRY RUN / {source_name}] Новая вакансия ({header_meta}):")
+        print(f"Позиция: {job['title']}")
+        print(f"Компания: {job['company']}")
+        print(f"Локация: {job['location']}")
+        if job.get("employment_type"):
+            print(f"Тип: {job['employment_type']}")
+        if job.get("salary"):
+            print(f"Зарплата: {job['salary']}")
+        print(f"Ссылка: {job['url']}")
+        if snippet:
+            print(f"Фрагмент описания: {snippet[:200]}...")
+        print("=" * 60 + "\n")
+        db.add_job(job)
+        return True
+
+    if notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type):
+        logger.info("✅ Отправлено в Telegram: %s", job["id"])
+        db.add_job(job)
+        time.sleep(1.5)
+        return True
+
+    # Leave unseen so the next scheduled run can retry delivery.
+    logger.error("❌ Ошибка отправки в Telegram: %s; вакансия будет повторно проверена", job["id"])
+    return False
+
+
+def process_standard_jobs(
+    source_name: str,
+    jobs: List[Dict],
+    db: JobDatabase,
+    notifier: TelegramNotifier,
+    dry_run: bool,
+    *,
+    require_confirmed_remote: bool = False,
+    check_location_geo: bool = True,
+    check_description_geo: bool = True,
+    check_language: bool = True,
+    check_polish: bool = True,
+    allow_nearby_hybrid: bool = False,
+    extra_filter: Optional[Callable[[Dict], str]] = None,
+) -> tuple[int, int]:
+    """Filter, deduplicate, and deliver alerts for a non-LinkedIn scraper batch."""
     new_count = 0
     filtered_count = 0
+
     for job in jobs:
         job_id = job["id"]
         if db.is_seen(job_id):
             continue
 
+        title = job.get("title", "")
+        location = job.get("location", "")
         description = job.get("description", "")
+        workplace_type = job.get("workplace_type", "remote")
+
         reason = ""
-        if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
+        if not LinkedInJobScraper.is_qa_title(title):
             reason = "not a QA/SDET role"
-        elif job.get("workplace_type") != "remote":
+        elif require_confirmed_remote and workplace_type != "remote":
             reason = "not confirmed fully remote"
-        elif LinkedInJobScraper.is_location_blocked(job.get("location", "")):
-            reason = "location is incompatible"
-        elif LinkedInJobScraper.is_description_blocked(description):
-            reason = "description restricts candidate location"
-        elif config.has_non_allowed_language_requirement(f"{job.get('title', '')} {description}"):
-            reason = "requires a non-English language"
-        elif config.EXCLUDE_POLISH_DOMESTIC_ROLES and is_polish_domestic_title(job.get("title", "")):
+        elif check_polish and getattr(config, "EXCLUDE_POLISH_DOMESTIC_ROLES", True) and is_polish_domestic_title(title):
             reason = "Polish domestic role"
+        elif check_location_geo and LinkedInJobScraper.is_location_blocked(location):
+            reason = "location is incompatible"
+        elif check_description_geo and LinkedInJobScraper.is_description_blocked(description):
+            reason = "description restricts candidate location"
+        elif check_language and config.has_non_allowed_language_requirement(f"{title} {description}"):
+            reason = "requires a non-English language"
+        elif workplace_type == "hybrid" and not config.ALLOW_HYBRID:
+            if allow_nearby_hybrid and is_hybrid_nearby(location):
+                logger.info("✅ [ГИБРИД РЯДОМ / %s] Пропущена через фильтр: %s @ %s (%s)", source_name, title, job.get("company"), location)
+            else:
+                reason = "hybrid role outside allowed area"
+
+        if not reason and extra_filter is not None:
+            reason = extra_filter(job) or ""
 
         if reason:
-            logger.info("🚫 [%s] Пропуск (%s): %s @ %s", source_name, reason, job.get("title"), job.get("company"))
+            logger.info("🚫 [%s] Пропуск (%s): %s @ %s", source_name, reason, title, job.get("company"))
             filtered_count += 1
             db.add_job(job)
             continue
 
-        snippet = description[:350].rstrip()
-        if len(description) > 350:
-            snippet += "..."
-        logger.info("✨ [%s] Новая вакансия (remote): %s @ %s", source_name, job["title"], job["company"])
-        if dry_run:
-            print("\n" + "=" * 60)
-            print(f"[DRY RUN / {source_name}] Новая удалённая вакансия:")
-            print(f"Позиция: {job['title']}\nКомпания: {job['company']}\nЛокация: {job['location']}")
-            if job.get("employment_type"):
-                print(f"Тип: {job['employment_type']}")
-            if job.get("salary"):
-                print(f"Зарплата: {job['salary']}")
-            print(f"Ссылка: {job['url']}")
-            if snippet:
-                print(f"Фрагмент описания: {snippet[:200]}")
-            print("=" * 60 + "\n")
+        snippet = description[:350].rstrip() + "..." if len(description) > 350 else description
+        if _deliver_job_alert(source_name, job, snippet, workplace_type, db, notifier, dry_run):
+            new_count += 1
+
+    return new_count, filtered_count
+
+
+def process_remote_feed_jobs(source_name: str, jobs: List[Dict], db: JobDatabase,
+                             notifier: TelegramNotifier, dry_run: bool) -> tuple[int, int]:
+    """Apply the shared QA/remote filters and deliver jobs from remote-only feeds."""
+    return process_standard_jobs(
+        source_name,
+        jobs,
+        db,
+        notifier,
+        dry_run,
+        require_confirmed_remote=True,
+    )
+
+
+def build_linkedin_rotation_queries(locations: List[str], keywords: List[str]) -> List[tuple[str, str]]:
+    """Interleave regions across keyword groups so every region is polled evenly."""
+    return [(loc, kw) for kw in keywords for loc in locations]
+
+
+def process_linkedin_jobs(
+    jobs: List[Dict],
+    location: str,
+    scraper: LinkedInJobScraper,
+    db: JobDatabase,
+    notifier: TelegramNotifier,
+    dry_run: bool,
+    max_detail_fetches: int = 8,
+) -> tuple[int, int]:
+    """Filter, fetch details with 429 protection, and notify on unseen LinkedIn cards."""
+    new_count = 0
+    filtered_count = 0
+    detail_fetches = 0
+    detail_rate_limited = False
+    detail_cap_logged = False
+
+    for job in jobs:
+        job_id = job["id"]
+        job["region"] = location
+        if db.is_seen(job_id):
+            continue
+
+        # Level 0: Validate role title locally (0 HTTP requests)
+        if not scraper.is_qa_title(job.get("title", "")):
+            logger.info(
+                f"🚫 [НЕ QA РОЛЬ] Отклонена по названию: '{job['title']}' @ {job['company']}"
+            )
+            filtered_count += 1
             db.add_job(job)
-        elif notifier.send_job_alert(job, snippet=snippet, workplace_type="remote"):
-            logger.info("✅ Отправлено в Telegram: %s", job_id)
+            continue
+
+        # Level 1: Geo-filter card locally before spending a detail HTTP request
+        if scraper.is_location_blocked(job.get("location", "")):
+            logger.info(
+                f"🚫 [ГЕО-БЛОКИРОВКА] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
+            )
+            filtered_count += 1
             db.add_job(job)
-            time.sleep(1.5)
-        else:
-            # Leave it unseen so the next scheduled scan can retry the notification.
-            logger.error("❌ Ошибка отправки в Telegram: %s; вакансия будет повторно проверена", job_id)
-        new_count += 1
+            continue
+
+        if detail_rate_limited:
+            continue
+
+        if detail_fetches >= max_detail_fetches:
+            if not detail_cap_logged:
+                logger.info(
+                    "⏸️ Достигнут лимит запросов описаний LinkedIn (%s) за запуск; "
+                    "остальные новые карточки оставлены до следующего цикла.",
+                    max_detail_fetches,
+                )
+                detail_cap_logged = True
+            continue
+
+        time.sleep(random.uniform(1.5, 2.5))
+        detail_fetches += 1
+        full_desc = scraper.get_job_description(job_id)
+        if not full_desc and getattr(scraper, "last_hit_rate_limit", False):
+            detail_rate_limited = True
+            logger.warning(
+                f"⏳ Пропускаем вакансию '{job['title']}' @ {job['company']} из-за лимита 429 LinkedIn "
+                "(дальнейшие запросы описаний в этом запуске остановлены)."
+            )
+            continue
+
+        snippet = full_desc[:350].rstrip() + "..." if len(full_desc) > 350 else full_desc
+        workplace_type = scraper.detect_workplace_type(job["title"], job["location"], full_desc)
+
+        if workplace_type == "onsite" and not config.ALLOW_ONSITE:
+            logger.info(
+                f"🚫 [СТРОГИЙ ФИЛЬТР] Отклонена On-site вакансия: {job['title']} @ {job['company']} (Локация: {job['location']})"
+            )
+            filtered_count += 1
+            db.add_job(job)
+            continue
+
+        if workplace_type == "hybrid" and not config.ALLOW_HYBRID:
+            if is_hybrid_nearby(job["location"]):
+                logger.info(
+                    f"✅ [ГИБРИД РЯДОМ] Пропущена через фильтр: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                )
+            else:
+                logger.info(
+                    f"🚫 [СТРОГИЙ ФИЛЬТР] Отклонена Hybrid вакансия (далеко): {job['title']} @ {job['company']} (Локация: {job['location']})"
+                )
+                filtered_count += 1
+                db.add_job(job)
+                continue
+
+        if workplace_type == "unclear":
+            loc_stripped = job.get("location", "").strip().lower()
+            is_generic_ireland = loc_stripped in ("ireland", "")
+            if not is_generic_ireland and not is_hybrid_nearby(job.get("location", "")):
+                logger.info(
+                    f"🚫 [СТРОГИЙ ФИЛЬТР] Отклонена вакансия с неясным форматом: {job['title']} @ {job['company']} (Локация: {job['location']})"
+                )
+                filtered_count += 1
+                db.add_job(job)
+                continue
+            logger.info(
+                f"🟡 [UNCLEAR → ПРОПУСК] Вакансия с неясным форматом, но generic Ireland/nearby: {job['title']} @ {job['company']} (Локация: {job['location']})"
+            )
+
+        if _deliver_job_alert("LinkedIn", job, snippet, workplace_type, db, notifier, dry_run, region_label=location):
+            new_count += 1
+
     return new_count, filtered_count
 
 
@@ -192,119 +364,42 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
     total_new = 0
     keywords = config.SEARCH_KEYWORDS if not test_mode else [config.SEARCH_KEYWORDS[0]]
 
+    def collect_and_process(source_name: str, jobs: List[Dict], **process_kwargs):
+        nonlocal total_scanned, total_already_seen, total_new, total_filtered
+        seen_cnt, _ = log_and_track_batch(source_name, jobs, db)
+        total_scanned += len(jobs)
+        total_already_seen += seen_cnt
+        new_count, filtered_count = process_standard_jobs(
+            source_name, jobs, db, notifier, dry_run, **process_kwargs
+        )
+        total_new += new_count
+        total_filtered += filtered_count
+
     # --- Djinni.co ---
     if config.ENABLE_DJINNI:
         djinni = DjinniJobScraper()
         djinni_keywords = config.DJINNI_KEYWORDS if not test_mode else [config.DJINNI_KEYWORDS[0]]
+        user_countries = getattr(config, "DJINNI_USER_COUNTRIES", ["IE", "IRL", "IRELAND"])
+        user_regions = getattr(config, "DJINNI_USER_REGIONS", ["EUROPE", "EU", "WORLDWIDE", "ANY", "ALL"])
+
+        def _djinni_extra(job: Dict) -> str:
+            if getattr(config, "DJINNI_COUNTRY_FILTER", True) and not is_djinni_country_eligible(
+                job, user_countries=user_countries, user_regions=user_regions
+            ):
+                return "country is ineligible for Ireland"
+            return ""
+
         for kw in djinni_keywords:
             logger.info(f"🟢 Поиск на Djinni.co по слову: '{kw}'...")
             max_pages = getattr(config, "DJINNI_MAX_PAGES", 5)
             limit = getattr(config, "DJINNI_LIMIT", 60)
             djinni_jobs = djinni.search_jobs(keyword=kw, max_pages=max_pages, limit=limit)
-            seen_cnt, _ = log_and_track_batch(f"Djinni / {kw}", djinni_jobs, db)
-            total_scanned += len(djinni_jobs)
-            total_already_seen += seen_cnt
-
-            for job in djinni_jobs:
-                job_id = job["id"]
-                if db.is_seen(job_id):
-                    continue
-
-                # Level 0: Валидация названия роли
-                if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
-                    logger.info(
-                        f"🚫 [НЕ QA РОЛЬ / Djinni] Отклонена по названию: '{job['title']}' @ {job['company']}"
-                    )
-                    total_filtered += 1
-
-                    db.add_job(job)
-
-                    continue
-
-                # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
-                if LinkedInJobScraper.is_location_blocked(job.get("location", "")):
-                    logger.info(
-                        f"🚫 [ГЕО-БЛОКИРОВКА / Djinni] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job.get('location', '')})"
-                    )
-                    total_filtered += 1
-
-                    db.add_job(job)
-
-                    continue
-
-                # Level 2: Стоп-фразы в описании
-                if LinkedInJobScraper.is_description_blocked(job.get("description", "")):
-                    logger.info(
-                        f"🚫 [СТОП-ОПИСАНИЕ / Djinni] Отклонена по описанию: '{job['title']}' @ {job['company']}"
-                    )
-                    total_filtered += 1
-
-                    db.add_job(job)
-
-                    continue
-
-                workplace_type = job.get("workplace_type", "remote")
-
-                # Фильтрация гибридных вакансий на Djinni
-                if workplace_type == "hybrid" and not config.ALLOW_HYBRID:
-                    if is_hybrid_nearby(job.get("location", "")):
-                        logger.info(
-                            f"✅ [ГИБРИД РЯДОМ / Djinni] Пропущена через фильтр: {job['title']} @ {job['company']} (Локация: {job.get('location', '')})"
-                        )
-                    else:
-                        logger.info(
-                            f"🚫 [СТРОГИЙ ФИЛЬТР / Djinni] Отклонена Hybrid вакансия (далеко): {job['title']} @ {job['company']} (Локация: {job.get('location', '')})"
-                        )
-                        total_filtered += 1
-
-                        db.add_job(job)
-
-                        continue
-
-                # Фильтрация по разрешенным странам на Djinni (профиль кандидата в Ирландии)
-                if getattr(config, "DJINNI_COUNTRY_FILTER", True):
-                    user_countries = getattr(config, "DJINNI_USER_COUNTRIES", ["IE", "IRL", "IRELAND"])
-                    user_regions = getattr(config, "DJINNI_USER_REGIONS", ["EUROPE", "EU", "WORLDWIDE", "ANY", "ALL"])
-                    if not is_djinni_country_eligible(job, user_countries=user_countries, user_regions=user_regions):
-                        logger.info(
-                            f"🚫 [СТРОГИЙ ФИЛЬТР / Djinni] Отклонена (Ирландия не подходит): "
-                            f"{job['title']} @ {job['company']} (Локация: {job.get('location', '')})"
-                        )
-                        total_filtered += 1
-
-                        db.add_job(job)
-
-                        continue
-
-                total_new += 1
-                snippet = job.get("description", "")[:350]
-                if len(job.get("description", "")) > 350:
-                    snippet = snippet.rstrip() + "..."
-
-                logger.info(f"✨ [Djinni] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
-
-                if dry_run:
-                    print("\n" + "=" * 60)
-                    print(f"[DRY RUN / Djinni] Новая вакансия ({workplace_type.upper()}):")
-                    print(f"Позиция: {job['title']}")
-                    print(f"Компания: {job['company']}")
-                    print(f"Локация: {job['location']}")
-                    if job.get("salary"):
-                        print(f"Зарплата: {job['salary']}")
-                    print(f"Ссылка: {job['url']}")
-                    if snippet:
-                        print(f"Фрагмент описания: {snippet[:200]}...")
-                    print("=" * 60 + "\n")
-                else:
-                    sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
-                    if sent:
-                        logger.info(f"✅ Отправлено в Telegram: {job_id}")
-                    else:
-                        logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
-                    time.sleep(1.5)
-
-                db.add_job(job)
-
+            collect_and_process(
+                f"Djinni / {kw}",
+                djinni_jobs,
+                allow_nearby_hybrid=True,
+                extra_filter=_djinni_extra,
+            )
             time.sleep(2.0)
 
     # --- DOU (jobs.dou.ua) ---
@@ -315,77 +410,7 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         dou_limit = getattr(config, "DOU_LIMIT", 50) if not test_mode else 10
         logger.info(f"🟡 Поиск на DOU (jobs.dou.ua, Категория: {dou_category}, Remote={dou_remote})...")
         dou_jobs = dou.search_jobs(category=dou_category, remote_only=dou_remote, limit=dou_limit)
-        seen_cnt, _ = log_and_track_batch("DOU", dou_jobs, db)
-        total_scanned += len(dou_jobs)
-        total_already_seen += seen_cnt
-
-        for job in dou_jobs:
-            job_id = job["id"]
-            if db.is_seen(job_id):
-                continue
-
-            # Level 0: Валидация названия роли
-            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
-                logger.info(
-                    f"🚫 [НЕ QA РОЛЬ / DOU] Отклонена по названию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
-            if LinkedInJobScraper.is_location_blocked(job.get("location", "")):
-                logger.info(
-                    f"🚫 [ГЕО-БЛОКИРОВКА / DOU] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
-            if LinkedInJobScraper.is_description_blocked(job.get("description", "")):
-                logger.info(
-                    f"🚫 [СТОП-ОПИСАНИЕ / DOU] Отклонена по описанию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            workplace_type = job.get("workplace_type", "remote")
-            total_new += 1
-            snippet = job.get("description", "")[:350]
-            if len(job.get("description", "")) > 350:
-                snippet = snippet.rstrip() + "..."
-
-            logger.info(f"✨ [DOU] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
-
-            if dry_run:
-                print("\n" + "=" * 60)
-                print(f"[DRY RUN / DOU] Новая вакансия ({workplace_type.upper()}):")
-                print(f"Позиция: {job['title']}")
-                print(f"Компания: {job['company']}")
-                print(f"Локация: {job['location']}")
-                if job.get("salary"):
-                    print(f"Зарплата: {job['salary']}")
-                print(f"Ссылка: {job['url']}")
-                if snippet:
-                    print(f"Фрагмент описания: {snippet[:200]}...")
-                print("=" * 60 + "\n")
-            else:
-                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
-                if sent:
-                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
-                else:
-                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
-                time.sleep(1.5)
-
-            db.add_job(job)
+        collect_and_process("DOU", dou_jobs)
 
     # --- No Fluff Jobs (nofluffjobs.com) ---
     if getattr(config, "ENABLE_NOFLUFF", True):
@@ -396,66 +421,12 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         nfj_limit = getattr(config, "NOFLUFF_LIMIT", 50) if not test_mode else 10
         logger.info(f"🔴 Поиск на No Fluff Jobs (Категория: {nfj_category}, Remote={nfj_remote}, Валюта={nfj_currency})...")
         nfj_jobs = nofluff.search_jobs(category=nfj_category, remote_only=nfj_remote, currency=nfj_currency, limit=nfj_limit)
-        seen_cnt, _ = log_and_track_batch("No Fluff Jobs", nfj_jobs, db)
-        total_scanned += len(nfj_jobs)
-        total_already_seen += seen_cnt
-
-        for job in nfj_jobs:
-            job_id = job["id"]
-            if db.is_seen(job_id):
-                continue
-
-            # Level 0: Валидация названия роли
-            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
-                logger.info(
-                    f"🚫 [НЕ QA РОЛЬ / NoFluff] Отклонена по названию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            # Level 0.5: Фильтр польских локальных вакансий
-            if getattr(config, "EXCLUDE_POLISH_DOMESTIC_ROLES", True) and is_polish_domestic_title(job.get("title", "")):
-                logger.info(
-                    f"🇵🇱 [POLISH DOMESTIC / NoFluff] Отклонена по польскому названию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            workplace_type = job.get("workplace_type", "remote")
-            total_new += 1
-            snippet = job.get("description", "")[:350]
-            if len(job.get("description", "")) > 350:
-                snippet = snippet.rstrip() + "..."
-
-            logger.info(f"✨ [NoFluff] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
-
-            if dry_run:
-                print("\n" + "=" * 60)
-                print(f"[DRY RUN / NoFluff] Новая вакансия ({workplace_type.upper()}):")
-                print(f"Позиция: {job['title']}")
-                print(f"Компания: {job['company']}")
-                print(f"Локация: {job['location']}")
-                if job.get("salary"):
-                    print(f"Зарплата: {job['salary']}")
-                print(f"Ссылка: {job['url']}")
-                if snippet:
-                    print(f"Фрагмент описания: {snippet[:200]}...")
-                print("=" * 60 + "\n")
-            else:
-                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
-                if sent:
-                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
-                else:
-                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
-                time.sleep(1.5)
-
-            db.add_job(job)
+        collect_and_process(
+            "No Fluff Jobs",
+            nfj_jobs,
+            check_location_geo=False,
+            check_description_geo=False,
+        )
 
     # --- JustJoin.it (justjoin.it) ---
     if getattr(config, "ENABLE_JUSTJOIN", True):
@@ -473,66 +444,12 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
             max_pages=jjit_pages,
             limit=jjit_limit,
         )
-        seen_cnt, _ = log_and_track_batch("JustJoin.it", jjit_jobs, db)
-        total_scanned += len(jjit_jobs)
-        total_already_seen += seen_cnt
-
-        for job in jjit_jobs:
-            job_id = job["id"]
-            if db.is_seen(job_id):
-                continue
-
-            # Level 0: Валидация названия роли
-            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
-                logger.info(
-                    f"🚫 [НЕ QA РОЛЬ / JustJoin] Отклонена по названию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            # Level 0.5: Фильтр польских локальных вакансий
-            if getattr(config, "EXCLUDE_POLISH_DOMESTIC_ROLES", True) and is_polish_domestic_title(job.get("title", "")):
-                logger.info(
-                    f"🇵🇱 [POLISH DOMESTIC / JustJoin] Отклонена по польскому названию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            workplace_type = job.get("workplace_type", "remote")
-            total_new += 1
-            snippet = job.get("description", "")[:350]
-            if len(job.get("description", "")) > 350:
-                snippet = snippet.rstrip() + "..."
-
-            logger.info(f"✨ [JustJoin] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
-
-            if dry_run:
-                print("\n" + "=" * 60)
-                print(f"[DRY RUN / JustJoin] Новая вакансия ({workplace_type.upper()}):")
-                print(f"Позиция: {job['title']}")
-                print(f"Компания: {job['company']}")
-                print(f"Локация: {job['location']}")
-                if job.get("salary"):
-                    print(f"Зарплата: {job['salary']}")
-                print(f"Ссылка: {job['url']}")
-                if snippet:
-                    print(f"Фрагмент описания: {snippet[:200]}...")
-                print("=" * 60 + "\n")
-            else:
-                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
-                if sent:
-                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
-                else:
-                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
-                time.sleep(1.5)
-
-            db.add_job(job)
+        collect_and_process(
+            "JustJoin.it",
+            jjit_jobs,
+            check_location_geo=False,
+            check_description_geo=False,
+        )
 
     # --- Adzuna (api.adzuna.com) ---
     if getattr(config, "ENABLE_ADZUNA", True):
@@ -551,55 +468,12 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 max_pages=adzuna_pages,
                 results_per_page=adzuna_limit,
             )
-            seen_cnt, _ = log_and_track_batch("Adzuna", adzuna_jobs, db)
-            total_scanned += len(adzuna_jobs)
-            total_already_seen += seen_cnt
-
-            for job in adzuna_jobs:
-                job_id = job["id"]
-                if db.is_seen(job_id):
-                    continue
-
-                # Level 0: Валидация названия роли
-                if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
-                    logger.info(
-                        f"🚫 [НЕ QA РОЛЬ / Adzuna] Отклонена по названию: '{job['title']}' @ {job['company']}"
-                    )
-                    total_filtered += 1
-
-                    db.add_job(job)
-
-                    continue
-
-                workplace_type = job.get("workplace_type", "remote")
-                total_new += 1
-                snippet = job.get("description", "")[:350]
-                if len(job.get("description", "")) > 350:
-                    snippet = snippet.rstrip() + "..."
-
-                logger.info(f"✨ [Adzuna] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
-
-                if dry_run:
-                    print("\n" + "=" * 60)
-                    print(f"[DRY RUN / Adzuna] Новая вакансия ({workplace_type.upper()}):")
-                    print(f"Позиция: {job['title']}")
-                    print(f"Компания: {job['company']}")
-                    print(f"Локация: {job['location']}")
-                    if job.get("salary"):
-                        print(f"Зарплата: {job['salary']}")
-                    print(f"Ссылка: {job['url']}")
-                    if snippet:
-                        print(f"Фрагмент описания: {snippet[:200]}...")
-                    print("=" * 60 + "\n")
-                else:
-                    sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
-                    if sent:
-                        logger.info(f"✅ Отправлено в Telegram: {job_id}")
-                    else:
-                        logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
-                    time.sleep(1.5)
-
-                db.add_job(job)
+            collect_and_process(
+                "Adzuna",
+                adzuna_jobs,
+                check_location_geo=False,
+                check_description_geo=False,
+            )
 
     # --- Arbeitnow (arbeitnow.com) ---
     if getattr(config, "ENABLE_ARBEITNOW", True):
@@ -609,77 +483,7 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         an_limit = getattr(config, "ARBEITNOW_LIMIT", 50) if not test_mode else 10
         logger.info(f"🌐 Поиск на Arbeitnow (Remote={an_remote}, Страниц: {an_pages})...")
         an_jobs = arbeitnow.search_jobs(remote_only=an_remote, max_pages=an_pages, limit=an_limit)
-        seen_cnt, _ = log_and_track_batch("Arbeitnow", an_jobs, db)
-        total_scanned += len(an_jobs)
-        total_already_seen += seen_cnt
-
-        for job in an_jobs:
-            job_id = job["id"]
-            if db.is_seen(job_id):
-                continue
-
-            # Level 0: Валидация названия роли
-            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
-                logger.info(
-                    f"🚫 [НЕ QA РОЛЬ / Arbeitnow] Отклонена по названию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
-            if LinkedInJobScraper.is_location_blocked(job.get("location", "")):
-                logger.info(
-                    f"🚫 [ГЕО-БЛОКИРОВКА / Arbeitnow] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
-            if LinkedInJobScraper.is_description_blocked(job.get("description", "")):
-                logger.info(
-                    f"🚫 [СТОП-ОПИСАНИЕ / Arbeitnow] Отклонена по описанию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            workplace_type = job.get("workplace_type", "remote")
-            total_new += 1
-            snippet = job.get("description", "")[:350]
-            if len(job.get("description", "")) > 350:
-                snippet = snippet.rstrip() + "..."
-
-            logger.info(f"✨ [Arbeitnow] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
-
-            if dry_run:
-                print("\n" + "=" * 60)
-                print(f"[DRY RUN / Arbeitnow] Новая вакансия ({workplace_type.upper()}):")
-                print(f"Позиция: {job['title']}")
-                print(f"Компания: {job['company']}")
-                print(f"Локация: {job['location']}")
-                if job.get("salary"):
-                    print(f"Зарплата: {job['salary']}")
-                print(f"Ссылка: {job['url']}")
-                if snippet:
-                    print(f"Фрагмент описания: {snippet[:200]}...")
-                print("=" * 60 + "\n")
-            else:
-                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
-                if sent:
-                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
-                else:
-                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
-                time.sleep(1.5)
-
-            db.add_job(job)
+        collect_and_process("Arbeitnow", an_jobs)
 
     # --- Greenhouse (Direct Company ATS) ---
     if getattr(config, "ENABLE_GREENHOUSE", True):
@@ -690,77 +494,7 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         logger.info(f"🌱 Поиск в Greenhouse ATS (Компаний: {len(target_comps)}, Remote={gh_remote})...")
         greenhouse = GreenhouseJobScraper(companies=target_comps)
         gh_jobs = greenhouse.search_jobs(remote_only=gh_remote, limit_per_company=gh_limit)
-        seen_cnt, _ = log_and_track_batch("Greenhouse", gh_jobs, db)
-        total_scanned += len(gh_jobs)
-        total_already_seen += seen_cnt
-
-        for job in gh_jobs:
-            job_id = job["id"]
-            if db.is_seen(job_id):
-                continue
-
-            # Level 0: Валидация названия роли
-            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
-                logger.info(
-                    f"🚫 [НЕ QA РОЛЬ / Greenhouse] Отклонена по названию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
-            if LinkedInJobScraper.is_location_blocked(job.get("location", "")):
-                logger.info(
-                    f"🚫 [ГЕО-БЛОКИРОВКА / Greenhouse] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
-            if LinkedInJobScraper.is_description_blocked(job.get("description", "")):
-                logger.info(
-                    f"🚫 [СТОП-ОПИСАНИЕ / Greenhouse] Отклонена по описанию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            workplace_type = job.get("workplace_type", "remote")
-            total_new += 1
-            snippet = job.get("description", "")[:350]
-            if len(job.get("description", "")) > 350:
-                snippet = snippet.rstrip() + "..."
-
-            logger.info(f"✨ [Greenhouse] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
-
-            if dry_run:
-                print("\n" + "=" * 60)
-                print(f"[DRY RUN / Greenhouse] Новая вакансия ({workplace_type.upper()}):")
-                print(f"Позиция: {job['title']}")
-                print(f"Компания: {job['company']}")
-                print(f"Локация: {job['location']}")
-                if job.get("salary"):
-                    print(f"Зарплата: {job['salary']}")
-                print(f"Ссылка: {job['url']}")
-                if snippet:
-                    print(f"Фрагмент описания: {snippet[:200]}...")
-                print("=" * 60 + "\n")
-            else:
-                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
-                if sent:
-                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
-                else:
-                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
-                time.sleep(1.5)
-
-            db.add_job(job)
+        collect_and_process("Greenhouse", gh_jobs)
 
     # --- Lever (Direct Company ATS) ---
     if getattr(config, "ENABLE_LEVER", True):
@@ -771,77 +505,7 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         logger.info(f"⚡ Поиск в Lever ATS (Компаний: {len(target_lever_comps)}, Remote={lever_remote})...")
         lever = LeverJobScraper(companies=target_lever_comps)
         lever_jobs = lever.search_jobs(remote_only=lever_remote, limit_per_company=lever_limit)
-        seen_cnt, _ = log_and_track_batch("Lever", lever_jobs, db)
-        total_scanned += len(lever_jobs)
-        total_already_seen += seen_cnt
-
-        for job in lever_jobs:
-            job_id = job["id"]
-            if db.is_seen(job_id):
-                continue
-
-            # Level 0: Валидация названия роли
-            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
-                logger.info(
-                    f"🚫 [НЕ QA РОЛЬ / Lever] Отклонена по названию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
-            if LinkedInJobScraper.is_location_blocked(job.get("location", "")):
-                logger.info(
-                    f"🚫 [ГЕО-БЛОКИРОВКА / Lever] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
-            if LinkedInJobScraper.is_description_blocked(job.get("description", "")):
-                logger.info(
-                    f"🚫 [СТОП-ОПИСАНИЕ / Lever] Отклонена по описанию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            workplace_type = job.get("workplace_type", "remote")
-            total_new += 1
-            snippet = job.get("description", "")[:350]
-            if len(job.get("description", "")) > 350:
-                snippet = snippet.rstrip() + "..."
-
-            logger.info(f"✨ [Lever] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
-
-            if dry_run:
-                print("\n" + "=" * 60)
-                print(f"[DRY RUN / Lever] Новая вакансия ({workplace_type.upper()}):")
-                print(f"Позиция: {job['title']}")
-                print(f"Компания: {job['company']}")
-                print(f"Локация: {job['location']}")
-                if job.get("salary"):
-                    print(f"Зарплата: {job['salary']}")
-                print(f"Ссылка: {job['url']}")
-                if snippet:
-                    print(f"Фрагмент описания: {snippet[:200]}...")
-                print("=" * 60 + "\n")
-            else:
-                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
-                if sent:
-                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
-                else:
-                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
-                time.sleep(1.5)
-
-            db.add_job(job)
+        collect_and_process("Lever", lever_jobs)
 
     # --- Ashby (Direct Company ATS) ---
     if getattr(config, "ENABLE_ASHBY", True):
@@ -852,77 +516,7 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         logger.info(f"🪐 Поиск в Ashby ATS (Компаний: {len(target_ashby_comps)}, Remote={ashby_remote})...")
         ashby = AshbyJobScraper(companies=target_ashby_comps)
         ashby_jobs = ashby.search_jobs(remote_only=ashby_remote, limit_per_company=ashby_limit)
-        seen_cnt, _ = log_and_track_batch("Ashby", ashby_jobs, db)
-        total_scanned += len(ashby_jobs)
-        total_already_seen += seen_cnt
-
-        for job in ashby_jobs:
-            job_id = job["id"]
-            if db.is_seen(job_id):
-                continue
-
-            # Level 0: Валидация названия роли
-            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
-                logger.info(
-                    f"🚫 [НЕ QA РОЛЬ / Ashby] Отклонена по названию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
-            if LinkedInJobScraper.is_location_blocked(job.get("location", "")):
-                logger.info(
-                    f"🚫 [ГЕО-БЛОКИРОВКА / Ashby] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
-            if LinkedInJobScraper.is_description_blocked(job.get("description", "")):
-                logger.info(
-                    f"🚫 [СТОП-ОПИСАНИЕ / Ashby] Отклонена по описанию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            workplace_type = job.get("workplace_type", "remote")
-            total_new += 1
-            snippet = job.get("description", "")[:350]
-            if len(job.get("description", "")) > 350:
-                snippet = snippet.rstrip() + "..."
-
-            logger.info(f"✨ [Ashby] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
-
-            if dry_run:
-                print("\n" + "=" * 60)
-                print(f"[DRY RUN / Ashby] Новая вакансия ({workplace_type.upper()}):")
-                print(f"Позиция: {job['title']}")
-                print(f"Компания: {job['company']}")
-                print(f"Локация: {job['location']}")
-                if job.get("salary"):
-                    print(f"Зарплата: {job['salary']}")
-                print(f"Ссылка: {job['url']}")
-                if snippet:
-                    print(f"Фрагмент описания: {snippet[:200]}...")
-                print("=" * 60 + "\n")
-            else:
-                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
-                if sent:
-                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
-                else:
-                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
-                time.sleep(1.5)
-
-            db.add_job(job)
+        collect_and_process("Ashby", ashby_jobs)
 
     # --- Remotive (remotive.com API) ---
     if getattr(config, "ENABLE_REMOTIVE", True):
@@ -932,155 +526,15 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         logger.info(f"🚀 Поиск на Remotive (Category={remotive_cat}, Remote={remotive_remote})...")
         remotive = RemotiveJobScraper(category=remotive_cat)
         remotive_jobs = remotive.search_jobs(category=remotive_cat, remote_only=remotive_remote, limit=remotive_limit)
-        seen_cnt, _ = log_and_track_batch("Remotive", remotive_jobs, db)
-        total_scanned += len(remotive_jobs)
-        total_already_seen += seen_cnt
-
-        for job in remotive_jobs:
-            job_id = job["id"]
-            if db.is_seen(job_id):
-                continue
-
-            # Level 0: Валидация названия роли
-            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
-                logger.info(
-                    f"🚫 [НЕ QA РОЛЬ / Remotive] Отклонена по названию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
-            if LinkedInJobScraper.is_location_blocked(job.get("location", "")):
-                logger.info(
-                    f"🚫 [ГЕО-БЛОКИРОВКА / Remotive] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
-            if LinkedInJobScraper.is_description_blocked(job.get("description", "")):
-                logger.info(
-                    f"🚫 [СТОП-ОПИСАНИЕ / Remotive] Отклонена по описанию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            workplace_type = job.get("workplace_type", "remote")
-            total_new += 1
-            snippet = job.get("description", "")[:350]
-            if len(job.get("description", "")) > 350:
-                snippet = snippet.rstrip() + "..."
-
-            logger.info(f"✨ [Remotive] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
-
-            if dry_run:
-                print("\n" + "=" * 60)
-                print(f"[DRY RUN / Remotive] Новая вакансия ({workplace_type.upper()}):")
-                print(f"Позиция: {job['title']}")
-                print(f"Компания: {job['company']}")
-                print(f"Локация: {job['location']}")
-                if job.get("salary"):
-                    print(f"Зарплата: {job['salary']}")
-                print(f"Ссылка: {job['url']}")
-                if snippet:
-                    print(f"Фрагмент описания: {snippet[:200]}...")
-                print("=" * 60 + "\n")
-            else:
-                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
-                if sent:
-                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
-                else:
-                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
-                time.sleep(1.5)
-
-            db.add_job(job)
+        collect_and_process("Remotive", remotive_jobs)
 
     # --- WeWorkRemotely (weworkremotely.com RSS) ---
     if getattr(config, "ENABLE_WEWORKREMOTELY", True):
         wwr_limit = getattr(config, "WEWORKREMOTELY_LIMIT", 50) if not test_mode else 10
-        logger.info(f"💼 Поиск на WeWorkRemotely RSS...")
+        logger.info("💼 Поиск на WeWorkRemotely RSS...")
         wwr = WeWorkRemotelyJobScraper()
         wwr_jobs = wwr.search_jobs(remote_only=True, limit=wwr_limit)
-        seen_cnt, _ = log_and_track_batch("WeWorkRemotely", wwr_jobs, db)
-        total_scanned += len(wwr_jobs)
-        total_already_seen += seen_cnt
-
-        for job in wwr_jobs:
-            job_id = job["id"]
-            if db.is_seen(job_id):
-                continue
-
-            # Level 0: Валидация названия роли
-            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
-                logger.info(
-                    f"🚫 [НЕ QA РОЛЬ / WeWorkRemotely] Отклонена по названию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны: США, Латам, Азию и др.)
-            if LinkedInJobScraper.is_location_blocked(job.get("location", "")):
-                logger.info(
-                    f"🚫 [ГЕО-БЛОКИРОВКА / WeWorkRemotely] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            # Level 2: Стоп-фразы в описании (внутренние US/Latam ограничения, зарплатные сетки США)
-            if LinkedInJobScraper.is_description_blocked(job.get("description", "")):
-                logger.info(
-                    f"🚫 [СТОП-ОПИСАНИЕ / WeWorkRemotely] Отклонена по описанию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            workplace_type = job.get("workplace_type", "remote")
-            total_new += 1
-            snippet = job.get("description", "")[:350]
-            if len(job.get("description", "")) > 350:
-                snippet = snippet.rstrip() + "..."
-
-            logger.info(f"✨ [WeWorkRemotely] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
-
-            if dry_run:
-                print("\n" + "=" * 60)
-                print(f"[DRY RUN / WeWorkRemotely] Новая вакансия ({workplace_type.upper()}):")
-                print(f"Позиция: {job['title']}")
-                print(f"Компания: {job['company']}")
-                print(f"Локация: {job['location']}")
-                if job.get("salary"):
-                    print(f"Зарплата: {job['salary']}")
-                print(f"Ссылка: {job['url']}")
-                if snippet:
-                    print(f"Фрагмент описания: {snippet[:200]}...")
-                print("=" * 60 + "\n")
-            else:
-                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
-                if sent:
-                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
-                else:
-                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
-                time.sleep(1.5)
-
-            db.add_job(job)
+        collect_and_process("WeWorkRemotely", wwr_jobs)
 
     # --- Himalayas (himalayas.app API) ---
     if getattr(config, "ENABLE_HIMALAYAS", True):
@@ -1089,77 +543,7 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         logger.info(f"🏔️ Поиск на Himalayas API (Страниц: {himalayas_max_pages})...")
         himalayas = HimalayasJobScraper(max_pages=himalayas_max_pages)
         himalayas_jobs = himalayas.search_jobs(remote_only=True, limit=himalayas_limit)
-        seen_cnt, _ = log_and_track_batch("Himalayas", himalayas_jobs, db)
-        total_scanned += len(himalayas_jobs)
-        total_already_seen += seen_cnt
-
-        for job in himalayas_jobs:
-            job_id = job["id"]
-            if db.is_seen(job_id):
-                continue
-
-            # Level 0: Валидация названия роли
-            if not LinkedInJobScraper.is_qa_title(job.get("title", "")):
-                logger.info(
-                    f"🚫 [НЕ QA РОЛЬ / Himalayas] Отклонена по названию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            # Level 1: Гео-фильтр карточки
-            if LinkedInJobScraper.is_location_blocked(job.get("location", "")):
-                logger.info(
-                    f"🚫 [ГЕО-БЛОКИРОВКА / Himalayas] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            # Level 2: Стоп-фразы в описании
-            if LinkedInJobScraper.is_description_blocked(job.get("description", "")):
-                logger.info(
-                    f"🚫 [СТОП-ОПИСАНИЕ / Himalayas] Отклонена по описанию: '{job['title']}' @ {job['company']}"
-                )
-                total_filtered += 1
-
-                db.add_job(job)
-
-                continue
-
-            workplace_type = job.get("workplace_type", "remote")
-            total_new += 1
-            snippet = job.get("description", "")[:350]
-            if len(job.get("description", "")) > 350:
-                snippet = snippet.rstrip() + "..."
-
-            logger.info(f"✨ [Himalayas] Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
-
-            if dry_run:
-                print("\n" + "=" * 60)
-                print(f"[DRY RUN / Himalayas] Новая вакансия ({workplace_type.upper()}):")
-                print(f"Позиция: {job['title']}")
-                print(f"Компания: {job['company']}")
-                print(f"Локация: {job['location']}")
-                if job.get("salary"):
-                    print(f"Зарплата: {job['salary']}")
-                print(f"Ссылка: {job['url']}")
-                if snippet:
-                    print(f"Фрагмент описания: {snippet[:200]}...")
-                print("=" * 60 + "\n")
-            else:
-                sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
-                if sent:
-                    logger.info(f"✅ Отправлено в Telegram: {job_id}")
-                else:
-                    logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
-                time.sleep(1.5)
-
-            db.add_job(job)
+        collect_and_process("Himalayas", himalayas_jobs)
 
     # --- Jobicy public API ---
     if getattr(config, "ENABLE_JOBICY", True):
@@ -1170,14 +554,7 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 tags=getattr(config, "JOBICY_TAGS", ["QA", "SDET", "test automation"]),
                 limit=getattr(config, "JOBICY_LIMIT", 100) if not test_mode else 20,
             )
-            seen_cnt, _ = log_and_track_batch("Jobicy", jobicy_jobs, db)
-            total_scanned += len(jobicy_jobs)
-            total_already_seen += seen_cnt
-            new_count, filtered_count = process_remote_feed_jobs(
-                "Jobicy", jobicy_jobs, db, notifier, dry_run
-            )
-            total_new += new_count
-            total_filtered += filtered_count
+            collect_and_process("Jobicy", jobicy_jobs, require_confirmed_remote=True)
         else:
             logger.info("[Jobicy] Пропуск опроса: предыдущий запрос был менее часа назад.")
 
@@ -1189,14 +566,7 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
             tags=getattr(config, "REMOTEOK_TAGS", ["qa", "sdet", "test-automation"]),
             limit=getattr(config, "REMOTEOK_LIMIT", 50) if not test_mode else 10,
         )
-        seen_cnt, _ = log_and_track_batch("Remote OK", remoteok_jobs, db)
-        total_scanned += len(remoteok_jobs)
-        total_already_seen += seen_cnt
-        new_count, filtered_count = process_remote_feed_jobs(
-            "Remote OK", remoteok_jobs, db, notifier, dry_run
-        )
-        total_new += new_count
-        total_filtered += filtered_count
+        collect_and_process("Remote OK", remoteok_jobs, require_confirmed_remote=True)
 
     # --- WorkRemotely.eu Ireland contractor/freelance results ---
     if getattr(config, "ENABLE_WORKREMOTELY_EU", True):
@@ -1206,14 +576,7 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
             source = WorkRemotelyEUScraper()
             limit = getattr(config, "WORKREMOTELY_EU_LIMIT", 50) if not test_mode else 10
             jobs = source.search_jobs(limit=limit)
-            seen_cnt, _ = log_and_track_batch("WorkRemotely.eu", jobs, db)
-            total_scanned += len(jobs)
-            total_already_seen += seen_cnt
-            new_count, filtered_count = process_remote_feed_jobs(
-                "WorkRemotely.eu", jobs, db, notifier, dry_run
-            )
-            total_new += new_count
-            total_filtered += filtered_count
+            collect_and_process("WorkRemotely.eu", jobs, require_confirmed_remote=True)
         else:
             logger.info("[WorkRemotely.eu] Пропуск опроса: источник опрашивался менее часа назад.")
 
@@ -1225,19 +588,12 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
             source = TechJobsIEScraper()
             limit = getattr(config, "TECHJOBS_IE_LIMIT", 50) if not test_mode else 10
             jobs = source.search_jobs(limit=limit)
-            seen_cnt, _ = log_and_track_batch("TechJobs.ie", jobs, db)
-            total_scanned += len(jobs)
-            total_already_seen += seen_cnt
-            new_count, filtered_count = process_remote_feed_jobs(
-                "TechJobs.ie", jobs, db, notifier, dry_run
-            )
-            total_new += new_count
-            total_filtered += filtered_count
+            collect_and_process("TechJobs.ie", jobs, require_confirmed_remote=True)
         else:
             logger.info("[TechJobs.ie] Пропуск опроса: источник опрашивался менее часа назад.")
 
-    # --- One LinkedIn query per scheduled run; rotate through locations and keywords ---
-    linkedin_queries = [(loc, kw) for loc in locations for kw in keywords]
+    # --- One LinkedIn query per scheduled run; rotate across keyword groups and regions ---
+    linkedin_queries = build_linkedin_rotation_queries(locations, keywords)
     if linkedin_queries:
         query_index = (
             0
@@ -1267,120 +623,25 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
             sort_by=getattr(config, "LINKEDIN_SORT_BY", "DD"),
         )
         for kw in linkedin_keywords:
-            search_limit = getattr(config, "LINKEDIN_SEARCH_LIMIT", 6) if not test_mode else 1
+            search_limit = getattr(config, "LINKEDIN_SEARCH_LIMIT", 10) if not test_mode else 1
+            max_detail_fetches = getattr(config, "LINKEDIN_MAX_DETAIL_FETCHES", 8) if not test_mode else 1
             logger.info(f"🔍 Поиск в регионе '{loc}' по слову: '{kw}'...")
             jobs = scraper.search_jobs(keyword=kw, limit=search_limit, max_pages=1)
             seen_cnt, _ = log_and_track_batch(f"{loc} / {kw}", jobs, db)
             total_scanned += len(jobs)
             total_already_seen += seen_cnt
 
-            for job in jobs:
-                job_id = job["id"]
-                job["region"] = loc
-                if db.is_seen(job_id):
-                    continue
-
-                # Level 0: Валидация названия роли (отсекаем разработчиков, DevOps, PM и т.д. без QA)
-                if not scraper.is_qa_title(job.get("title", "")):
-                    logger.info(
-                        f"🚫 [НЕ QA РОЛЬ] Отклонена по названию: '{job['title']}' @ {job['company']}"
-                    )
-                    total_filtered += 1
-
-                    db.add_job(job)
-
-                    continue
-
-                # Level 1: Гео-фильтр карточки (отсекаем несовместимые страны сразу, не делая HTTP-запрос за деталями)
-                if scraper.is_location_blocked(job.get("location", "")):
-                    logger.info(
-                        f"🚫 [ГЕО-БЛОКИРОВКА] Отклонена по локации: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                    )
-                    total_filtered += 1
-
-                    db.add_job(job)
-
-                    continue
-
-                time.sleep(1.0)  # Вежливая задержка перед запросом деталей
-                full_desc = scraper.get_job_description(job_id)
-                if not full_desc and getattr(scraper, "last_hit_rate_limit", False):
-                    logger.warning(
-                        f"⏳ Пропускаем вакансию '{job['title']}' @ {job['company']} из-за лимита запросов LinkedIn (будет проверена в следующем запуске)."
-                    )
-                    continue
-
-                snippet = full_desc[:350].rstrip() + "..." if len(full_desc) > 350 else full_desc
-                workplace_type = scraper.detect_workplace_type(job["title"], job["location"], full_desc)
-
-                # Строгая фильтрация формата работы
-                if workplace_type == "onsite" and not config.ALLOW_ONSITE:
-                    logger.info(
-                        f"🚫 [СТРОГИЙ ФИЛЬТР] Отклонена On-site вакансия: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                    )
-                    db.add_job(job)  # Запоминаем, чтобы не проверять повторно
-                    continue
-
-                if workplace_type == "hybrid" and not config.ALLOW_HYBRID:
-                    # Проверяем, может это рядом с Cahersiveen?
-                    if is_hybrid_nearby(job["location"]):
-                        logger.info(
-                            f"✅ [ГИБРИД РЯДОМ] Пропущена через фильтр: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                        )
-                    else:
-                        logger.info(
-                            f"🚫 [СТРОГИЙ ФИЛЬТР] Отклонена Hybrid вакансия (далеко): {job['title']} @ {job['company']} (Локация: {job['location']})"
-                        )
-                        total_filtered += 1
-
-                        db.add_job(job)
-
-                        continue
-
-                # Вакансии с неясным форматом (unclear):
-                # - Generic Ireland (без города) — пропускаем, скорее всего remote
-                # - Рядом с Керри — пропускаем
-                # - Всё остальное — отклоняем
-                if workplace_type == "unclear":
-                    loc_stripped = job.get("location", "").strip().lower()
-                    is_generic_ireland = loc_stripped in ("ireland", "")
-                    if not is_generic_ireland and not is_hybrid_nearby(job.get("location", "")):
-                        logger.info(
-                            f"🚫 [СТРОГИЙ ФИЛЬТР] Отклонена вакансия с неясным форматом: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                        )
-                        total_filtered += 1
-
-                        db.add_job(job)
-
-                        continue
-                    else:
-                        logger.info(
-                            f"🟡 [UNCLEAR → ПРОПУСК] Вакансия с неясным форматом, но generic Ireland/nearby: {job['title']} @ {job['company']} (Локация: {job['location']})"
-                        )
-
-                total_new += 1
-                logger.info(f"✨ Новая вакансия [{job_id}] ({workplace_type}): {job['title']} @ {job['company']}")
-
-                if dry_run:
-                    print("\n" + "=" * 60)
-                    print(f"[DRY RUN] Новая вакансия ({workplace_type.upper()} | {loc}):")
-                    print(f"Позиция: {job['title']}")
-                    print(f"Компания: {job['company']}")
-                    print(f"Локация: {job['location']}")
-                    print(f"Ссылка: {job['url']}")
-                    if snippet:
-                        print(f"Фрагмент описания: {snippet[:200]}...")
-                    print("=" * 60 + "\n")
-                else:
-                    sent = notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type)
-                    if sent:
-                        logger.info(f"✅ Отправлено в Telegram: {job_id}")
-                    else:
-                        logger.error(f"❌ Ошибка отправки в Telegram: {job_id}")
-                    time.sleep(1.5)  # Задержка между отправками сообщений
-
-                # Сохраняем в базу данных, чтобы не дублировать
-                db.add_job(job)
+            new_cnt, filtered_cnt = process_linkedin_jobs(
+                jobs=jobs,
+                location=loc,
+                scraper=scraper,
+                db=db,
+                notifier=notifier,
+                dry_run=dry_run,
+                max_detail_fetches=max_detail_fetches,
+            )
+            total_new += new_cnt
+            total_filtered += filtered_cnt
 
             if scraper.last_hit_rate_limit and not jobs:
                 logger.warning(

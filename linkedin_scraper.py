@@ -136,7 +136,7 @@ class LinkedInJobScraper:
         sortBy=DD sets sort to most recent date descending.
         """
         if limit is None:
-            limit = getattr(config, "LINKEDIN_SEARCH_LIMIT", 6) if config else 6
+            limit = getattr(config, "LINKEDIN_SEARCH_LIMIT", 10) if config else 10
         jobs = []
         seen_ids = set()
         start = 0

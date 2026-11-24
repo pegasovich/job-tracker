@@ -9,6 +9,7 @@ Usage:
 """
 
 import argparse
+import contextlib
 import csv
 import html
 import os
@@ -32,7 +33,7 @@ def show_stats_and_latest(limit: int = 20, search_term: str = ""):
         print(f"❌ Файл базы данных '{db_path.name}' не найден.")
         return
 
-    with sqlite3.connect(db_path) as conn:
+    with contextlib.closing(sqlite3.connect(db_path)) as conn:
         cursor = conn.cursor()
 
         # Общая статистика
@@ -91,7 +92,7 @@ def export_csv(output_file: str = "jobs_seen.csv"):
         print(f"❌ Файл базы данных '{db_path.name}' не найден.")
         return
 
-    with sqlite3.connect(db_path) as conn:
+    with contextlib.closing(sqlite3.connect(db_path)) as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -117,7 +118,7 @@ def export_html(output_file: str = "jobs_seen.html"):
         print(f"❌ Файл базы данных '{db_path.name}' не найден.")
         return
 
-    with sqlite3.connect(db_path) as conn:
+    with contextlib.closing(sqlite3.connect(db_path)) as conn:
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -171,7 +172,11 @@ def export_html(output_file: str = "jobs_seen.html"):
         safe_title = html.escape(title or "Без названия")
         safe_company = html.escape(company or "—")
         safe_loc = html.escape(location or "—")
-        url_link = f'<a href="{html.escape(url)}" target="_blank">Открыть ↗</a>' if url else "—"
+        safe_url = (url or "").strip()
+        if safe_url.startswith(("http://", "https://")):
+            url_link = f'<a href="{html.escape(safe_url)}" target="_blank" rel="noopener noreferrer">Открыть ↗</a>'
+        else:
+            url_link = "—"
 
         html_content += f"""
             <tr>

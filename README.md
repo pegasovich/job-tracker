@@ -3,7 +3,7 @@
 [![Tests & Quality Gate](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml/badge.svg)](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml)
 ![Python Version](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue.svg)
 ![Test Framework](https://img.shields.io/badge/tested_with-pytest-0A9EDC.svg)
-![Test Count](https://img.shields.io/badge/tests-277%20passed-brightgreen.svg)
+![Test Count](https://img.shields.io/badge/tests-289%20passed-brightgreen.svg)
 ![Code Coverage](https://img.shields.io/badge/coverage-core%2090%25%2B-brightgreen.svg)
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF.svg)
 
@@ -11,9 +11,9 @@ An automated, multi-source job intelligence engine engineered for **QA & SDET pr
 
 The platform continuously aggregates, parses, filters, deduplicates, and alerts on verified openings across **direct ATS systems, curated remote portals, and APIs**, eliminating recruiter noise, domestic residency restrictions, and misleading "remote" listings.
 
-Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (277 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
+Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (289 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
 
-See the [changelog](./CHANGELOG.md) for notable fixes and updates.
+See [AGENTS.md](./AGENTS.md) for a concise architecture & invariants guide for AI coding assistants, and the [changelog](./CHANGELOG.md) for notable fixes and updates.
 
 ---
 
@@ -123,55 +123,60 @@ Web scrapers and regex filters operate in volatile environments where target DOM
 ```
 job-tracker/
 ├── .github/workflows/
-│   └── tests.yml            # CI/CD: Automated Pytest run & coverage on push/PR
-├── chrome-extension/        # Manifest V3 AI Job Application Assistant
-│   ├── manifest.json        # Extension manifest (DOU, Djinni, LinkedIn, ATS)
-│   ├── background.js        # Service worker (Gemini Flash API & multi-model fallback)
-│   ├── content.js           # DOM parser for <textarea> & Froala rich-text editors
-│   ├── content.css          # Injected UI toolbar styles
-│   ├── popup.html           # Settings UI (API keys, Candidate Profile, Tone)
-│   ├── popup.js             # Settings, current-tab autofill and frame access
-│   ├── universal-autofill.js # Contact/address autofill on the active page and accessible frames
-│   ├── icons/               # Extension icons
-│   └── README.md            # Extension installation and usage guide
-├── tests/
-│   ├── conftest.py          # Pytest fixtures (tmp_path DB, test clients, dummy jobs)
-│   ├── test_filters.py      # Unit & parameterized tests for workplace/geo/Polish rules (60+ cases)
-│   ├── test_database.py     # SQLite persistence, idempotency & deduplication tests
-│   ├── test_notifier.py     # Telegram API client unit tests with HTTP mocks
-│   ├── test_dou.py          # DOU RSS feed parsing & salary extraction tests
-│   ├── test_nofluff.py      # No Fluff Jobs REST API parser & Polish filter tests
-│   ├── test_justjoin.py     # JustJoin.it Candidate API pagination & B2B salary tests
-│   ├── test_adzuna.py       # Adzuna API client, HTML stripping & unconfigured fallback tests
-│   ├── test_arbeitnow.py    # Arbeitnow REST API parsing & remote filtering tests
-│   └── test_greenhouse.py   # Greenhouse direct company ATS parsing & remote tests
-├── pytest.ini               # Pytest configuration & test discovery settings
-├── requirements-dev.txt     # Test dependencies (pytest, pytest-cov, flake8)
-├── database.py              # SQLite storage layer with safe merge capability
-├── linkedin_scraper.py      # LinkedIn Guest API scraper & classifier
-├── djinni_scraper.py        # Djinni JSON-LD scraper & geo verification
-├── dou_scraper.py           # DOU RSS feed scraper
-├── nofluff_scraper.py       # No Fluff Jobs REST API scraper with Polish filtering
-├── justjoin_scraper.py      # JustJoin.it candidate API scraper with language filtering
-├── adzuna_scraper.py        # Adzuna REST API scraper (IE & UK)
-├── arbeitnow_scraper.py     # Arbeitnow open REST API scraper (EU & Remote)
-├── greenhouse_scraper.py    # Greenhouse Direct Company ATS scraper
-├── lever_scraper.py         # Lever Direct Company ATS scraper
-├── ashby_scraper.py         # Ashby Direct Company ATS scraper
-├── himalayas_scraper.py     # Himalayas Curated Remote REST API scraper
-├── jobicy_scraper.py        # Jobicy public remote jobs API and Ireland eligibility filter
-├── remoteok_scraper.py      # Remote OK public JSON feed and location filter
-├── techjobs_ie_scraper.py   # TechJobs.ie Irish remote QA listings
+│   ├── tests.yml              # CI/CD: Pytest + coverage + extension Node tests on push/PR
+│   └── tracker_cron.yml       # Scheduled 24/7 cloud execution & jobs_seen.db Git sync
+├── chrome-extension/          # Manifest V3 AI Job Application Assistant
+│   ├── manifest.json          # Extension manifest (DOU, Djinni, LinkedIn, ATS)
+│   ├── background.js          # Service worker (Gemini Flash API & multi-model fallback)
+│   ├── content.js             # DOM parser for <textarea> & Froala rich-text editors
+│   ├── content.css            # Injected UI toolbar styles
+│   ├── popup.html             # Settings UI (API keys, Candidate Profile, Tone)
+│   ├── popup.js               # Settings, current-tab autofill and frame access
+│   ├── universal-autofill.js  # Contact/address autofill on the active page and accessible frames
+│   ├── tests/                 # Node unit tests for universal-autofill.js
+│   ├── icons/                 # Extension icons
+│   └── README.md              # Extension installation and usage guide
+├── tests/                     # 289 Pytest unit & parameterized tests
+│   ├── conftest.py            # Pytest fixtures (tmp_path DB, test clients, dummy jobs)
+│   ├── test_filters.py        # Workplace/geo/Polish/rotation/guard rules
+│   ├── test_database.py       # SQLite persistence, merge_from, sync & rotation cursor tests
+│   ├── test_notifier.py       # Telegram API client, escaping & source badge tests
+│   ├── test_new_remote_sources.py # Jobicy, Remote OK, WorkRemotely.eu, TechJobs.ie & language tests
+│   ├── test_view_db.py        # DB CLI stats & safe CSV/HTML export tests
+│   └── test_*.py              # Per-scraper parsing and filtering tests
+├── AGENTS.md                  # Architecture, invariants & quick context for AI assistants
+├── CHANGELOG.md               # Notable project updates
+├── main.py                    # Main orchestrator, shared filter/delivery pipeline & rotation
+├── config.py                  # Search queries, regional targets, rate limits & filter patterns
+├── database.py                # SQLite storage layer with safe merge & rotation state
+├── linkedin_scraper.py        # LinkedIn Guest API scraper & shared classifiers
+├── djinni_scraper.py          # Djinni JSON-LD scraper & geo verification
+├── dou_scraper.py             # DOU RSS feed scraper
+├── nofluff_scraper.py         # No Fluff Jobs REST API scraper with Polish filtering
+├── justjoin_scraper.py        # JustJoin.it candidate API scraper with language filtering
+├── adzuna_scraper.py          # Adzuna REST API scraper (IE & UK)
+├── arbeitnow_scraper.py       # Arbeitnow open REST API scraper (EU & Remote)
+├── greenhouse_scraper.py      # Greenhouse Direct Company ATS scraper
+├── lever_scraper.py           # Lever Direct Company ATS scraper
+├── ashby_scraper.py           # Ashby Direct Company ATS scraper
+├── himalayas_scraper.py       # Himalayas Curated Remote REST API scraper
+├── remotive_scraper.py        # Remotive curated remote API scraper
+├── weworkremotely_scraper.py  # WeWorkRemotely RSS scraper
+├── jobicy_scraper.py          # Jobicy public remote jobs API & Ireland eligibility filter
+├── remoteok_scraper.py        # Remote OK public JSON feed & location filter
+├── techjobs_ie_scraper.py     # TechJobs.ie Irish remote QA listings
 ├── workremotely_eu_scraper.py # WorkRemotely.eu Ireland contractor results
-├── view_db.py               # Database CLI inspector, search & CSV/HTML exporter
-└── telegram_notifier.py     # Telegram Bot API notification engine
+├── view_db.py                 # Database CLI inspector, search & safe CSV/HTML exporter
+├── telegram_notifier.py       # Telegram Bot API notification engine
+├── pytest.ini                 # Pytest configuration & test discovery settings
+└── requirements-dev.txt       # Test dependencies (pytest, pytest-cov, flake8)
 ```
 
 ### Automated CI/CD Pipeline (GitHub Actions)
 Every `git push` and Pull Request automatically triggers the test pipeline:
 1. Provisions an Ubuntu runner on Python 3.12.
 2. Installs runtime and testing dependencies with pip caching.
-3. Runs all **277 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
+3. Runs all **289 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
 4. Enforces the Quality Gate before merging.
 
 ---
@@ -206,7 +211,7 @@ ADZUNA_APP_KEY=your_adzuna_app_key
 
 ### 3. Running the Test Suite
 ```bash
-# Run all 277 tests
+# Run all 289 tests
 pytest -q
 
 # Run with coverage report
@@ -248,9 +253,9 @@ The platform includes an automated cloud workflow (`.github/workflows/tracker_cr
 3. **State Persistence (Git Scraping):** Automatically commits and pushes the updated `jobs_seen.db` back to the repository so duplicate alerts are never sent across runs.
 4. **Cloud-Optimized Rate Limiting:**
    * Unlike residential home IPs, cloud data centers (e.g. GitHub/Azure) encounter aggressive `429 Too Many Requests` thresholds from LinkedIn's guest API.
-   * Each half-hour Actions run makes one LinkedIn search-page request for a rotating location/keyword pair (up to 6 cards); a persisted cursor in `jobs_seen.db` advances across runs. All pairs are revisited about every 12 hours.
-   * LinkedIn pagination is capped at one page per run. A new-job detail request is separate from the search request. The search request uses one retry (`LINKEDIN_MAX_RETRIES=1`, `LINKEDIN_RETRY_BASE_WAIT=10s`); after a final 429, the rotation moves on and retries that pair in the next cycle.
-   * A detail fetch that fails with 429 leaves the job unseen so it can be retried when that location/keyword pair comes around again. The other job sources run before LinkedIn, so a LinkedIn backoff does not postpone their alerts.
+   * Each half-hour Actions run makes one LinkedIn search-page request (up to 10 cards on page 1) across 4 compact boolean keyword groups interleaved across 3 regions (12 slots total); a persisted cursor in `jobs_seen.db` advances across runs, polling each region every ~1.5 hours and revisiting every slot about every 6 hours.
+   * LinkedIn pagination is capped at one page per run (`max_pages=1`). Detail requests for unseen candidates are capped at `LINKEDIN_MAX_DETAIL_FETCHES=8` per run after free local title/geo filtering. The search request uses one retry (`LINKEDIN_MAX_RETRIES=1`, `LINKEDIN_RETRY_BASE_WAIT=10s`); after a final 429, the rotation moves on and retries that pair in the next cycle.
+   * A detail fetch that fails with 429 stops further detail fetches in that run and leaves deferred jobs unseen so they can be retried in the next cycle. The other job sources run before LinkedIn, so a LinkedIn backoff does not postpone their alerts.
 5. **Repository Secrets:** Add your credentials under **Settings ➔ Secrets and variables ➔ Actions ➔ New repository secret**:
    * `TELEGRAM_BOT_TOKEN`
    * `TELEGRAM_CHAT_ID`
@@ -277,11 +282,11 @@ Located in [`chrome-extension/`](./chrome-extension/): A lightweight Manifest V3
 ## 🛠 Tech Stack
 
 * **Language:** Python 3.12
-* **Testing Framework:** Pytest 9, Pytest-Cov, Unittest.Mock (277 automated tests)
+* **Testing Framework:** Pytest 9, Pytest-Cov, Unittest.Mock (289 automated tests) + Node test runner (Chrome extension)
 * **CI/CD:** GitHub Actions 24/7 Cloud Automation & Quality Gate
-* **Persistence:** SQLite3 (WAL mode, idempotent schemas, Git-backed sync)
-* **Networking & Parsing:** Standard library (`urllib.request`), JSON, XML (`xml.etree.ElementTree`)
-* **Integrations:** Telegram Bot API, LinkedIn Guest API, Djinni Schema.org, DOU RSS, No Fluff Jobs API, JustJoin.it API, Adzuna API, Arbeitnow API, Greenhouse ATS
+* **Persistence:** SQLite3 (idempotent schemas, Git-backed sync via `merge_from`)
+* **Networking & Parsing:** Standard library (`urllib.request`, `html.parser`, `xml.etree.ElementTree`, `json`)
+* **Integrations:** Telegram Bot API, LinkedIn Guest API, Djinni Schema.org, DOU RSS, Arbeitnow API, Greenhouse/Lever/Ashby ATS, Himalayas API, Remotive API, WeWorkRemotely RSS, Jobicy API, Remote OK JSON, TechJobs.ie, WorkRemotely.eu
 * **AI Extension:** Chrome Manifest V3, Google Gemini API (2.0/3.8 Flash), frame-aware form autofill, Froala & DOM parser
 
 ---

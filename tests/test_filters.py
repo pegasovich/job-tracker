@@ -543,3 +543,240 @@ class TestDescriptionStopPatterns:
         assert linkedin_scraper.is_description_blocked(f"Locations: {location_list}.") is False
 
 
+class TestLinkedInRotationAndDetailGuards:
+    """Tests interleaved rotation ordering and 429 / cap guards on detail fetches."""
+
+    def test_rotation_interleaves_regions_across_keyword_groups(self):
+        from main import build_linkedin_rotation_queries
+
+        queries = build_linkedin_rotation_queries(
+            ["Ireland", "Europe", "Worldwide"],
+            ["kw1", "kw2"],
+        )
+        assert queries == [
+            ("Ireland", "kw1"),
+            ("Europe", "kw1"),
+            ("Worldwide", "kw1"),
+            ("Ireland", "kw2"),
+            ("Europe", "kw2"),
+            ("Worldwide", "kw2"),
+        ]
+
+    def test_configured_linkedin_rotation_is_compact_twelve_slots(self):
+        from main import build_linkedin_rotation_queries
+
+        queries = build_linkedin_rotation_queries(
+            config.TARGET_LOCATIONS,
+            config.SEARCH_KEYWORDS,
+        )
+        assert len(queries) == 12
+        assert config.LINKEDIN_SEARCH_LIMIT == 10
+        assert config.LINKEDIN_MAX_DETAIL_FETCHES == 8
+
+    @patch("main.time.sleep", return_value=None)
+    def test_detail_429_halts_remaining_detail_fetches_but_keeps_local_filters(
+        self, mock_sleep, memory_db, linkedin_scraper
+    ):
+        from main import process_linkedin_jobs
+
+        jobs = [
+            {
+                "id": "101",
+                "title": "QA Engineer",
+                "company": "Alpha",
+                "location": "Ireland",
+                "url": "https://www.linkedin.com/jobs/view/101",
+            },
+            {
+                "id": "102",
+                "title": "SDET",
+                "company": "Beta",
+                "location": "Ireland",
+                "url": "https://www.linkedin.com/jobs/view/102",
+            },
+            {
+                "id": "103",
+                "title": "Backend Software Engineer",
+                "company": "Gamma",
+                "location": "Ireland",
+                "url": "https://www.linkedin.com/jobs/view/103",
+            },
+        ]
+
+        def fail_with_429(job_id):
+            linkedin_scraper.last_hit_rate_limit = True
+            return ""
+
+        notifier = MagicMock()
+        with patch.object(linkedin_scraper, "get_job_description", side_effect=fail_with_429) as mock_desc:
+            new_cnt, filtered_cnt = process_linkedin_jobs(
+                jobs=jobs,
+                location="Ireland",
+                scraper=linkedin_scraper,
+                db=memory_db,
+                notifier=notifier,
+                dry_run=False,
+                max_detail_fetches=8,
+            )
+
+        assert mock_desc.call_count == 1
+        assert new_cnt == 0
+        assert filtered_cnt == 1
+        assert memory_db.is_seen("101") is False
+        assert memory_db.is_seen("102") is False
+        assert memory_db.is_seen("103") is True
+        notifier.send_job_alert.assert_not_called()
+
+    @patch("main.time.sleep", return_value=None)
+    def test_detail_fetch_cap_defers_excess_candidates_without_marking_seen(
+        self, mock_sleep, memory_db, linkedin_scraper
+    ):
+        from main import process_linkedin_jobs
+
+        jobs = [
+            {
+                "id": str(job_id),
+                "title": "QA Automation Engineer",
+                "company": f"Company {job_id}",
+                "location": "Ireland",
+                "url": f"https://www.linkedin.com/jobs/view/{job_id}",
+            }
+            for job_id in (201, 202, 203)
+        ]
+
+        notifier = MagicMock()
+        notifier.send_job_alert.return_value = True
+        with patch.object(
+            linkedin_scraper,
+            "get_job_description",
+            return_value="Fully remote role across Ireland and Europe.",
+        ) as mock_desc:
+            new_cnt, filtered_cnt = process_linkedin_jobs(
+                jobs=jobs,
+                location="Ireland",
+                scraper=linkedin_scraper,
+                db=memory_db,
+                notifier=notifier,
+                dry_run=False,
+                max_detail_fetches=2,
+            )
+
+        assert mock_desc.call_count == 2
+        assert new_cnt == 2
+        assert filtered_cnt == 0
+        assert memory_db.is_seen("201") is True
+        assert memory_db.is_seen("202") is True
+        assert memory_db.is_seen("203") is False
+
+    @patch("main.time.sleep", return_value=None)
+    def test_failed_telegram_alert_leaves_linkedin_job_unseen(
+        self, mock_sleep, memory_db, linkedin_scraper
+    ):
+        from main import process_linkedin_jobs
+
+        jobs = [
+            {
+                "id": "301",
+                "title": "Senior SDET",
+                "company": "Delta",
+                "location": "Ireland",
+                "url": "https://www.linkedin.com/jobs/view/301",
+            }
+        ]
+        notifier = MagicMock()
+        notifier.send_job_alert.return_value = False
+        with patch.object(
+            linkedin_scraper,
+            "get_job_description",
+            return_value="100% remote in Ireland.",
+        ):
+            new_cnt, filtered_cnt = process_linkedin_jobs(
+                jobs=jobs,
+                location="Ireland",
+                scraper=linkedin_scraper,
+                db=memory_db,
+                notifier=notifier,
+                dry_run=False,
+                max_detail_fetches=8,
+            )
+
+        assert new_cnt == 0
+        assert filtered_cnt == 0
+        assert memory_db.is_seen("301") is False
+
+    @patch("main.time.sleep", return_value=None)
+    def test_standard_jobs_keeps_failed_delivery_unseen_and_counts_only_sent(
+        self, mock_sleep, memory_db
+    ):
+        from main import process_standard_jobs
+
+        jobs = [
+            {
+                "id": "gh_1",
+                "title": "Senior QA Engineer",
+                "company": "Example Corp",
+                "location": "Remote (Ireland)",
+                "description": "Remote across Europe.",
+                "url": "https://example.com/1",
+                "workplace_type": "remote",
+            },
+            {
+                "id": "gh_2",
+                "title": "QA Engineer",
+                "company": "Example Corp",
+                "location": "Remote (Europe)",
+                "description": "Fluent in German required.",
+                "url": "https://example.com/2",
+                "workplace_type": "remote",
+            },
+        ]
+        notifier = MagicMock()
+        notifier.send_job_alert.return_value = False
+
+        new_cnt, filtered_cnt = process_standard_jobs(
+            "Greenhouse", jobs, memory_db, notifier, dry_run=False
+        )
+
+        assert new_cnt == 0
+        assert filtered_cnt == 1
+        assert memory_db.is_seen("gh_1") is False
+        assert memory_db.is_seen("gh_2") is True
+
+    def test_remote_feed_jobs_rejects_unconfirmed_remote_and_marks_dry_run_seen(
+        self, memory_db
+    ):
+        from main import process_remote_feed_jobs
+
+        jobs = [
+            {
+                "id": "jcy_1",
+                "title": "SDET",
+                "company": "Example Ltd",
+                "location": "Ireland",
+                "description": "Remote role.",
+                "url": "https://example.com/1",
+                "workplace_type": "unclear",
+            },
+            {
+                "id": "jcy_2",
+                "title": "QA Automation Engineer",
+                "company": "Example Ltd",
+                "location": "Remote (Europe)",
+                "description": "Fully remote across Europe.",
+                "url": "https://example.com/2",
+                "workplace_type": "remote",
+            },
+        ]
+        notifier = MagicMock()
+
+        new_cnt, filtered_cnt = process_remote_feed_jobs(
+            "Jobicy", jobs, memory_db, notifier, dry_run=True
+        )
+
+        assert new_cnt == 1
+        assert filtered_cnt == 1
+        assert memory_db.is_seen("jcy_1") is True
+        assert memory_db.is_seen("jcy_2") is True
+        notifier.send_job_alert.assert_not_called()
+
+
