@@ -23,13 +23,19 @@ _SOURCE_PRESENTATIONS = (
     ("greenhouse", "🌱 <b>Источник:</b> Greenhouse (Direct ATS)", "Открыть вакансию на Greenhouse"),
     ("lever", "⚡ <b>Источник:</b> Lever (Direct ATS)", "Открыть вакансию на Lever"),
     ("ashby", "🪐 <b>Источник:</b> Ashby (Direct ATS)", "Открыть вакансию на Ashby"),
+    ("workable", "🧩 <b>Источник:</b> Workable (Direct ATS)", "Открыть вакансию на Workable"),
+    ("smartrecruiters", "🏢 <b>Источник:</b> SmartRecruiters (Direct ATS)", "Открыть вакансию на SmartRecruiters"),
     ("himalayas", "🏔️ <b>Источник:</b> Himalayas (himalayas.app)", "Открыть вакансию на Himalayas"),
     ("remotive", "🚀 <b>Источник:</b> Remotive (remotive.com)", "Открыть вакансию на Remotive"),
     ("weworkremotely", "💼 <b>Источник:</b> WeWorkRemotely (weworkremotely.com)", "Открыть вакансию на WeWorkRemotely"),
     ("workremotely.eu", "🌍 <b>Источник:</b> WorkRemotely.eu", "Открыть вакансию на WorkRemotely.eu"),
     ("jobicy", "🟠 <b>Источник:</b> Jobicy", "Открыть вакансию на Jobicy"),
     ("remote ok", "🌍 <b>Источник:</b> Remote OK", "Открыть вакансию на Remote OK"),
+    ("working nomads", "🧳 <b>Источник:</b> Working Nomads", "Открыть вакансию на Working Nomads"),
     ("techjobs", "🇮🇪 <b>Источник:</b> TechJobs.ie", "Открыть вакансию на TechJobs.ie"),
+    ("reperio", "🇮🇪 <b>Источник:</b> Reperio Human Capital", "Открыть вакансию на Reperio"),
+    ("realtime", "🇮🇪 <b>Источник:</b> RealTime Recruitment", "Открыть вакансию на RealTime"),
+    ("archer", "🇮🇪 <b>Источник:</b> Archer Recruitment", "Открыть вакансию на Archer"),
 )
 _DEFAULT_SOURCE_PRESENTATION = ("🔵 <b>Источник:</b> LinkedIn", "Открыть вакансию на LinkedIn")
 

@@ -26,12 +26,12 @@ This file gives coding agents (Codex, Antigravity, Cursor, Claude Code, Copilot)
 | `database.py` | `JobDatabase` SQLite wrapper (`jobs_seen.db`). Manages `seen_jobs`, `source_sync_state` (hourly poll throttling), `rotation_state` (LinkedIn round-robin cursor), and `merge_from()` for GitHub Actions concurrency safety. |
 | `telegram_notifier.py` | `TelegramNotifier` using Telegram Bot API HTML mode. `_SOURCE_PRESENTATIONS` maps source names to badges & link labels; escapes HTML text/URLs and adds Easy Apply screening reminder for LinkedIn alerts. |
 | `linkedin_scraper.py` | `LinkedInJobScraper` (Guest API `seeMoreJobPostings` + `jobPosting/{id}`), adaptive 429 retry (`LINKEDIN_MAX_RETRIES=1`), title/geo/workplace classifiers reused across all scrapers. |
-| `*_scraper.py` | Provider scrapers. **Enabled:** `djinni_scraper.py`, `dou_scraper.py`, `arbeitnow_scraper.py`, `greenhouse_scraper.py`, `lever_scraper.py`, `ashby_scraper.py`, `himalayas_scraper.py`, `remotive_scraper.py`, `weworkremotely_scraper.py`, `jobicy_scraper.py`, `remoteok_scraper.py`, `workremotely_eu_scraper.py`, `techjobs_ie_scraper.py`. **Disabled (`ENABLE_* = False`):** `nofluff_scraper.py`, `justjoin_scraper.py`, `adzuna_scraper.py`. |
+| `*_scraper.py` | Provider scrapers. **Enabled:** `djinni_scraper.py`, `dou_scraper.py`, `arbeitnow_scraper.py`, `greenhouse_scraper.py`, `lever_scraper.py`, `ashby_scraper.py`, `workable_scraper.py`, `smartrecruiters_scraper.py`, `himalayas_scraper.py`, `remotive_scraper.py`, `weworkremotely_scraper.py`, `jobicy_scraper.py`, `remoteok_scraper.py`, `workremotely_eu_scraper.py`, `techjobs_ie_scraper.py`, `workingnomads_scraper.py`, `irish_agencies_scraper.py` (`ReperioJobScraper`, `RealTimeJobScraper`, `ArcherJobScraper`). **Disabled (`ENABLE_* = False`):** `nofluff_scraper.py`, `justjoin_scraper.py`, `adzuna_scraper.py`. |
 | `view_db.py` | CLI inspector (`--limit`, `--search`, `--csv`, `--html`) for `jobs_seen.db`. |
 | `chrome-extension/` | Manifest V3 extension: `background.js` (Gemini API cover letters), `content.js` / `content.css` (DOU/Djinni/LinkedIn/ATS button injection), `popup.html` / `popup.js`, `universal-autofill.js` (frame-aware contact/address autofill), `tests/universal-autofill.test.js`. |
 | `.github/workflows/tracker_cron.yml` | Cloud runner triggered via `workflow_dispatch` every ~30 min (external scheduler). Runs `python main.py` and merges/commits `jobs_seen.db` back to `main` (`[skip ci]`). |
 | `.github/workflows/tests.yml` | CI quality gate on push/PR: runs `node --test chrome-extension/tests/universal-autofill.test.js` and `pytest --cov=. --cov-report=term-missing`. |
-| `tests/` | Pytest suite (289 tests). `conftest.py` provides `memory_db`, `sample_job`, `linkedin_scraper`, and `notifier_*` fixtures. |
+| `tests/` | Pytest suite (306 tests). `conftest.py` provides `memory_db`, `sample_job`, `linkedin_scraper`, and `notifier_*` fixtures. |
 
 ---
 
@@ -50,7 +50,7 @@ This file gives coding agents (Codex, Antigravity, Cursor, Claude Code, Copilot)
    - `_deliver_job_alert()` only calls `db.add_job(job)` on `dry_run=True` or when `notifier.send_job_alert(...)` returns `True`.
    - When `get_job_description()` hits `429` or `detail_rate_limited`/`max_detail_fetches` defers a card, it must NOT be added to `seen_jobs`.
 4. **Git-Persisted State (`jobs_seen.db`):**
-   - `jobs_seen.db` is committed to `main` by `tracker_cron.yml` via `JobDatabase.merge_from()`. Note that `rotation_state` updates on every scheduled `main.py` run, and `source_sync_state` enforces 1-hour minimum poll intervals for `jobicy`, `workremotely_eu`, and `techjobs_ie`.
+   - `jobs_seen.db` is committed to `main` by `tracker_cron.yml` via `JobDatabase.merge_from()`. Note that `rotation_state` updates on every scheduled `main.py` run, and `source_sync_state` enforces 1-hour minimum poll intervals for `jobicy`, `workremotely_eu`, `techjobs_ie`, `working_nomads`, `reperio`, `realtime`, `archer`, and `smartrecruiters`.
    - Always use `tmp_path` (`memory_db` fixture) in tests — never touch the repository's `jobs_seen.db`.
 5. **CLI Side-Effect Note:**
    - `python main.py --dry-run` still writes processed jobs into `config.DATABASE_FILE` (`jobs_seen.db`), whereas `--test` pins LinkedIn rotation to index `0` without advancing `rotation_state`.
@@ -63,7 +63,7 @@ This file gives coding agents (Codex, Antigravity, Cursor, Claude Code, Copilot)
 ## 4. Common Commands
 
 ```bash
-# Run Python unit test suite (289 tests)
+# Run Python unit test suite (306 tests)
 pytest -q
 
 # Run full Python test suite with coverage (CI gate)

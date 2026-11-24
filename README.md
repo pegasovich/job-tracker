@@ -3,7 +3,7 @@
 [![Tests & Quality Gate](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml/badge.svg)](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml)
 ![Python Version](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue.svg)
 ![Test Framework](https://img.shields.io/badge/tested_with-pytest-0A9EDC.svg)
-![Test Count](https://img.shields.io/badge/tests-289%20passed-brightgreen.svg)
+![Test Count](https://img.shields.io/badge/tests-306%20passed-brightgreen.svg)
 ![Code Coverage](https://img.shields.io/badge/coverage-core%2090%25%2B-brightgreen.svg)
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF.svg)
 
@@ -11,7 +11,7 @@ An automated, multi-source job intelligence engine engineered for **QA & SDET pr
 
 The platform continuously aggregates, parses, filters, deduplicates, and alerts on verified openings across **direct ATS systems, curated remote portals, and APIs**, eliminating recruiter noise, domestic residency restrictions, and misleading "remote" listings.
 
-Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (289 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
+Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (306 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
 
 See [AGENTS.md](./AGENTS.md) for a concise architecture & invariants guide for AI coding assistants, and the [changelog](./CHANGELOG.md) for notable fixes and updates.
 
@@ -43,8 +43,10 @@ Searching for genuine international remote QA roles is fraught with friction:
 | 🟡 **DOU** | Official RSS Feed (`feeds/?category=QA&remote`) | Europe, CEE, Remote & B2B | Real-time XML feed; full descriptions; automated B2B salary and country extraction. | ✅ Enabled |
 | 🌐 **Arbeitnow** | Open REST API (`api/job-board-api`) | European Union & Remote | Free public European API; zero authentication/keys needed; non-English heuristics filter. | ✅ Enabled |
 | 🌱 **Greenhouse** | Direct Company ATS (`boards-api.greenhouse.io`) | Worldwide & Remote-first | Direct carrier portal API for 40+ top tech companies (Stripe, Cloudflare, Datadog, Elastic, Toast, Intercom, etc.); zero recruiter middleman. | ✅ Enabled |
-| ⚡ **Lever** | Direct Company ATS (`api.lever.co/v0/postings`) | Worldwide & Remote-first | Direct carrier portal API for top tech companies (Palantir, Spotify, Wealthfront, Outreach, Glide); clean plain text descriptions. | ✅ Enabled |
+| ⚡ **Lever** | Direct Company ATS (`api.lever.co/v0/postings`) | Worldwide & Remote-first | Direct carrier portal API for 11 verified tech companies (Palantir, Spotify, SonarSource, Zoox, Wealthfront, Outreach, Glide, etc.); clean plain text descriptions. | ✅ Enabled |
 | 🪐 **Ashby** | Direct Company ATS (`api.ashbyhq.com/posting-api`) | Worldwide & Remote-first | Direct carrier portal API for top modern tech/AI companies (Linear, Synthesia, Notion, PostHog, Snyk, Zapier, OpenAI, Cursor, Modal); zero middleman. | ✅ Enabled |
+| 🧩 **Workable** | Direct Company ATS (`apply.workable.com/api/v1/widget/accounts`) | Ireland, Europe & Remote | Keyless JSON widget API for Irish & EU tech boards (TEKenable, Seeq, Zyte, CareAcross, etc.); enforces Ireland/EU remote scope. | ✅ Enabled |
+| 🏢 **SmartRecruiters** | Direct Company ATS (`api.smartrecruiters.com/v1/companies`) | Ireland, Europe & Global Remote | Keyless Postings API (`q=QA/SDET/Test`, hourly polled) with remote flag and domestic country filtering (Mirantis, Wise, DeliveryHero, Experian, etc.). | ✅ Enabled |
 | 🏔️ **Himalayas** | Curated Remote REST API (`himalayas.app/jobs/api`) | Global & EMEA Remote | Pure 100% remote board; structured location & timezone restrictions (UTC+0/+1 Irish overlap verification); salary parsing. | ✅ Enabled |
 | 🟠 **Jobicy** | Public Remote Jobs API (`jobicy.com/api/jobs`) | Europe, Ireland & Worldwide | QA/SDET keyword feeds; requires explicit Ireland/Europe/worldwide eligibility; poll limited to once per hour; source link retained. | ✅ Enabled |
 | 🌍 **Remote OK** | Public JSON API (`remoteok.com/api`) | Worldwide & regional remote | QA/SDET tag feeds; rejects country-ineligible and explicit hybrid/office roles; links to original listing. | ✅ Enabled |
@@ -52,6 +54,8 @@ Searching for genuine international remote QA roles is fraught with friction:
 | 🚀 **Remotive** | Curated Remote API (`remotive.com/api/remote-jobs`) | Worldwide & Pan-European | Curated 100% remote positions with structured candidate location requirements validation; salary extraction. | ✅ Enabled |
 | 💼 **WeWorkRemotely** | Curated Remote RSS Feed (`weworkremotely.com`) | Worldwide & Global Remote | Leading global remote tech board with real-time XML streaming; automated title and salary extraction. | ✅ Enabled |
 | 🌍 **WorkRemotely.eu** | Public Ireland contractor/freelance results | Ireland, Europe & Worldwide where explicitly stated | QA/SDET roles only; hourly polling; requires visible Ireland-compatible scope and keeps a short source note instead of copying descriptions. | ✅ Enabled |
+| 🧳 **Working Nomads** | Public Remote JSON API (`workingnomads.com/api/exposed_jobs/`) | Global, Europe & CET-compatible remote | Keyless JSON feed; hourly polling; filters non-English raters & hybrid/onsite roles; parses B2B/contract tags. | ✅ Enabled |
+| 🇮🇪 **Reperio / RealTime / Archer** | Irish IT Recruitment Agencies (JSON-LD / WP Job Manager / RSS) | Ireland | Daily-rate contracts & remote/Kerry-hybrid QA/SDET roles; hourly polling; extracts € day rates and strictly filters Dublin/Galway onsite & distant hybrid roles. | ✅ Enabled |
 | 🔴 **No Fluff Jobs** | Internal REST API (`api/search/posting`) | Central & Western Europe | Polish domestic B2B market (JDG/PL residency required). | ❌ Disabled |
 | 🟣 **JustJoin.it** | Candidate REST API (`api/candidate-api/offers`) | Europe, CEE & Global Remote | Polish domestic market (PLN currency / Polish B2B tax residency). | ❌ Disabled |
 | 🟧 **Adzuna** | Official REST API (`api.adzuna.com`) | Ireland (`ie`) & UK (`gb`) | Paid developer subscription model; no dedicated Ireland endpoint. | ❌ Disabled |
@@ -136,7 +140,7 @@ job-tracker/
 │   ├── tests/                 # Node unit tests for universal-autofill.js
 │   ├── icons/                 # Extension icons
 │   └── README.md              # Extension installation and usage guide
-├── tests/                     # 289 Pytest unit & parameterized tests
+├── tests/                     # 306 Pytest unit & parameterized tests
 │   ├── conftest.py            # Pytest fixtures (tmp_path DB, test clients, dummy jobs)
 │   ├── test_filters.py        # Workplace/geo/Polish/rotation/guard rules
 │   ├── test_database.py       # SQLite persistence, merge_from, sync & rotation cursor tests
@@ -159,6 +163,8 @@ job-tracker/
 ├── greenhouse_scraper.py      # Greenhouse Direct Company ATS scraper
 ├── lever_scraper.py           # Lever Direct Company ATS scraper
 ├── ashby_scraper.py           # Ashby Direct Company ATS scraper
+├── workable_scraper.py        # Workable Direct Company ATS scraper
+├── smartrecruiters_scraper.py # SmartRecruiters Direct Company ATS scraper
 ├── himalayas_scraper.py       # Himalayas Curated Remote REST API scraper
 ├── remotive_scraper.py        # Remotive curated remote API scraper
 ├── weworkremotely_scraper.py  # WeWorkRemotely RSS scraper
@@ -166,6 +172,8 @@ job-tracker/
 ├── remoteok_scraper.py        # Remote OK public JSON feed & location filter
 ├── techjobs_ie_scraper.py     # TechJobs.ie Irish remote QA listings
 ├── workremotely_eu_scraper.py # WorkRemotely.eu Ireland contractor results
+├── workingnomads_scraper.py   # Working Nomads public remote JSON feed scraper
+├── irish_agencies_scraper.py  # Reperio, RealTime & Archer Irish contract/remote scrapers
 ├── view_db.py                 # Database CLI inspector, search & safe CSV/HTML exporter
 ├── telegram_notifier.py       # Telegram Bot API notification engine
 ├── pytest.ini                 # Pytest configuration & test discovery settings
@@ -176,7 +184,7 @@ job-tracker/
 Every `git push` and Pull Request automatically triggers the test pipeline:
 1. Provisions an Ubuntu runner on Python 3.12.
 2. Installs runtime and testing dependencies with pip caching.
-3. Runs all **289 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
+3. Runs all **306 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
 4. Enforces the Quality Gate before merging.
 
 ---
@@ -211,7 +219,7 @@ ADZUNA_APP_KEY=your_adzuna_app_key
 
 ### 3. Running the Test Suite
 ```bash
-# Run all 289 tests
+# Run all 306 tests
 pytest -q
 
 # Run with coverage report
@@ -282,11 +290,11 @@ Located in [`chrome-extension/`](./chrome-extension/): A lightweight Manifest V3
 ## 🛠 Tech Stack
 
 * **Language:** Python 3.12
-* **Testing Framework:** Pytest 9, Pytest-Cov, Unittest.Mock (289 automated tests) + Node test runner (Chrome extension)
+* **Testing Framework:** Pytest 9, Pytest-Cov, Unittest.Mock (306 automated tests) + Node test runner (Chrome extension)
 * **CI/CD:** GitHub Actions 24/7 Cloud Automation & Quality Gate
 * **Persistence:** SQLite3 (idempotent schemas, Git-backed sync via `merge_from`)
 * **Networking & Parsing:** Standard library (`urllib.request`, `html.parser`, `xml.etree.ElementTree`, `json`)
-* **Integrations:** Telegram Bot API, LinkedIn Guest API, Djinni Schema.org, DOU RSS, Arbeitnow API, Greenhouse/Lever/Ashby ATS, Himalayas API, Remotive API, WeWorkRemotely RSS, Jobicy API, Remote OK JSON, TechJobs.ie, WorkRemotely.eu
+* **Integrations:** Telegram Bot API, LinkedIn Guest API, Djinni Schema.org, DOU RSS, Arbeitnow API, Greenhouse/Lever/Ashby/Workable/SmartRecruiters ATS, Himalayas API, Remotive API, WeWorkRemotely RSS, Jobicy API, Remote OK JSON, Working Nomads JSON, TechJobs.ie, WorkRemotely.eu, Reperio/RealTime/Archer Irish agencies
 * **AI Extension:** Chrome Manifest V3, Google Gemini API (2.0/3.8 Flash), frame-aware form autofill, Froala & DOM parser
 
 ---

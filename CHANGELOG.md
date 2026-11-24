@@ -6,6 +6,8 @@ Notable project changes are recorded here.
 
 ### Added
 
+- Add `Workable` (`workable_scraper.py`) and hourly-polled `SmartRecruiters` (`smartrecruiters_scraper.py`) direct ATS integrations, expand `LEVER_COMPANIES` from 5 to 11 active boards, and add Irish contract terms (`"Daily Rate"`, `"Day Rate"`, `"FTC"`) to LinkedIn contract queries in `config.py`.
+- Add `Working Nomads` (`workingnomads_scraper.py`) and three Irish IT contract/remote agencies — `Reperio Human Capital`, `RealTime Recruitment`, and `Archer Recruitment` (`irish_agencies_scraper.py`) — with hourly polling, daily-rate extraction, and strict remote/Kerry-hybrid filtering.
 - Add `AGENTS.md` with repository map, architecture invariants, LinkedIn rotation details, and verification commands for AI assistants and GitHub contributors.
 - Add click-to-run contact autofill for blank name, email, phone, and country fields across sites, including accessible embedded application frames. Cross-origin form frames request access to their detected origin; the extension does not submit forms.
 - Add a LinkedIn alert reminder to review Easy Apply screening questions and use accurate experience figures. The LinkedIn guest API does not expose employer-added screening questions, so the alert says they may be missing from the card.

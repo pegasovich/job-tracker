@@ -63,6 +63,10 @@ from jobicy_scraper import JobicyJobScraper
 from remoteok_scraper import RemoteOKJobScraper
 from workremotely_eu_scraper import WorkRemotelyEUScraper
 from techjobs_ie_scraper import TechJobsIEScraper
+from workingnomads_scraper import WorkingNomadsJobScraper
+from irish_agencies_scraper import ReperioJobScraper, RealTimeJobScraper, ArcherJobScraper
+from workable_scraper import WorkableJobScraper
+from smartrecruiters_scraper import SmartRecruitersJobScraper
 from database import JobDatabase
 from telegram_notifier import TelegramNotifier
 
@@ -518,6 +522,35 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         ashby_jobs = ashby.search_jobs(remote_only=ashby_remote, limit_per_company=ashby_limit)
         collect_and_process("Ashby", ashby_jobs)
 
+    # --- Workable (Direct Company ATS) ---
+    if getattr(config, "ENABLE_WORKABLE", True):
+        workable_companies = getattr(config, "WORKABLE_COMPANIES", ["tekenable", "zyte", "seeq"])
+        workable_remote = getattr(config, "WORKABLE_REMOTE_ONLY", True)
+        workable_limit = getattr(config, "WORKABLE_LIMIT_PER_COMPANY", 30) if not test_mode else 10
+        target_workable_comps = workable_companies if not test_mode else [workable_companies[0]]
+        logger.info(f"🧩 Поиск в Workable ATS (Компаний: {len(target_workable_comps)}, Remote={workable_remote})...")
+        workable = WorkableJobScraper(companies=target_workable_comps)
+        workable_jobs = workable.search_jobs(remote_only=workable_remote, limit_per_company=workable_limit)
+        collect_and_process("Workable", workable_jobs)
+
+    # --- SmartRecruiters (Direct Company ATS, hourly polled) ---
+    if getattr(config, "ENABLE_SMARTRECRUITERS", True):
+        sr_interval = getattr(config, "SMARTRECRUITERS_POLL_INTERVAL_SECONDS", 3600)
+        if db.claim_source_poll("smartrecruiters", min_interval_seconds=sr_interval):
+            sr_companies = getattr(config, "SMARTRECRUITERS_COMPANIES", ["Mirantis", "Wise"])
+            sr_remote = getattr(config, "SMARTRECRUITERS_REMOTE_ONLY", True)
+            sr_limit = getattr(config, "SMARTRECRUITERS_LIMIT_PER_COMPANY", 20) if not test_mode else 5
+            sr_queries = getattr(config, "SMARTRECRUITERS_QUERIES", ["QA", "SDET", "Test"])
+            target_sr_comps = sr_companies if not test_mode else [sr_companies[0]]
+            if test_mode:
+                sr_queries = [sr_queries[0]]
+            logger.info(f"🏢 Поиск в SmartRecruiters ATS (Компаний: {len(target_sr_comps)}, Remote={sr_remote})...")
+            sr = SmartRecruitersJobScraper(companies=target_sr_comps)
+            sr_jobs = sr.search_jobs(queries=sr_queries, remote_only=sr_remote, limit_per_company=sr_limit)
+            collect_and_process("SmartRecruiters", sr_jobs)
+        else:
+            logger.info("[SmartRecruiters] Пропуск опроса: источник опрашивался менее часа назад.")
+
     # --- Remotive (remotive.com API) ---
     if getattr(config, "ENABLE_REMOTIVE", True):
         remotive_cat = getattr(config, "REMOTIVE_CATEGORY", "qa")
@@ -591,6 +624,39 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
             collect_and_process("TechJobs.ie", jobs, require_confirmed_remote=True)
         else:
             logger.info("[TechJobs.ie] Пропуск опроса: источник опрашивался менее часа назад.")
+
+    # --- Working Nomads public JSON feed ---
+    if getattr(config, "ENABLE_WORKING_NOMADS", True):
+        poll_interval = getattr(config, "WORKING_NOMADS_POLL_INTERVAL_SECONDS", 3600)
+        if db.claim_source_poll("working_nomads", min_interval_seconds=poll_interval):
+            logger.info("🧳 Поиск на Working Nomads API...")
+            source = WorkingNomadsJobScraper()
+            limit = getattr(config, "WORKING_NOMADS_LIMIT", 50) if not test_mode else 10
+            jobs = source.search_jobs(limit=limit)
+            collect_and_process("Working Nomads", jobs, require_confirmed_remote=True)
+        else:
+            logger.info("[Working Nomads] Пропуск опроса: источник опрашивался менее часа назад.")
+
+    # --- Irish IT recruitment agencies (Reperio, RealTime, Archer) ---
+    irish_agency_specs = (
+        ("reperio", "Reperio", "ENABLE_REPERIO", ReperioJobScraper, "REPERIO_KEYWORDS"),
+        ("realtime", "RealTime", "ENABLE_REALTIME", RealTimeJobScraper, "REALTIME_KEYWORDS"),
+        ("archer", "Archer", "ENABLE_ARCHER", ArcherJobScraper, "ARCHER_KEYWORDS"),
+    )
+    agency_poll_interval = getattr(config, "IRISH_AGENCIES_POLL_INTERVAL_SECONDS", 3600)
+    agency_limit = getattr(config, "IRISH_AGENCIES_LIMIT", 30) if not test_mode else 10
+    for poll_key, label, flag_name, scraper_cls, kw_attr in irish_agency_specs:
+        if not getattr(config, flag_name, True):
+            continue
+        if not db.claim_source_poll(poll_key, min_interval_seconds=agency_poll_interval):
+            logger.info("[%s] Пропуск опроса: источник опрашивался менее часа назад.", label)
+            continue
+        logger.info("🇮🇪 Поиск QA/SDET ролей в ирландском агентстве %s...", label)
+        kws = getattr(config, kw_attr, ["QA", "Test", "SDET", "Automation"])
+        if test_mode:
+            kws = [kws[0]]
+        jobs = scraper_cls().search_jobs(keywords=kws, limit=agency_limit)
+        collect_and_process(label, jobs, allow_nearby_hybrid=True)
 
     # --- One LinkedIn query per scheduled run; rotate across keyword groups and regions ---
     linkedin_queries = build_linkedin_rotation_queries(locations, keywords)

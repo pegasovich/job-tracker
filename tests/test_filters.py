@@ -572,6 +572,8 @@ class TestLinkedInRotationAndDetailGuards:
         assert len(queries) == 12
         assert config.LINKEDIN_SEARCH_LIMIT == 10
         assert config.LINKEDIN_MAX_DETAIL_FETCHES == 8
+        assert any("Daily Rate" in kw and "Day Rate" in kw and "FTC" in kw for kw in config.SEARCH_KEYWORDS)
+        assert len(config.LEVER_COMPANIES) >= 10
 
     @patch("main.time.sleep", return_value=None)
     def test_detail_429_halts_remaining_detail_fetches_but_keeps_local_filters(

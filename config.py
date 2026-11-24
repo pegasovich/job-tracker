@@ -177,8 +177,8 @@ NON_QA_OVERRIDE_PATTERNS = [
 # Compact boolean groups (<= 4 phrases each) keep one search per run reliable on LinkedIn Guest API
 # while shrinking the full 3-region rotation to 12 slots (~6 hours at 30-min intervals).
 SEARCH_KEYWORDS = [
-    '("SDET" OR "QA Automation") AND ("Contract" OR "B2B" OR "Deel")',
-    '("QA Engineer" OR "Software Tester") AND ("Contract" OR "B2B" OR "Deel")',
+    '("SDET" OR "QA Automation") AND ("Contract" OR "Daily Rate" OR "Day Rate" OR "FTC" OR "B2B" OR "Deel")',
+    '("QA Engineer" OR "Software Tester") AND ("Contract" OR "Daily Rate" OR "Day Rate" OR "FTC" OR "B2B" OR "Deel")',
     '("SDET" OR "QA Automation" OR "Automation QA" OR "Test Automation")',
     '("QA Engineer" OR "Manual QA" OR "QA Tester" OR "Software Tester")',
 ]
@@ -304,9 +304,47 @@ LEVER_COMPANIES = [
     "wealthfront",  # Финтех / Remote
     "outreach",     # Sales tech / Remote
     "glide",        # No-code platform / Remote
+    "sonarsource",  # DevTools / Code Quality (Geneva / Europe / Remote)
+    "binance",      # Crypto / Global Remote
+    "immutable",    # Web3 gaming / Remote
+    "15five",       # HR SaaS / Remote
+    "ro",           # HealthTech
+    "zoox",         # Autonomous Robotics / QA
 ]
 LEVER_REMOTE_ONLY = True
 LEVER_LIMIT_PER_COMPANY = 30
+
+# Workable ATS Settings (https://apply.workable.com/api/v1/widget/accounts/{company}?details=true)
+ENABLE_WORKABLE = True
+WORKABLE_REMOTE_ONLY = True
+WORKABLE_LIMIT_PER_COMPANY = 30
+WORKABLE_COMPANIES = [
+    "tekenable",              # Irish IT consulting / Remote Ireland
+    "seeq",                   # Analytics / Remote EMEA & Ireland
+    "zyte",                   # Cork-born remote-first data extraction platform
+    "careacross",             # European remote HealthTech
+    "itrex-group",            # Distributed EU/US engineering
+    "libertex-europe",        # European FinTech
+    "talent-voyager",         # European remote software & QA
+    "winthrop-technologies",  # Dublin/EU engineering & data center projects
+]
+
+# SmartRecruiters ATS Settings (https://api.smartrecruiters.com/v1/companies/{company}/postings)
+ENABLE_SMARTRECRUITERS = True
+SMARTRECRUITERS_REMOTE_ONLY = True
+SMARTRECRUITERS_LIMIT_PER_COMPANY = 20
+SMARTRECRUITERS_POLL_INTERVAL_SECONDS = 3600
+SMARTRECRUITERS_QUERIES = ["QA", "SDET", "Test"]
+SMARTRECRUITERS_COMPANIES = [
+    "Mirantis",               # Cloud / Kubernetes (EU remote)
+    "InvisibleTechnologies",  # Global AI Operations / Remote
+    "Wise",                   # European FinTech / EMEA hubs
+    "DeliveryHero",           # European Tech / Berlin & EU hubs
+    "Devoteam",               # European IT Consulting
+    "Experian",               # Global Data & FinTech
+    "WesternDigital",         # Storage / Firmware & Systems
+    "BoschGroup",             # Enterprise Engineering
+]
 
 # Remotive Settings (https://remotive.com/api/remote-jobs)
 # 100% Remote агрегатор с фильтрацией по QA и локациям (Worldwide/Europe/Ireland)
@@ -373,6 +411,21 @@ JOBICY_LIMIT = 100
 ENABLE_REMOTEOK = True
 REMOTEOK_TAGS = ["qa", "sdet", "test-automation"]
 REMOTEOK_LIMIT = 50
+
+# Working Nomads public JSON feed (remote listings; hourly polled).
+ENABLE_WORKING_NOMADS = True
+WORKING_NOMADS_POLL_INTERVAL_SECONDS = 3600
+WORKING_NOMADS_LIMIT = 50
+
+# Irish IT recruitment agencies (daily-rate contracts & remote/Kerry-hybrid QA/SDET roles).
+ENABLE_REPERIO = True
+ENABLE_REALTIME = True
+ENABLE_ARCHER = True
+IRISH_AGENCIES_POLL_INTERVAL_SECONDS = 3600
+IRISH_AGENCIES_LIMIT = 30
+REPERIO_KEYWORDS = ["QA", "Test", "SDET", "Automation"]
+REALTIME_KEYWORDS = ["QA", "Test", "SDET", "Automation"]
+ARCHER_KEYWORDS = ["QA", "Test", "SDET", "Automation"]
 
 # Language Filtering (пропускаем только вакансии с английским или без языковых требований)
 # Whitelist подход: если вакансия требует язык НЕ из этого списка — отсекаем

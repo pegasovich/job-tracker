@@ -91,6 +91,12 @@ class TestTelegramNotifier:
             ("WorkRemotely.eu", "WorkRemotely.eu", "Открыть вакансию на WorkRemotely.eu"),
             ("TechJobs.ie", "TechJobs.ie", "Открыть вакансию на TechJobs.ie"),
             ("WeWorkRemotely", "WeWorkRemotely", "Открыть вакансию на WeWorkRemotely"),
+            ("Working Nomads", "Working Nomads", "Открыть вакансию на Working Nomads"),
+            ("Reperio", "Reperio Human Capital", "Открыть вакансию на Reperio"),
+            ("RealTime", "RealTime Recruitment", "Открыть вакансию на RealTime"),
+            ("Archer", "Archer Recruitment", "Открыть вакансию на Archer"),
+            ("Workable", "Workable (Direct ATS)", "Открыть вакансию на Workable"),
+            ("SmartRecruiters", "SmartRecruiters (Direct ATS)", "Открыть вакансию на SmartRecruiters"),
         ],
     )
     @patch("urllib.request.urlopen")
