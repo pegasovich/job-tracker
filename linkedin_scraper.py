@@ -89,6 +89,9 @@ class LinkedInJobScraper:
             try:
                 with urllib.request.urlopen(req, timeout=15) as resp:
                     if resp.status == 200:
+                        # This flag means the final attempt failed with 429, not
+                        # merely that an earlier retry in this request was throttled.
+                        self.last_hit_rate_limit = False
                         return resp.read().decode("utf-8", errors="ignore")
                     logger.warning(f"Неожиданный статус ответа {resp.status} для {url}")
                     return None
@@ -120,7 +123,12 @@ class LinkedInJobScraper:
                 return None
         return None
 
-    def search_jobs(self, keyword: str, limit: Optional[int] = None) -> List[Dict[str, str]]:
+    def search_jobs(
+        self,
+        keyword: str,
+        limit: Optional[int] = None,
+        max_pages: Optional[int] = None,
+    ) -> List[Dict[str, str]]:
         """
         Search jobs by keyword.
         f_WT=2 sets filter to Remote.
@@ -132,8 +140,9 @@ class LinkedInJobScraper:
         jobs = []
         seen_ids = set()
         start = 0
+        pages_fetched = 0
 
-        while len(jobs) < limit:
+        while len(jobs) < limit and (max_pages is None or pages_fetched < max_pages):
             params = {
                 "keywords": keyword,
                 "location": self.location,
@@ -149,6 +158,7 @@ class LinkedInJobScraper:
             url = f"{self.BASE_SEARCH_URL}?{urllib.parse.urlencode(params)}"
             search_referer = f"https://www.linkedin.com/jobs/search?{urllib.parse.urlencode({'keywords': keyword, 'location': self.location})}"
             html_content = self._make_request(url, referer=search_referer)
+            pages_fetched += 1
             if not html_content:
                 break
 

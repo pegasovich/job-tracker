@@ -254,6 +254,7 @@ class TestLinkedInRateLimitAndTuning:
         assert res == "<html>OK</html>"
         assert mock_sleep.called
         assert mock_urlopen.call_count == 2
+        assert linkedin_scraper.last_hit_rate_limit is False
 
     @patch("time.sleep", return_value=None)
     @patch("urllib.request.urlopen")
@@ -272,6 +273,26 @@ class TestLinkedInRateLimitAndTuning:
         jobs = linkedin_scraper.search_jobs("SDET")
         assert jobs == []
         assert mock_make_req.called
+
+    @patch("linkedin_scraper.time.sleep", return_value=None)
+    @patch("linkedin_scraper.LinkedInJobScraper._make_request")
+    def test_search_jobs_can_limit_a_query_to_one_page(self, mock_make_req, mock_sleep, linkedin_scraper):
+        cards = []
+        for job_id in range(100, 105):
+            cards.append(
+                f'<li><div class="base-card" data-entity-urn="urn:li:jobPosting:{job_id}">'
+                '<h3 class="base-search-card__title">QA Engineer</h3>'
+                '<h4 class="base-search-card__subtitle"><a>Example Ltd</a></h4>'
+                '<span class="job-search-card__location">Ireland</span>'
+                f'<a class="base-card__full-link" href="https://www.linkedin.com/jobs/view/{job_id}"></a>'
+                '</div></li>'
+            )
+        mock_make_req.return_value = "<ul>" + "".join(cards) + "</ul>"
+
+        jobs = linkedin_scraper.search_jobs("QA Engineer", limit=6, max_pages=1)
+
+        assert len(jobs) == 5
+        mock_make_req.assert_called_once()
 
 
 class TestPolishDomesticFiltering:

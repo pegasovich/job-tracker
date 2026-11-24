@@ -79,3 +79,42 @@ class TestJobDatabase:
         db = JobDatabase(db_path)
         added = db.merge_from(str(tmp_path / "does_not_exist.db"))
         assert added == 0
+
+    def test_rotation_cursor_persists_and_wraps(self, tmp_path):
+        from database import JobDatabase
+
+        db_path = str(tmp_path / "rotation.db")
+        db = JobDatabase(db_path)
+
+        assert db.claim_next_rotation_index("linkedin_search", 3) == 0
+        assert db.claim_next_rotation_index("linkedin_search", 3) == 1
+
+        reopened = JobDatabase(db_path)
+        assert reopened.claim_next_rotation_index("linkedin_search", 3) == 2
+        assert reopened.claim_next_rotation_index("linkedin_search", 3) == 0
+
+    def test_rotation_cursor_is_merged_from_cloud_database(self, tmp_path):
+        from database import JobDatabase
+
+        target = JobDatabase(str(tmp_path / "target.db"))
+        source = JobDatabase(str(tmp_path / "source.db"))
+        assert target.claim_next_rotation_index("linkedin_search", 4) == 0
+        assert source.claim_next_rotation_index("linkedin_search", 4) == 0
+        assert source.claim_next_rotation_index("linkedin_search", 4) == 1
+        with target._get_connection() as conn:
+            conn.execute(
+                "UPDATE rotation_state SET updated_at = ? WHERE state_key = ?",
+                ("2026-11-24T10:00:00+00:00", "linkedin_search"),
+            )
+        with source._get_connection() as conn:
+            conn.execute(
+                "UPDATE rotation_state SET updated_at = ? WHERE state_key = ?",
+                ("2026-11-24T11:00:00+00:00", "linkedin_search"),
+            )
+
+        assert target.merge_from(source.db_path) == 0
+        assert target.claim_next_rotation_index("linkedin_search", 4) == 2
+
+    def test_rotation_cursor_requires_at_least_one_item(self, memory_db):
+        with pytest.raises(ValueError, match="item_count"):
+            memory_db.claim_next_rotation_index("linkedin_search", 0)

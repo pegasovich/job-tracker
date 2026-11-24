@@ -3,7 +3,7 @@
 [![Tests & Quality Gate](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml/badge.svg)](https://github.com/pegasovich/job-tracker/actions/workflows/tests.yml)
 ![Python Version](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue.svg)
 ![Test Framework](https://img.shields.io/badge/tested_with-pytest-0A9EDC.svg)
-![Test Count](https://img.shields.io/badge/tests-273%20passed-brightgreen.svg)
+![Test Count](https://img.shields.io/badge/tests-277%20passed-brightgreen.svg)
 ![Code Coverage](https://img.shields.io/badge/coverage-core%2090%25%2B-brightgreen.svg)
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF.svg)
 
@@ -11,7 +11,7 @@ An automated, multi-source job intelligence engine engineered for **QA & SDET pr
 
 The platform continuously aggregates, parses, filters, deduplicates, and alerts on verified openings across **direct ATS systems, curated remote portals, and APIs**, eliminating recruiter noise, domestic residency restrictions, and misleading "remote" listings.
 
-Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (273 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
+Built with a production-grade **Test Automation Framework (TAF)** and an automated **CI/CD Quality Gate** (277 unit & parameterized tests) ensuring zero regressions during continuous rule tuning.
 
 See the [changelog](./CHANGELOG.md) for notable fixes and updates.
 
@@ -171,7 +171,7 @@ job-tracker/
 Every `git push` and Pull Request automatically triggers the test pipeline:
 1. Provisions an Ubuntu runner on Python 3.12.
 2. Installs runtime and testing dependencies with pip caching.
-3. Runs all **273 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
+3. Runs all **277 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
 4. Enforces the Quality Gate before merging.
 
 ---
@@ -206,7 +206,7 @@ ADZUNA_APP_KEY=your_adzuna_app_key
 
 ### 3. Running the Test Suite
 ```bash
-# Run all 273 tests
+# Run all 277 tests
 pytest -q
 
 # Run with coverage report
@@ -248,9 +248,9 @@ The platform includes an automated cloud workflow (`.github/workflows/tracker_cr
 3. **State Persistence (Git Scraping):** Automatically commits and pushes the updated `jobs_seen.db` back to the repository so duplicate alerts are never sent across runs.
 4. **Cloud-Optimized Rate Limiting:**
    * Unlike residential home IPs, cloud data centers (e.g. GitHub/Azure) encounter aggressive `429 Too Many Requests` thresholds from LinkedIn's guest API.
-   * The scraper employs an **adaptive fast backoff** (`LINKEDIN_MAX_RETRIES=1`, `LINKEDIN_RETRY_BASE_WAIT=10s`, `LINKEDIN_SEARCH_LIMIT=6`).
-   * When LinkedIn rate-limits a detail fetch, the job is **gracefully skipped without marking it as seen in SQLite**, preserving it to be inspected cleanly on the very next hourly cycle without blocking the run for 10+ minutes.
-   * The other 7 sources (DOU, No Fluff Jobs, JustJoin.it, Arbeitnow, Greenhouse ATS, Adzuna, Djinni) operate via open APIs / RSS feeds and run in seconds with zero rate-limit friction.
+   * Each half-hour Actions run makes one LinkedIn search-page request for a rotating location/keyword pair (up to 6 cards); a persisted cursor in `jobs_seen.db` advances across runs. All pairs are revisited about every 12 hours.
+   * LinkedIn pagination is capped at one page per run. A new-job detail request is separate from the search request. The search request uses one retry (`LINKEDIN_MAX_RETRIES=1`, `LINKEDIN_RETRY_BASE_WAIT=10s`); after a final 429, the rotation moves on and retries that pair in the next cycle.
+   * A detail fetch that fails with 429 leaves the job unseen so it can be retried when that location/keyword pair comes around again. The other job sources run before LinkedIn, so a LinkedIn backoff does not postpone their alerts.
 5. **Repository Secrets:** Add your credentials under **Settings ➔ Secrets and variables ➔ Actions ➔ New repository secret**:
    * `TELEGRAM_BOT_TOKEN`
    * `TELEGRAM_CHAT_ID`
@@ -277,7 +277,7 @@ Located in [`chrome-extension/`](./chrome-extension/): A lightweight Manifest V3
 ## 🛠 Tech Stack
 
 * **Language:** Python 3.12
-* **Testing Framework:** Pytest 9, Pytest-Cov, Unittest.Mock (273 automated tests)
+* **Testing Framework:** Pytest 9, Pytest-Cov, Unittest.Mock (277 automated tests)
 * **CI/CD:** GitHub Actions 24/7 Cloud Automation & Quality Gate
 * **Persistence:** SQLite3 (WAL mode, idempotent schemas, Git-backed sync)
 * **Networking & Parsing:** Standard library (`urllib.request`), JSON, XML (`xml.etree.ElementTree`)
@@ -321,7 +321,7 @@ ADZUNA_APP_KEY=your_adzuna_app_key
 ### 4. Verify Local Tests
 ```bash
 pytest -q
-# Expecting: 273 passed
+# Expecting: 277 passed
 ```
 
 ### 5. Load the Chrome Extension on Laptop

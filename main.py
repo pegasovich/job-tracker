@@ -1236,18 +1236,40 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         else:
             logger.info("[TechJobs.ie] Пропуск опроса: источник опрашивался менее часа назад.")
 
-    # --- LinkedIn searches run last to keep 429 backoff from delaying other sources ---
-    for loc in locations:
+    # --- One LinkedIn query per scheduled run; rotate through locations and keywords ---
+    linkedin_queries = [(loc, kw) for loc in locations for kw in keywords]
+    if linkedin_queries:
+        query_index = (
+            0
+            if test_mode
+            else db.claim_next_rotation_index("linkedin_search", len(linkedin_queries))
+        )
+        selected_location, selected_keyword = linkedin_queries[query_index]
+        logger.info(
+            "🔄 LinkedIn-ротация: запрос %s/%s (регион '%s', слово '%s')",
+            query_index + 1,
+            len(linkedin_queries),
+            selected_location,
+            selected_keyword,
+        )
+        linkedin_locations = [selected_location]
+        linkedin_keywords = [selected_keyword]
+    else:
+        linkedin_locations = []
+        linkedin_keywords = []
+
+    # --- LinkedIn searches run last so a 429 cannot delay other sources ---
+    for loc in linkedin_locations:
         scraper = LinkedInJobScraper(
             location=loc,
             remote_only=config.REMOTE_ONLY,
             time_filter=getattr(config, "LINKEDIN_TIME_FILTER", "r86400"),
             sort_by=getattr(config, "LINKEDIN_SORT_BY", "DD"),
         )
-        for kw in keywords:
+        for kw in linkedin_keywords:
             search_limit = getattr(config, "LINKEDIN_SEARCH_LIMIT", 6) if not test_mode else 1
             logger.info(f"🔍 Поиск в регионе '{loc}' по слову: '{kw}'...")
-            jobs = scraper.search_jobs(keyword=kw, limit=search_limit)
+            jobs = scraper.search_jobs(keyword=kw, limit=search_limit, max_pages=1)
             seen_cnt, _ = log_and_track_batch(f"{loc} / {kw}", jobs, db)
             total_scanned += len(jobs)
             total_already_seen += seen_cnt
@@ -1360,13 +1382,11 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
                 # Сохраняем в базу данных, чтобы не дублировать
                 db.add_job(job)
 
-            # Пауза между запросами по разным ключевым словам
-            if scraper.last_hit_rate_limit:
-                scraper.last_hit_rate_limit = False
-                time.sleep(random.uniform(12.0, 18.0))
-            else:
-                time.sleep(random.uniform(4.0, 6.5))
-        time.sleep(random.uniform(7.0, 12.0))  # Пауза между регионами
+            if scraper.last_hit_rate_limit and not jobs:
+                logger.warning(
+                    "⚠️ LinkedIn не отдал результаты после повтора 429; "
+                    "текущий слот ротации пропущен до следующего цикла."
+                )
 
     logger.info("=" * 80)
     logger.info("🏁 Проверка всех источников завершена успешно!")

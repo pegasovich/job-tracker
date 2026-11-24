@@ -10,6 +10,7 @@ Notable project changes are recorded here.
 - Add a LinkedIn alert reminder to review Easy Apply screening questions and use accurate experience figures. The LinkedIn guest API does not expose employer-added screening questions, so the alert says they may be missing from the card.
 - Add TechJobs.ie and WorkRemotely.eu as hourly-polled sources. Their parsers keep concise listing metadata, require QA/SDET titles and Ireland-compatible remote scope, and reject explicit hybrid/on-site roles; WorkRemotely.eu is limited to its Ireland contractor/freelance results.
 - Widen LinkedIn discovery from the past 24 hours to the past 7 days, retaining newest-first sorting and database deduplication.
+- Rotate LinkedIn through one location/keyword search page per half-hour Actions run. Persist the cursor in `jobs_seen.db`, cap pagination at one page, and let other sources finish before LinkedIn's 429 retry.
 
 ### Fixed
 

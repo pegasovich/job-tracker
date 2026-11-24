@@ -41,7 +41,38 @@ class JobDatabase:
                 )
                 """
             )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS rotation_state (
+                    state_key TEXT PRIMARY KEY,
+                    next_index INTEGER NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
             conn.commit()
+
+    def claim_next_rotation_index(self, state_key: str, item_count: int) -> int:
+        """Atomically return and advance a persisted round-robin cursor."""
+        if item_count <= 0:
+            raise ValueError("item_count must be greater than zero")
+
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        with self._get_connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT next_index FROM rotation_state WHERE state_key = ?", (state_key,)
+            ).fetchone()
+            current_index = int(row[0]) % item_count if row else 0
+            next_index = (current_index + 1) % item_count
+            conn.execute(
+                "INSERT INTO rotation_state(state_key, next_index, updated_at) VALUES (?, ?, ?) "
+                "ON CONFLICT(state_key) DO UPDATE SET "
+                "next_index = excluded.next_index, updated_at = excluded.updated_at",
+                (state_key, next_index, now),
+            )
+            conn.commit()
+        return current_index
 
     def claim_source_poll(self, source: str, min_interval_seconds: int = 3600) -> bool:
         """Atomically rate-limit a source across local and GitHub Actions runs."""
@@ -141,6 +172,21 @@ class JobDatabase:
                     ON CONFLICT(source) DO UPDATE SET last_attempt_at =
                         CASE WHEN excluded.last_attempt_at > source_sync_state.last_attempt_at
                         THEN excluded.last_attempt_at ELSE source_sync_state.last_attempt_at END
+                    """
+                )
+            if "rotation_state" in source_tables:
+                conn.execute(
+                    """
+                    INSERT INTO rotation_state(state_key, next_index, updated_at)
+                    SELECT state_key, next_index, updated_at FROM source_db.rotation_state
+                    WHERE 1
+                    ON CONFLICT(state_key) DO UPDATE SET
+                        next_index = CASE
+                            WHEN excluded.updated_at > rotation_state.updated_at
+                            THEN excluded.next_index ELSE rotation_state.next_index END,
+                        updated_at = CASE
+                            WHEN excluded.updated_at > rotation_state.updated_at
+                            THEN excluded.updated_at ELSE rotation_state.updated_at END
                     """
                 )
             conn.commit()
