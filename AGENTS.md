@@ -79,3 +79,10 @@ python view_db.py --search "Ireland"
 # Smoke test (runs real scrapers with index 0 & limit=1, writes to local jobs_seen.db)
 python main.py --test --dry-run
 ```
+
+---
+
+## 5. Git & Delivery Workflow
+
+- Unless the user explicitly asks for read-only analysis or not to push, **always commit and push to `origin/main` automatically** once code/doc changes are verified by passing tests (`pytest -q`, plus `node --test chrome-extension/tests/universal-autofill.test.js` if `chrome-extension/` changed).
+- Before committing/pushing, run `git fetch origin` and fast-forward (`git merge --ff-only origin/main`) so automated `jobs_seen.db` commits from `tracker_cron.yml` do not cause push conflicts; stage only the intended project files explicitly.
