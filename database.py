@@ -3,11 +3,29 @@ SQLite Database manager for tracking seen LinkedIn jobs.
 """
 
 import contextlib
+import hashlib
+import re
 import sqlite3
 import datetime
 import os
 from contextlib import contextmanager
 from typing import Dict, Any
+
+
+def compute_job_fingerprint(job: Dict[str, Any], description: str = "") -> str:
+    """Compute a deterministic content hash to prevent duplicate repost/cross-source alerts."""
+    def _norm(value: Any) -> str:
+        return re.sub(r"\s+", " ", str(value or "")).strip().lower()
+
+    title = _norm(job.get("title", ""))
+    company = _norm(job.get("company", ""))
+    desc_text = _norm(description or job.get("description", ""))
+    if len(desc_text) >= 60:
+        payload = f"{title}\n{company}\n{desc_text}"
+    else:
+        location = _norm(job.get("location", ""))
+        payload = f"{title}\n{company}\n{location}\n{desc_text}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 class JobDatabase:
@@ -56,6 +74,17 @@ class JobDatabase:
                     state_key TEXT PRIMARY KEY,
                     next_index INTEGER NOT NULL,
                     updated_at TEXT NOT NULL
+                )
+                """
+            )
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS delivered_fingerprints (
+                    fingerprint TEXT PRIMARY KEY,
+                    job_id TEXT,
+                    title TEXT,
+                    company TEXT,
+                    first_seen_at TEXT
                 )
                 """
             )
@@ -112,6 +141,37 @@ class JobDatabase:
             cursor = conn.cursor()
             cursor.execute("SELECT 1 FROM seen_jobs WHERE job_id = ?", (job_id,))
             return cursor.fetchone() is not None
+
+    def is_duplicate_delivered(self, job: Dict[str, Any], description: str = "") -> bool:
+        """Return True if an alert with the same title, company, and description was already delivered."""
+        fingerprint = compute_job_fingerprint(job, description)
+        with self._session() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM delivered_fingerprints WHERE fingerprint = ?",
+                (fingerprint,),
+            ).fetchone()
+            return row is not None
+
+    def mark_delivered(self, job: Dict[str, Any], description: str = "") -> None:
+        """Persist the content fingerprint of a successfully delivered job alert."""
+        fingerprint = compute_job_fingerprint(job, description)
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        with self._session() as conn:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO delivered_fingerprints (
+                    fingerprint, job_id, title, company, first_seen_at
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    fingerprint,
+                    job.get("id", ""),
+                    job.get("title", ""),
+                    job.get("company", ""),
+                    now,
+                ),
+            )
+            conn.commit()
 
     def add_job(self, job: Dict[str, Any]):
         with self._session() as conn:
@@ -196,6 +256,17 @@ class JobDatabase:
                         updated_at = CASE
                             WHEN excluded.updated_at > rotation_state.updated_at
                             THEN excluded.updated_at ELSE rotation_state.updated_at END
+                    """
+                )
+            if "delivered_fingerprints" in source_tables:
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO delivered_fingerprints (
+                        fingerprint, job_id, title, company, first_seen_at
+                    )
+                    SELECT
+                        fingerprint, job_id, title, company, first_seen_at
+                    FROM source_db.delivered_fingerprints
                     """
                 )
             conn.commit()

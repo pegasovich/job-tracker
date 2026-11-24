@@ -126,9 +126,11 @@ def _deliver_job_alert(
     notifier: TelegramNotifier,
     dry_run: bool,
     region_label: str = "",
+    description: str = "",
 ) -> bool:
     """Print (dry-run) or send a Telegram alert and persist only on successful delivery."""
     logger.info("✨ [%s] Новая вакансия [%s] (%s): %s @ %s", source_name, job["id"], workplace_type, job["title"], job["company"])
+    desc_for_fingerprint = description or job.get("description", "")
     if dry_run:
         header_meta = f"{workplace_type.upper()} | {region_label}" if region_label else workplace_type.upper()
         print("\n" + "=" * 60)
@@ -145,11 +147,13 @@ def _deliver_job_alert(
             print(f"Фрагмент описания: {snippet[:200]}...")
         print("=" * 60 + "\n")
         db.add_job(job)
+        db.mark_delivered(job, desc_for_fingerprint)
         return True
 
     if notifier.send_job_alert(job, snippet=snippet, workplace_type=workplace_type):
         logger.info("✅ Отправлено в Telegram: %s", job["id"])
         db.add_job(job)
+        db.mark_delivered(job, desc_for_fingerprint)
         time.sleep(1.5)
         return True
 
@@ -208,6 +212,8 @@ def process_standard_jobs(
 
         if not reason and extra_filter is not None:
             reason = extra_filter(job) or ""
+        if not reason and db.is_duplicate_delivered(job, description):
+            reason = "duplicate of previously delivered alert"
 
         if reason:
             logger.info("🚫 [%s] Пропуск (%s): %s @ %s", source_name, reason, title, job.get("company"))
@@ -216,7 +222,16 @@ def process_standard_jobs(
             continue
 
         snippet = description[:350].rstrip() + "..." if len(description) > 350 else description
-        if _deliver_job_alert(source_name, job, snippet, workplace_type, db, notifier, dry_run):
+        if _deliver_job_alert(
+            source_name,
+            job,
+            snippet,
+            workplace_type,
+            db,
+            notifier,
+            dry_run,
+            description=description,
+        ):
             new_count += 1
 
     return new_count, filtered_count
@@ -342,7 +357,27 @@ def process_linkedin_jobs(
                 f"🟡 [UNCLEAR → ПРОПУСК] Вакансия с неясным форматом, но generic Ireland/nearby: {job['title']} @ {job['company']} (Локация: {job['location']})"
             )
 
-        if _deliver_job_alert("LinkedIn", job, snippet, workplace_type, db, notifier, dry_run, region_label=location):
+        if db.is_duplicate_delivered(job, full_desc):
+            logger.info(
+                "🚫 [ДУБЛИКАТ / LinkedIn] Пропуск повторной вакансии: %s @ %s",
+                job.get("title", ""),
+                job.get("company", ""),
+            )
+            filtered_count += 1
+            db.add_job(job)
+            continue
+
+        if _deliver_job_alert(
+            "LinkedIn",
+            job,
+            snippet,
+            workplace_type,
+            db,
+            notifier,
+            dry_run,
+            region_label=location,
+            description=full_desc,
+        ):
             new_count += 1
 
     return new_count, filtered_count

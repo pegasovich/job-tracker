@@ -807,4 +807,114 @@ class TestLinkedInRotationAndDetailGuards:
         assert memory_db.is_seen("jcy_2") is True
         notifier.send_job_alert.assert_not_called()
 
+    @patch("main.time.sleep", return_value=None)
+    def test_standard_jobs_suppresses_duplicate_reposts_but_allows_retries_and_distinct_roles(
+        self, mock_sleep, memory_db
+    ):
+        from main import process_standard_jobs
+
+        shared_desc = (
+            "Work from anywhere in the EU fully remote. "
+            "Lead AI-driven QA automation across eSIM platforms."
+        )
+        jobs = [
+            {
+                "id": "archer_1",
+                "title": "QA Automation Lead",
+                "company": "Archer Recruitment",
+                "location": "Remote",
+                "description": shared_desc,
+                "url": "https://www.archer.ie/job/1",
+                "workplace_type": "remote",
+            },
+            {
+                "id": "archer_2",
+                "title": "QA Automation Lead",
+                "company": "Archer Recruitment",
+                "location": "Remote",
+                "description": shared_desc,
+                "url": "https://www.archer.ie/job/2",
+                "workplace_type": "remote",
+            },
+            {
+                "id": "archer_3",
+                "title": "QA Automation Lead",
+                "company": "Archer Recruitment",
+                "location": "Remote",
+                "description": (
+                    "Work from anywhere in Europe fully remote. "
+                    "Build Python Playwright frameworks for a payments bank."
+                ),
+                "url": "https://www.archer.ie/job/3",
+                "workplace_type": "remote",
+            },
+        ]
+        notifier = MagicMock()
+        notifier.send_job_alert.side_effect = [False, True, True]
+
+        # Failed delivery on archer_1 leaves fingerprint unrecorded so archer_2 can still retry.
+        new_cnt_1, filtered_cnt_1 = process_standard_jobs(
+            "Archer", [jobs[0]], memory_db, notifier, dry_run=False
+        )
+        assert new_cnt_1 == 0
+        assert filtered_cnt_1 == 0
+        assert memory_db.is_seen("archer_1") is False
+
+        # Once archer_1 delivers, identical repost archer_2 is suppressed and marked seen,
+        # while distinct role archer_3 at the same company still delivers.
+        new_cnt_2, filtered_cnt_2 = process_standard_jobs(
+            "Archer", jobs, memory_db, notifier, dry_run=False
+        )
+        assert new_cnt_2 == 2
+        assert filtered_cnt_2 == 1
+        assert memory_db.is_seen("archer_1") is True
+        assert memory_db.is_seen("archer_2") is True
+        assert memory_db.is_seen("archer_3") is True
+        assert notifier.send_job_alert.call_count == 3
+
+    @patch("main.time.sleep", return_value=None)
+    def test_linkedin_jobs_suppresses_duplicate_reposts_with_same_description(
+        self, mock_sleep, memory_db, linkedin_scraper
+    ):
+        from main import process_linkedin_jobs
+
+        jobs = [
+            {
+                "id": "401",
+                "title": "Senior SDET",
+                "company": "RepeatCorp",
+                "location": "Ireland",
+                "url": "https://www.linkedin.com/jobs/view/401",
+            },
+            {
+                "id": "402",
+                "title": "Senior SDET",
+                "company": "RepeatCorp",
+                "location": "Ireland",
+                "url": "https://www.linkedin.com/jobs/view/402",
+            },
+        ]
+        notifier = MagicMock()
+        notifier.send_job_alert.return_value = True
+        with patch.object(
+            linkedin_scraper,
+            "get_job_description",
+            return_value="100% remote in Ireland building Python and Playwright automation suites.",
+        ):
+            new_cnt, filtered_cnt = process_linkedin_jobs(
+                jobs=jobs,
+                location="Ireland",
+                scraper=linkedin_scraper,
+                db=memory_db,
+                notifier=notifier,
+                dry_run=False,
+                max_detail_fetches=8,
+            )
+
+        assert new_cnt == 1
+        assert filtered_cnt == 1
+        assert memory_db.is_seen("401") is True
+        assert memory_db.is_seen("402") is True
+        notifier.send_job_alert.assert_called_once()
+
 

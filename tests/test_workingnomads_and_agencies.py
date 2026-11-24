@@ -232,3 +232,42 @@ class TestArcherJobScraper:
 
     def test_parse_feed_handles_malformed_xml_gracefully(self):
         assert ArcherJobScraper.parse_feed("<rss><broken") == []
+
+    def test_parse_feed_deduplicates_identical_loxo_reposts(self):
+        xml_feed = """<?xml version="1.0" encoding="UTF-8"?>
+        <rss version="2.0" xmlns:job_listing="https://www.archer.ie">
+          <channel>
+            <item>
+              <title>QA Automation Lead</title>
+              <link>https://www.archer.ie/job/loxo-306179-qa-automation-lead-1795004714/</link>
+              <pubDate>Wed, 18 Nov 2026 12:25:14 +0000</pubDate>
+              <description><![CDATA[Work from anywhere in the EU fully remote. Lead AI-driven QA automation.]]></description>
+              <job_listing:location><![CDATA[Remote]]></job_listing:location>
+              <job_listing:job_type><![CDATA[Contract]]></job_listing:job_type>
+            </item>
+            <item>
+              <title>QA Automation Lead</title>
+              <link>https://www.archer.ie/job/loxo-217517-qa-automation-lead-1794910913/</link>
+              <pubDate>Tue, 17 Nov 2026 12:25:14 +0000</pubDate>
+              <description><![CDATA[Work from anywhere in the EU fully remote. Lead AI-driven QA automation.]]></description>
+              <job_listing:location><![CDATA[Remote]]></job_listing:location>
+              <job_listing:job_type><![CDATA[Contract]]></job_listing:job_type>
+            </item>
+            <item>
+              <title>QA Automation Lead</title>
+              <link>https://www.archer.ie/job/loxo-217517-qa-automation-lead-1794911371/</link>
+              <pubDate>Tue, 17 Nov 2026 12:25:14 +0000</pubDate>
+              <description><![CDATA[Dublin based, Hybrid working. Lead AI-driven QA automation.]]></description>
+              <job_listing:location><![CDATA[Dublin Hybrid, Ireland]]></job_listing:location>
+              <job_listing:job_type><![CDATA[Contract]]></job_listing:job_type>
+            </item>
+          </channel>
+        </rss>
+        """
+
+        jobs = ArcherJobScraper.parse_feed(xml_feed, limit=10)
+
+        assert [j["id"] for j in jobs] == [
+            "archer_loxo-306179-qa-automation-lead-1795004714",
+            "archer_loxo-217517-qa-automation-lead-1794911371",
+        ]

@@ -118,3 +118,41 @@ class TestJobDatabase:
     def test_rotation_cursor_requires_at_least_one_item(self, memory_db):
         with pytest.raises(ValueError, match="item_count"):
             memory_db.claim_next_rotation_index("linkedin_search", 0)
+
+    def test_delivered_fingerprint_deduplicates_reposts_and_merges(self, tmp_path):
+        from database import JobDatabase
+
+        db1 = JobDatabase(str(tmp_path / "db1.db"))
+        db2 = JobDatabase(str(tmp_path / "db2.db"))
+
+        job_one = {
+            "id": "archer_loxo-306179-qa-automation-lead-1795004714",
+            "title": "QA Automation Lead",
+            "company": "Archer Recruitment",
+            "location": "Remote",
+            "description": "Work from anywhere in the EU fully remote leading AI-driven QA automation.",
+        }
+        job_repost = {
+            "id": "archer_loxo-217517-qa-automation-lead-1794910913",
+            "title": "QA Automation Lead",
+            "company": "Archer Recruitment",
+            "location": "Remote",
+            "description": "Work from anywhere in the EU fully remote leading AI-driven QA automation.",
+        }
+        job_distinct = {
+            "id": "archer_loxo-999999-qa-automation-lead-1799999999",
+            "title": "QA Automation Lead",
+            "company": "Archer Recruitment",
+            "location": "Remote",
+            "description": "Lead PlayWright and Java automation for a Dublin FinTech payments platform.",
+        }
+
+        assert db1.is_duplicate_delivered(job_one) is False
+        db1.mark_delivered(job_one)
+
+        assert db1.is_duplicate_delivered(job_repost) is True
+        assert db1.is_duplicate_delivered(job_distinct) is False
+
+        db2.merge_from(db1.db_path)
+        assert db2.is_duplicate_delivered(job_repost) is True
+        assert db2.is_duplicate_delivered(job_distinct) is False

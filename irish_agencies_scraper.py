@@ -17,6 +17,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 
+from database import compute_job_fingerprint
 from jobicy_scraper import clean_html
 from linkedin_scraper import LinkedInJobScraper
 
@@ -434,6 +435,7 @@ class ArcherJobScraper:
 
         classifier = LinkedInJobScraper(location="Ireland")
         found: Dict[str, Dict[str, Any]] = {}
+        seen_fingerprints: set[str] = set()
 
         for item in root.findall(".//item"):
             title = clean_html(item.findtext("title") or "")
@@ -469,7 +471,7 @@ class ArcherJobScraper:
                     posted_date = ""
 
             salary = _extract_salary(f"{title} {description}")
-            found[slug] = {
+            job_entry = {
                 "id": f"archer_{slug}",
                 "title": title,
                 "company": "Archer Recruitment",
@@ -482,6 +484,11 @@ class ArcherJobScraper:
                 "source": "Archer",
                 "workplace_type": workplace,
             }
+            fingerprint = compute_job_fingerprint(job_entry)
+            if fingerprint in seen_fingerprints:
+                continue
+            seen_fingerprints.add(fingerprint)
+            found[slug] = job_entry
             if len(found) >= limit:
                 break
 
@@ -492,11 +499,14 @@ class ArcherJobScraper:
             return []
         keywords = keywords or ["QA", "Test", "SDET", "Automation"]
         found: Dict[str, Dict[str, Any]] = {}
+        seen_fingerprints: set[str] = set()
         for idx, kw in enumerate(keywords):
             if idx:
                 time.sleep(0.5)
             for job in self.parse_feed(self._fetch_feed(kw), limit=limit):
-                if job["id"] not in found:
+                fingerprint = compute_job_fingerprint(job)
+                if job["id"] not in found and fingerprint not in seen_fingerprints:
+                    seen_fingerprints.add(fingerprint)
                     found[job["id"]] = job
                     if len(found) >= limit:
                         return list(found.values())
