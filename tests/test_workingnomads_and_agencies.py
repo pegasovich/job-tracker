@@ -36,9 +36,12 @@ class TestWorkingNomadsScraper:
             {
                 "url": "https://www.workingnomads.com/job/go/2033949/",
                 "title": "Quality Assurance Rater - Spanish speakers in Spain",
-                "description": "<p>Fluent Spanish &amp; English required. Resident in Spain.</p>",
+                "description": (
+                    "<p>Working as a freelancer with excellent communication skills in Spanish &amp; English. "
+                    "Resident in Spain for the last 5 consecutive years.</p>"
+                ),
                 "company_name": "TELUS Digital",
-                "tags": "spanish,english",
+                "tags": "spanish,content moderation,training,english",
                 "location": "Global",
                 "pub_date": "2026-11-10T08:00:00Z",
             },

@@ -199,6 +199,9 @@ class TestQATitleFilter:
             "A/B Testing Specialist",
             "PAT Testing Engineer",
             "Non-Destructive Testing (NDT) Inspector",
+            "Quality Assurance Rater - Spanish speakers in Spain",
+            "Quality Assurance Rater - German speakers in Germany",
+            "QA Rater - French speakers in France",
         ],
     )
     def test_non_qa_titles_rejected(self, linkedin_scraper, title):
@@ -432,6 +435,22 @@ class TestLanguageWhitelistFilter:
             allowed_codes=["en", "english"],
         ) is True
 
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Quality Assurance Rater - Spanish speakers in Spain",
+            "German speakers required for evaluation project",
+            "excellent communication skills in Spanish & English",
+        ],
+    )
+    def test_text_language_requirement_blocks_plural_speakers_and_skills(self, text):
+        assert config.has_non_allowed_language_requirement(text) is True
+
+    def test_text_language_requirement_allows_english_communication_skills(self):
+        assert config.has_non_allowed_language_requirement(
+            "Senior SDET with excellent communication skills in English."
+        ) is False
+
 
 class TestGeoBlockedLocations:
     """Tests location blocking against US domestic, Latam, APAC, etc."""
@@ -507,6 +526,7 @@ class TestDescriptionStopPatterns:
             "Work authorization in the United States is required.",
             "This fully remote role is for UK candidates only.",
             "For positions based in San Francisco or Los Angeles: Affirm considers qualified applicants.",
+            "Resident in Spain for the last 5 consecutive years.",
         ],
     )
     def test_incompatible_descriptions_blocked(self, linkedin_scraper, text):
@@ -520,6 +540,7 @@ class TestDescriptionStopPatterns:
             "Remote role open to candidates in Ireland and the UK.",
             "Candidates worldwide considered. Flexible B2B contractor contract.",
             "Visa sponsorship is not available for this role. Candidates must have Stamp 4 or EU citizenship.",
+            "Resident in Ireland for the last 5 years.",
         ],
     )
     def test_compatible_descriptions_allowed(self, linkedin_scraper, text):

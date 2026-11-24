@@ -100,8 +100,9 @@ LINKEDIN_DESCRIPTION_STOP_PATTERNS = [
     # A country-only Locations list is an eligibility restriction, not proof of Europe-wide remote work.
     r'\b(?:eligible\s+)?locations?\s*:\s*(?![^.;\n]{0,160}\b(?:ireland|europe|european\s+union|eu|emea|worldwide|global|anywhere)\b)[^.;\n]{1,160}',
     r'\blooking\s+for\s+(?:an?|the)\s+.*?\s+(?:based|living|residing|located)\s+in\s+(?!ireland|europe|the\s+eu\b|eu\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\b',
-    r'\b(?:role|position|job|engineer|tester|sdet|developer|candidate|applicant|someone|you|individual|person)\b[^\.\n;]{0,40}\b(?:based|living|residing|located)\s+in\s+(?!ireland|europe|the\s+eu\b|eu\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\b',
+    r'\b(?:role|position|job|engineer|tester|sdet|developer|candidate|applicant|someone|you|individual|person)\b[^\.\n;]{0,40}\b(?:based|living|residing|located|resident)\s+in\s+(?!ireland|europe|the\s+eu\b|eu\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\b',
     r'\b(?:must|should|need\s+to|required\s+to)\s+(?:already\s+|currently\s+)?(?:be\s+)?(?:based|located|resident|living|residing|live|reside)\s+in\s+(?!ireland|europe|the\s+eu\b|eu\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\b',
+    r'(?:^|[.;:\n]\s*)(?:must\s+be\s+)?(?:currently\s+)?(?:resident|residing)\s+in\s+(?!ireland|europe|the\s+eu\b|eu\b|the\s+european\s+union\b|emea\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\b',
     r'\b(?:remotely|remote[\s,-]+)\s*(?:based|located)\s+in\s+(?!ireland|europe|the\s+eu\b|eu\b)(?:the\s+)?[a-z]{2,}(?:\s+[a-z]+)?\b',
     r'\bbased\s+in\s+(?:germany|netherlands|romania|united\s+kingdom|uk\b|poland|france|spain|italy|portugal|sweden|denmark|norway|finland|austria|switzerland|belgium|czech(?:\s+republic)?|hungary|bulgaria|croatia|greece|slovakia)\s*[\(\[]?\s*remote',
     r'\b(?:uk|united kingdom|england|scotland|wales|northern ireland)[\s-]+only\b',
@@ -174,10 +175,12 @@ NON_QA_OVERRIDE_PATTERNS = [
     r'\b(?:vehicle|emissions?)\s+test',
     # Marketing and CRO A/B testing
     r'\b(?:a\/b|cro)\s+test',
+    # Crowdsourced search / AI / content quality raters (non-software QA roles)
+    r'\b(?:quality\s+assurance|qa|search|ads|ai|content|data)\s+raters?\b',
     # Foreign language specific tester roles (requiring non-English native fluency)
     r'\b(?:with|speaking|fluent|native)\s+(?:french|german|deutsch|italian|spanish|polish|dutch|swedish|danish|norwegian|finnish|japanese|mandarin|hebrew)\b',
-    r'\b(?:french|german|deutsch|italian|spanish|polish|dutch|swedish|danish|norwegian|finnish|japanese|mandarin|hebrew)\b(?:[\s-]+[\w-]+){0,2}\s+\b(?:speaker|speaking|fluent|native|linguistic|language|locali[sz]ation)\b',
-    r'\b(?:french|german|deutsch|italian|spanish|polish|dutch|japanese)\s+speaker\b',
+    r'\b(?:french|german|deutsch|italian|spanish|polish|dutch|swedish|danish|norwegian|finnish|japanese|mandarin|hebrew)\b(?:[\s-]+[\w-]+){0,2}\s+\b(?:speakers?|speaking|fluent|native|linguistic|language|locali[sz]ation)\b',
+    r'\b(?:french|german|deutsch|italian|spanish|polish|dutch|japanese)\s+speakers?\b',
     r'\b(?:french|german|deutsch|italian|spanish|polish|dutch)\s+language\b',
 ]
 
@@ -449,12 +452,18 @@ def has_non_allowed_language_requirement(text: str) -> bool:
     """Return True when a non-English language is explicitly part of the role."""
     if not text:
         return False
-    requirement = r"speaker|speaking|fluent|native|linguistic|language|locali[sz]ation|proficiency|fluency|proficient"
+    requirement = r"speakers?|speaking|fluent|native|linguistic|language|locali[sz]ation|proficiency|fluency|proficient"
     for language in NON_ALLOWED_LANGUAGE_NAMES:
         language_pattern = re.escape(language)
         if re.search(rf"\b{language_pattern}\b.{{0,40}}\b(?:{requirement})\b", text, re.IGNORECASE):
             return True
         if re.search(rf"\b(?:{requirement})\b.{{0,40}}\b{language_pattern}\b", text, re.IGNORECASE):
+            return True
+        if re.search(
+            rf"\bcommunication(?:\s+skills)?\s+in\s+(?:[^.\n;]{{0,25}}\b)?{language_pattern}\b",
+            text,
+            re.IGNORECASE,
+        ):
             return True
     return False
 

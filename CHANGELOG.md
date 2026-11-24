@@ -17,6 +17,7 @@ Notable project changes are recorded here.
 
 ### Fixed
 
+- Reject crowdsourced `Quality Assurance Rater` / `QA Rater` roles, plural foreign-language requirements (`Spanish speakers`, `communication skills in Spanish`), and standalone country residency requirements (`Resident in Spain...`) in `config.py` and `linkedin_scraper.py`.
 - Block Hong Kong, Asia, and North America remote roles in `config.py`, and inspect Lever `categories.allLocations` plus `country` codes (alongside `SmartRecruiters` via shared `BLOCKED_DOMESTIC_COUNTRY_CODES`) so APAC postings without Europe/Ireland scope are rejected.
 - Consolidate duplicated non-LinkedIn scraper loops in `main.py` into `process_standard_jobs` and `_deliver_job_alert`, ensuring failed Telegram deliveries stay unseen for retry instead of being marked seen.
 - Add missing `WorkRemotely.eu` presentation (alongside `TechJobs.ie`) in `telegram_notifier.py`, deduplicate source badge/link resolution, escape URLs cleanly, and format boolean search queries in `<code>` tags.

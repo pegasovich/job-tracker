@@ -264,7 +264,8 @@ class LinkedInJobScraper:
         for neg in overrides:
             if re.search(neg, t, re.IGNORECASE):
                 # Allow only if title specifically includes explicit QA/SDET markers like "in Test", "SDET", "QA"
-                if not re.search(r'\b(?:in\s+test|sdet|qa)\b', t, re.IGNORECASE):
+                # (except non-software rater roles such as "QA Rater").
+                if re.search(r'\braters?\b', t, re.IGNORECASE) or not re.search(r'\b(?:in\s+test|sdet|qa)\b', t, re.IGNORECASE):
                     return False
 
         # 2. Positive QA patterns
