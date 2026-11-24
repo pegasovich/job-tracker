@@ -269,6 +269,7 @@ Located in [`chrome-extension/`](./chrome-extension/): A lightweight Manifest V3
 * **Rich-Text & Plain Text Support:** Seamlessly autofills both native `<textarea>` and rich-text editors (Froala, contenteditable) with proper DOM change events.
 * **AI Engine:** Powered by Google's free **Gemini API** (`gemini-2.0-flash` / `gemini-3.8-flash` with automatic fallback).
 * **Anti-Hallucination & Transferable Skills:** Strictly enforces truthful positioning based on the candidate's actual profile; bridges skill gaps via fundamental engineering concepts without fabricating experience.
+* **Paste-Ready Cover Letters:** Generates only the final application text, filters model-marked reasoning, and follows the selected concise/detailed format (85/120 words, respectively) without analysis, checklists, or draft notes.
 * **Installation:** Open `chrome://extensions/` ➔ Enable Developer Mode ➔ **Load unpacked** ➔ Select `chrome-extension/`.
 
 ---
