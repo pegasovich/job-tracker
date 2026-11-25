@@ -41,8 +41,8 @@ This file gives coding agents (Codex, Antigravity, Cursor, Claude Code, Copilot)
    - All faster/non-throttled APIs & ATS boards run before LinkedIn so LinkedIn `429` backoff never delays their Telegram alerts.
 2. **LinkedIn Cloud Rotation & `429` Protection (`config.py`, `main.py`, `database.py`):**
    - GitHub Actions `ubuntu-latest` IPs are heavily rate-limited by LinkedIn Guest API.
-   - `SEARCH_KEYWORDS` has **4 compact boolean groups** (<= 4 phrases each) across **3 regions** (`TARGET_LOCATIONS = ["Ireland", "Europe", "Worldwide"]`).
-   - `build_linkedin_rotation_queries()` interleaves regions across keyword groups (`[(loc, kw) for kw in keywords for loc in locations]`) -> **12 slots total** (~6-hour full cycle at 30-min Actions schedule; each region polled every ~1.5 hours).
+   - `SEARCH_KEYWORDS` has **2 compact boolean groups** (<= 4 phrases each) across **3 regions** (`TARGET_LOCATIONS = ["Ireland", "Europe", "Worldwide"]`).
+   - `build_linkedin_rotation_queries()` interleaves regions across keyword groups (`[(loc, kw) for kw in keywords for loc in locations]`) -> **6 slots total** (~3-hour full cycle at 30-min Actions schedule; each region polled every ~1 hour).
    - Each scheduled run fetches **1 search page** (`max_pages=1`, `LINKEDIN_SEARCH_LIMIT=10`, matching LinkedIn Guest API's 10 cards/page) advancing `rotation_state` in `jobs_seen.db`.
    - Local filters (`db.is_seen`, `is_qa_title`, `is_location_blocked`) execute **before** `get_job_description()`.
    - Detail HTTP requests are capped (`LINKEDIN_MAX_DETAIL_FETCHES=8`, `1` in `--test`) and **halt immediately** (`detail_rate_limited = True`) on any exhausted `429`, leaving remaining candidates unseen rather than hammering LinkedIn.

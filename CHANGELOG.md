@@ -4,6 +4,10 @@ Notable project changes are recorded here.
 
 ## [Unreleased]
 
+### Changed
+
+- Consolidate LinkedIn `SEARCH_KEYWORDS` in `config.py` from 4 groups (12 rotation slots) to 2 broad QA/SDET boolean groups (6 rotation slots across `Ireland`, `Europe`, `Worldwide`), removing redundant contract-only subset queries and cutting the full LinkedIn rotation cycle from ~6 hours to ~3 hours.
+
 ### Added
 
 - Add `Workable` (`workable_scraper.py`) and hourly-polled `SmartRecruiters` (`smartrecruiters_scraper.py`) direct ATS integrations, expand `LEVER_COMPANIES` from 5 to 11 active boards, and add Irish contract terms (`"Daily Rate"`, `"Day Rate"`, `"FTC"`) to LinkedIn contract queries in `config.py`.

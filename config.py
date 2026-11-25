@@ -185,11 +185,10 @@ NON_QA_OVERRIDE_PATTERNS = [
 ]
 
 # Target keywords to monitor for QA/SDET (Manual & Automation)
-# Compact boolean groups (<= 4 phrases each) keep one search per run reliable on LinkedIn Guest API
-# while shrinking the full 3-region rotation to 12 slots (~6 hours at 30-min intervals).
+# Two compact boolean groups cover all SDET/Automation and QA/Tester roles (including
+# contracts, which are a subset of these broad queries), shrinking the 3-region
+# rotation to 6 slots (~3 hours at 30-min intervals, ~1 hour per region).
 SEARCH_KEYWORDS = [
-    '("SDET" OR "QA Automation") AND ("Contract" OR "Daily Rate" OR "Day Rate" OR "FTC" OR "B2B" OR "Deel")',
-    '("QA Engineer" OR "Software Tester") AND ("Contract" OR "Daily Rate" OR "Day Rate" OR "FTC" OR "B2B" OR "Deel")',
     '("SDET" OR "QA Automation" OR "Automation QA" OR "Test Automation")',
     '("QA Engineer" OR "Manual QA" OR "QA Tester" OR "Software Tester")',
 ]

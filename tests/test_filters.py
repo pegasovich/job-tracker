@@ -650,17 +650,19 @@ class TestLinkedInRotationAndDetailGuards:
             ("Worldwide", "kw2"),
         ]
 
-    def test_configured_linkedin_rotation_is_compact_twelve_slots(self):
+    def test_configured_linkedin_rotation_is_compact_six_slots(self):
         from main import build_linkedin_rotation_queries
 
         queries = build_linkedin_rotation_queries(
             config.TARGET_LOCATIONS,
             config.SEARCH_KEYWORDS,
         )
-        assert len(queries) == 12
+        assert len(queries) == 6
         assert config.LINKEDIN_SEARCH_LIMIT == 10
         assert config.LINKEDIN_MAX_DETAIL_FETCHES == 8
-        assert any("Daily Rate" in kw and "Day Rate" in kw and "FTC" in kw for kw in config.SEARCH_KEYWORDS)
+        assert len(config.SEARCH_KEYWORDS) == 2
+        assert any("SDET" in kw and "QA Automation" in kw for kw in config.SEARCH_KEYWORDS)
+        assert any("QA Engineer" in kw and "Software Tester" in kw for kw in config.SEARCH_KEYWORDS)
         assert len(config.LEVER_COMPANIES) >= 10
 
     @patch("main.time.sleep", return_value=None)
