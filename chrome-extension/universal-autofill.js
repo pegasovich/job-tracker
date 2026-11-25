@@ -36,6 +36,7 @@
       city: profile.candidateCity || "Cahersiveen",
       county: profile.candidateCounty || "Kerry",
       postcode: profile.candidatePostcode || "",
+      linkedin,
       otherContactDetails: profile.candidateOtherContactDetails !== undefined
         ? profile.candidateOtherContactDetails
         : `LinkedIn: ${linkedin}\nGitHub: ${github}`
@@ -93,6 +94,7 @@
     if (autocomplete === "email" || element.type === "email" || hasAny(normalized, ["email", "e mail"])) {
       return data.email;
     }
+    if (hasAny(normalized, ["linkedin", "linked in"])) return data.linkedin;
     if (isCountryField(normalized, autocomplete)) return data.country;
 
     const addressValue = getAddressFieldValue(normalized, autocomplete, data);
@@ -158,7 +160,7 @@
       "first name", "first_name", "given name", "last name", "last_name", "family name", "surname",
       "email", "e-mail", "phone", "mobile", "telephone", "country", "name", "find address",
       "address", "street", "town", "city", "county", "state", "province", "postal", "postcode",
-      "post code", "zip", "contact details"
+      "post code", "zip", "contact details", "linkedin", "linked in"
     ].map(normalize);
     const nearbyLabels = [];
     if (!hasAny(normalize(labelParts.join(" ")), labelTerms)) {
