@@ -184,7 +184,7 @@ job-tracker/
 Every `git push` and Pull Request automatically triggers the test pipeline:
 1. Provisions an Ubuntu runner on Python 3.12.
 2. Installs runtime and testing dependencies with pip caching.
-3. Runs all **306 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
+3. Runs all **351 tests** with coverage collection (`pytest --cov=. --cov-report=term-missing`).
 4. Enforces the Quality Gate before merging.
 
 ---
@@ -219,7 +219,7 @@ ADZUNA_APP_KEY=your_adzuna_app_key
 
 ### 3. Running the Test Suite
 ```bash
-# Run all 306 tests
+# Run all 351 tests
 pytest -q
 
 # Run with coverage report
@@ -261,7 +261,7 @@ The platform includes an automated cloud workflow (`.github/workflows/tracker_cr
 3. **State Persistence (Git Scraping):** Automatically commits and pushes the updated `jobs_seen.db` back to the repository so duplicate alerts are never sent across runs.
 4. **Cloud-Optimized Rate Limiting:**
    * Unlike residential home IPs, cloud data centers (e.g. GitHub/Azure) encounter aggressive `429 Too Many Requests` thresholds from LinkedIn's guest API.
-   * Each half-hour Actions run makes one LinkedIn search-page request (up to 10 cards on page 1) across 4 compact boolean keyword groups interleaved across 3 regions (12 slots total); a persisted cursor in `jobs_seen.db` advances across runs, polling each region every ~1.5 hours and revisiting every slot about every 6 hours.
+   * Each half-hour Actions run makes one LinkedIn search-page request (up to 10 cards on page 1) across 2 broad boolean keyword groups interleaved across 3 regions (6 slots total); a persisted cursor in `jobs_seen.db` advances across runs, polling each region every ~1 hour and revisiting every slot about every 3 hours.
    * LinkedIn pagination is capped at one page per run (`max_pages=1`). Detail requests for unseen candidates are capped at `LINKEDIN_MAX_DETAIL_FETCHES=8` per run after free local title/geo filtering. The search request uses one retry (`LINKEDIN_MAX_RETRIES=1`, `LINKEDIN_RETRY_BASE_WAIT=10s`); after a final 429, the rotation moves on and retries that pair in the next cycle.
    * A detail fetch that fails with 429 stops further detail fetches in that run and leaves deferred jobs unseen so they can be retried in the next cycle. The other job sources run before LinkedIn, so a LinkedIn backoff does not postpone their alerts.
 5. **Repository Secrets:** Add your credentials under **Settings ➔ Secrets and variables ➔ Actions ➔ New repository secret**:

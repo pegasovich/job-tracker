@@ -31,7 +31,7 @@ This file gives coding agents (Codex, Antigravity, Cursor, Claude Code, Copilot)
 | `chrome-extension/` | Manifest V3 extension: `background.js` (Gemini API cover letters), `content.js` / `content.css` (DOU/Djinni/LinkedIn/ATS button injection), `popup.html` / `popup.js`, `universal-autofill.js` (frame-aware contact/address autofill), `tests/universal-autofill.test.js`. |
 | `.github/workflows/tracker_cron.yml` | Cloud runner triggered via `workflow_dispatch` every ~30 min (external scheduler). Runs `python main.py` and merges/commits `jobs_seen.db` back to `main` (`[skip ci]`). |
 | `.github/workflows/tests.yml` | CI quality gate on push/PR: runs `node --test chrome-extension/tests/universal-autofill.test.js` and `pytest --cov=. --cov-report=term-missing`. |
-| `tests/` | Pytest suite (306 tests). `conftest.py` provides `memory_db`, `sample_job`, `linkedin_scraper`, and `notifier_*` fixtures. |
+| `tests/` | Pytest suite (351 tests). `conftest.py` provides `memory_db`, `sample_job`, `linkedin_scraper`, and `notifier_*` fixtures. |
 
 ---
 
@@ -63,7 +63,7 @@ This file gives coding agents (Codex, Antigravity, Cursor, Claude Code, Copilot)
 ## 4. Common Commands
 
 ```bash
-# Run Python unit test suite (306 tests)
+# Run Python unit test suite (351 tests)
 pytest -q
 
 # Run full Python test suite with coverage (CI gate)
