@@ -17,6 +17,8 @@ Notable project changes are recorded here.
 
 ### Fixed
 
+- Reject LinkedIn cards whose card-level location is a specific foreign city/country (e.g., `Mazowieckie, Poland`, `Berlin, Germany`) even when the job description claims `Remote (Europe)`, `b2b contractor`, or other international-remote phrases. The LinkedIn Guest API does not expose the Hybrid workplace badge without authentication, so description-level remote claims are only trusted when the card location itself is a broad eligible scope (`Ireland`, `Europe`, `EMEA`, `Worldwide`, etc.). Implemented via a `has_eligible_remote_scope(location)` guard in `detect_workplace_type()` (`linkedin_scraper.py`).
+
 - Deduplicate reposted and cross-listed job alerts across runs and feeds via `delivered_fingerprints` in `database.py` (with `merge_from()` support) and content fingerprinting in `ArcherJobScraper` (`irish_agencies_scraper.py`) and `main.py`, while preserving distinct roles at the same company and retries after failed deliveries.
 - Reject crowdsourced `Quality Assurance Rater` / `QA Rater` roles, plural foreign-language requirements (`Spanish speakers`, `communication skills in Spanish`), and standalone country residency requirements (`Resident in Spain...`) in `config.py` and `linkedin_scraper.py`.
 - Block Hong Kong, Asia, and North America remote roles in `config.py`, and inspect Lever `categories.allLocations` plus `country` codes (alongside `SmartRecruiters` via shared `BLOCKED_DOMESTIC_COUNTRY_CODES`) so APAC postings without Europe/Ireland scope are rejected.

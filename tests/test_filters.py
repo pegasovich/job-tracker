@@ -143,6 +143,68 @@ class TestLinkedInWorkplaceTypeDetection:
         assert detected == "onsite"
 
 
+    @pytest.mark.parametrize(
+        "location,description",
+        [
+            (
+                "Mazowieckie, Poland",
+                "Contract Senior QA Automation Engineer – GenAI / LLM | Remote (Europe) | 6–12 Months. Remote, nearshore. ASAP start.",
+            ),
+            (
+                "Warsaw, Mazowieckie, Poland",
+                "Fully remote role open to candidates anywhere in Europe.",
+            ),
+            (
+                "Berlin, Germany",
+                "b2b contract, remote (europe), nearshore.",
+            ),
+            (
+                "Paris, Île-de-France, France",
+                "Work from anywhere in Europe. B2B contractor agreement.",
+            ),
+            (
+                "Lisbon, Portugal",
+                "Fully remote worldwide. No office requirement.",
+            ),
+        ],
+    )
+    def test_specific_foreign_city_ignores_description_remote_europe_claim(
+        self, linkedin_scraper, location, description
+    ):
+        """A specific foreign city card must NOT be classified as remote even when the
+        description claims Remote (Europe) or similar — LinkedIn Guest API hides the
+        Hybrid badge from unauthenticated requests."""
+        detected = linkedin_scraper.detect_workplace_type(
+            title="QA Automation Engineer",
+            location=location,
+            description=description,
+        )
+        assert detected == "onsite"
+
+    @pytest.mark.parametrize(
+        "location,description",
+        [
+            ("European Union", "Remote (Europe). B2B contractor agreement."),
+            ("European Economic Area", "Work from anywhere in Europe."),
+            ("Europe", "b2b contract, remote (europe), nearshore."),
+            ("Worldwide", "Fully remote worldwide."),
+            ("Remote", "Fully remote worldwide. Work from anywhere."),
+            ("Ireland", "b2b contractor, remote (europe)."),
+        ],
+    )
+    def test_broad_location_with_international_remote_description_still_passes(
+        self, linkedin_scraper, location, description
+    ):
+        """Broad card locations (Europe, EEA, Worldwide, etc.) paired with
+        international remote description phrases must still resolve to remote."""
+        detected = linkedin_scraper.detect_workplace_type(
+            title="QA Automation Engineer",
+            location=location,
+            description=description,
+        )
+        assert detected == "remote"
+
+
 class TestDjinniCountryEligibility:
     """Tests geographic applicant restrictions from Djinni JSON-LD."""
 

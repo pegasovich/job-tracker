@@ -287,7 +287,7 @@ class LinkedInJobScraper:
             return False
         loc_without_northern_ireland = re.sub(r'\bnorthern\s+ireland\b', '', loc, flags=re.IGNORECASE)
         return bool(re.search(
-            r'\b(?:ireland|europe|european union|eu|emea|worldwide|anywhere|global)\b',
+            r'\b(?:ireland|europe(?:an)?(?:\s+(?:union|economic\s+area))?|eu|emea|worldwide|anywhere|global)\b',
             loc_without_northern_ireland,
             re.IGNORECASE,
         ))
@@ -447,7 +447,15 @@ class LinkedInJobScraper:
         if any(r in d for r in international_remote):
             if has_onsite_marker:
                 return "onsite"
-            return "remote"
+            # Only honour a description-level international-remote claim when the
+            # card-level location is itself a broad eligible scope (Ireland, Europe,
+            # EMEA, Worldwide …).  A specific foreign city such as
+            # "Mazowieckie, Poland" means the role is at minimum domestic-remote for
+            # that country; LinkedIn hides the Hybrid badge from the Guest API for
+            # unauthenticated requests, so we cannot rely on the description alone.
+            if self.has_eligible_remote_scope(location):
+                return "remote"
+            # Fall through so the foreign-city guard further below can apply.
 
         # 5. High-confidence explicit remote phrases
         explicit_remote = [
