@@ -105,6 +105,64 @@ class TestArbeitnowScraper:
             assert "Открыть вакансию на Arbeitnow" in text
 
 
+    @pytest.mark.parametrize(
+        "location",
+        [
+            "Austria, Germany, Spain, Italy, Hungary, Portugal, Croatia",
+            "Germany, Poland, Czech Republic",
+            "Poland, Portugal - Remote",
+            "Spain, France, Netherlands",
+            "Austria / Germany / Switzerland",
+        ],
+    )
+    def test_multi_country_location_without_ireland_rejected(self, location):
+        """Remote jobs listing multiple specific countries without Ireland must be rejected."""
+        scraper = ArbeitnowJobScraper()
+        item = {
+            "slug": "ecosio-qa-test-automation-456789",
+            "company_name": "ecosio",
+            "title": "(Senior) Java Test Automation Engineer",
+            "description": "<p>Great remote role for QA engineers.</p>",
+            "remote": True,
+            "url": "https://www.arbeitnow.com/jobs/companies/ecosio/qa-456789",
+            "tags": ["QA", "Java"],
+            "location": location,
+            "created_at": 1732100000,
+        }
+        parsed = scraper._parse_single_item(item, remote_only=True)
+        assert parsed is None
+
+    @pytest.mark.parametrize(
+        "location",
+        [
+            "Ireland, Germany, Poland",
+            "Europe",
+            "Remote",
+            "Berlin",
+            "Worldwide",
+            "Germany, Ireland, Spain",
+            "Austria, Germany, Europe",
+            "",
+        ],
+    )
+    def test_location_with_ireland_or_broad_scope_accepted(self, location):
+        """Remote jobs with Ireland, broad scope, or a single city must be accepted."""
+        scraper = ArbeitnowJobScraper()
+        item = {
+            "slug": "acme-qa-engineer-123456",
+            "company_name": "Acme Corp",
+            "title": "QA Automation Engineer",
+            "description": "<p>Remote QA role open across the region.</p>",
+            "remote": True,
+            "url": "https://www.arbeitnow.com/jobs/companies/acme/qa-123456",
+            "tags": ["QA"],
+            "location": location,
+            "created_at": 1732100000,
+        }
+        parsed = scraper._parse_single_item(item, remote_only=True)
+        assert parsed is not None
+
+
 class TestNonEnglishTextDetection:
     """Tests for detecting non-English (German, French, Spanish, Polish) job postings."""
 

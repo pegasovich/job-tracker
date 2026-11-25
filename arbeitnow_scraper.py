@@ -132,6 +132,26 @@ class ArbeitnowJobScraper:
         if remote_only and LinkedInJobScraper.is_location_blocked(raw_loc):
             return None
 
+        # Reject remote roles restricted to a list of specific foreign countries
+        # without Ireland or a broad scope (Europe, EU, Worldwide …).
+        # E.g. "Austria, Germany, Spain, Italy, Hungary, Portugal, Croatia" lists
+        # eligible countries explicitly and Ireland is not among them.
+        # A single city/country (e.g. "Berlin") is NOT blocked — it is likely just
+        # the company HQ, not a country-restriction list.
+        if remote_only and is_remote and raw_loc:
+            loc_parts = [p.strip() for p in re.split(r'[,;/–—-]+', raw_loc) if p.strip()]
+            # Strip filler tokens that are not country names
+            geo_parts = [
+                p for p in loc_parts
+                if p.lower() not in ("remote", "homeoffice", "home office", "hybrid")
+            ]
+            if len(geo_parts) >= 2 and not LinkedInJobScraper.has_eligible_remote_scope(raw_loc):
+                logger.debug(
+                    f"Skipping Arbeitnow job without Ireland-eligible scope: "
+                    f"'{title}' @ {company} [{raw_loc}]"
+                )
+                return None
+
         # Description cleaning (needed early for language detection)
         raw_desc = item.get("description", "")
         clean_desc = html.unescape(re.sub(r"<[^>]+>", " ", raw_desc))
