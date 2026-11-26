@@ -834,6 +834,63 @@ class TestLinkedInRotationAndDetailGuards:
         assert memory_db.is_seen("gh_1") is False
         assert memory_db.is_seen("gh_2") is True
 
+    def test_standard_jobs_rejects_content_quality_evaluator_even_with_qa_title(
+        self, memory_db
+    ):
+        from main import process_standard_jobs
+
+        jobs = [{
+            "id": "wwr_crux_video_audio_qa",
+            "title": "Crux - Video and Audio QA - English (US)",
+            "company": "Welo Data",
+            "location": "Remote (Anywhere in the World)",
+            "description": (
+                "We are hiring Quality Control (QC) evaluators for Search and Linguistic tasks. "
+                "Work includes query annotation, text classification, and video, image, and audio reviews."
+            ),
+            "url": "https://weworkremotely.com/remote-jobs/welo-data-crux-video-and-audio-qa-english-us",
+            "workplace_type": "remote",
+        }]
+        notifier = MagicMock()
+
+        new_count, filtered_count = process_standard_jobs(
+            "WeWorkRemotely", jobs, memory_db, notifier, dry_run=False
+        )
+
+        assert new_count == 0
+        assert filtered_count == 1
+        notifier.send_job_alert.assert_not_called()
+        assert memory_db.is_seen("wwr_crux_video_audio_qa") is True
+
+    def test_wwr_us_country_metadata_is_rejected_before_delivery(self, memory_db):
+        from main import _weworkremotely_scope_filter, process_standard_jobs
+
+        jobs = [{
+            "id": "wwr_us_qa",
+            "title": "QA Automation Engineer",
+            "company": "Example US",
+            "location": "Remote (Anywhere in the World | 🇺🇸 United States of America)",
+            "description": "Software QA automation role.",
+            "url": "https://weworkremotely.com/remote-jobs/example-us-qa",
+            "workplace_type": "remote",
+        }]
+        notifier = MagicMock()
+
+        new_count, filtered_count = process_standard_jobs(
+            "WeWorkRemotely",
+            jobs,
+            memory_db,
+            notifier,
+            dry_run=False,
+            require_confirmed_remote=True,
+            extra_filter=_weworkremotely_scope_filter,
+        )
+
+        assert new_count == 0
+        assert filtered_count == 1
+        notifier.send_job_alert.assert_not_called()
+        assert memory_db.is_seen("wwr_us_qa") is True
+
     def test_remote_feed_jobs_rejects_unconfirmed_remote_and_marks_dry_run_seen(
         self, memory_db
     ):

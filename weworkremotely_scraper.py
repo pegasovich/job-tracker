@@ -106,6 +106,9 @@ class WeWorkRemotelyJobScraper:
             guid = item.findtext("guid", "").strip() or link
             pub_date = item.findtext("pubDate", "").strip()
             raw_desc = item.findtext("description", "").strip()
+            region = item.findtext("region", "").strip()
+            country = item.findtext("country", "").strip()
+            state = item.findtext("state", "").strip()
 
             if not raw_title or not link:
                 continue
@@ -147,17 +150,23 @@ class WeWorkRemotelyJobScraper:
             slug = guid.rstrip("/").split("/")[-1]
             job_id = f"wwr_{slug}" if slug else f"wwr_{abs(hash(link))}"
 
+            # WWR provides the employer's remote region and optional country/state
+            # separately. Keep all of them so country restrictions are not hidden by
+            # a broad region such as "Anywhere in the World".
+            location_scope = " | ".join(part for part in (region, country, state) if part)
+            location = f"Remote ({location_scope})" if location_scope else "Remote (scope not stated)"
+
             jobs.append({
                 "id": job_id,
                 "title": title,
                 "company": company,
-                "location": "Remote (Worldwide)",
+                "location": location,
                 "url": link,
                 "posted_date": pub_date[:16] if pub_date else "",
                 "description": clean_desc,
                 "salary": salary,
                 "source": "WeWorkRemotely",
-                "workplace_type": "remote",
+                "workplace_type": "remote" if location_scope else "unclear",
             })
 
         return jobs

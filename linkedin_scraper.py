@@ -280,6 +280,25 @@ class LinkedInJobScraper:
         return has_qa
 
     @staticmethod
+    def is_non_software_quality_evaluation_role(title: str, description: str) -> bool:
+        """Reject content/data rating jobs whose title happens to contain QA or QC."""
+        text = f"{title or ''} {description or ''}"
+        evaluator_role_patterns = [
+            r'\bquality\s+control(?:\s*\(\s*qc\s*\))?\s+(?:evaluators?|raters?|reviewers?)\b',
+            r'\b(?:search|linguistic|content|data|ai)\s+(?:quality\s+)?(?:evaluators?|raters?|reviewers?|annotators?|labelers?)\b',
+        ]
+        if any(re.search(pattern, text, re.IGNORECASE) for pattern in evaluator_role_patterns):
+            return True
+
+        has_rating_task = re.search(
+            r'\b(?:query\s+annotation|text\s+classification|data\s+label(?:ing|ling)|search\s+quality\s+evaluation)\b',
+            text,
+            re.IGNORECASE,
+        )
+        has_evaluator = re.search(r'\b(?:evaluators?|raters?|annotators?|labelers?)\b', text, re.IGNORECASE)
+        return bool(has_rating_task and has_evaluator)
+
+    @staticmethod
     def has_eligible_remote_scope(location: str) -> bool:
         """Return True when a location names Ireland (excluding Northern Ireland) or a broad eligible region."""
         loc = (location or "").strip()

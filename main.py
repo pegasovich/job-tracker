@@ -192,7 +192,9 @@ def process_standard_jobs(
         workplace_type = job.get("workplace_type", "remote")
 
         reason = ""
-        if not LinkedInJobScraper.is_qa_title(title):
+        if LinkedInJobScraper.is_non_software_quality_evaluation_role(title, description):
+            reason = "content/data quality evaluation rather than software QA"
+        elif not LinkedInJobScraper.is_qa_title(title):
             reason = "not a QA/SDET role"
         elif require_confirmed_remote and workplace_type != "remote":
             reason = "not confirmed fully remote"
@@ -248,6 +250,13 @@ def process_remote_feed_jobs(source_name: str, jobs: List[Dict], db: JobDatabase
         dry_run,
         require_confirmed_remote=True,
     )
+
+
+def _weworkremotely_scope_filter(job: Dict) -> str:
+    """Require WWR to explicitly include Ireland or a broad eligible region."""
+    if not LinkedInJobScraper.has_eligible_remote_scope(job.get("location", "")):
+        return "WWR feed does not confirm Ireland/Europe/worldwide eligibility"
+    return ""
 
 
 def build_linkedin_rotation_queries(locations: List[str], keywords: List[str]) -> List[tuple[str, str]]:
@@ -602,7 +611,13 @@ def run_tracker(dry_run: bool = False, test_mode: bool = False):
         logger.info("💼 Поиск на WeWorkRemotely RSS...")
         wwr = WeWorkRemotelyJobScraper()
         wwr_jobs = wwr.search_jobs(remote_only=True, limit=wwr_limit)
-        collect_and_process("WeWorkRemotely", wwr_jobs)
+
+        collect_and_process(
+            "WeWorkRemotely",
+            wwr_jobs,
+            require_confirmed_remote=True,
+            extra_filter=_weworkremotely_scope_filter,
+        )
 
     # --- Himalayas (himalayas.app API) ---
     if getattr(config, "ENABLE_HIMALAYAS", True):

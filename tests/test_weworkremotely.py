@@ -15,6 +15,9 @@ SAMPLE_WWR_XML = """<?xml version="1.0" encoding="UTF-8"?>
       <link>https://weworkremotely.com/remote-jobs/awesome-tech-senior-qa-automation-engineer</link>
       <guid>https://weworkremotely.com/remote-jobs/awesome-tech-senior-qa-automation-engineer</guid>
       <pubDate>Fri, 20 Nov 2026 12:00:00 +0000</pubDate>
+      <region>Anywhere in the World</region>
+      <country></country>
+      <state></state>
       <description><![CDATA[<p><strong>Headquarters:</strong> Dublin, Ireland<br />We are hiring a Senior QA Automation Engineer with Python and Playwright skills.</p>]]></description>
     </item>
     <item>
@@ -66,6 +69,40 @@ class TestWeWorkRemotelyScraper:
         jobs = scraper.parse_feed(SAMPLE_WWR_XML, qa_only=True)
         titles = [j["title"] for j in jobs]
         assert "Lead Software Test Engineer" not in titles
+
+    def test_parse_feed_preserves_country_even_with_worldwide_region(self):
+        xml = """<?xml version="1.0"?>
+        <rss><channel><item>
+          <title>Welo Data: QA Engineer</title>
+          <link>https://weworkremotely.com/remote-jobs/welo-data-qa-engineer</link>
+          <guid>https://weworkremotely.com/remote-jobs/welo-data-qa-engineer</guid>
+          <region>Anywhere in the World</region>
+          <country>🇺🇸 United States of America</country>
+          <state>California</state>
+          <description>Software QA automation role.</description>
+        </item></channel></rss>"""
+
+        jobs = WeWorkRemotelyJobScraper().parse_feed(xml)
+
+        assert len(jobs) == 1
+        assert "Anywhere in the World" in jobs[0]["location"]
+        assert "United States of America" in jobs[0]["location"]
+        assert "California" in jobs[0]["location"]
+        assert jobs[0]["workplace_type"] == "remote"
+
+    def test_parse_feed_marks_missing_scope_unclear(self):
+        xml = """<?xml version="1.0"?>
+        <rss><channel><item>
+          <title>Example: QA Engineer</title>
+          <link>https://weworkremotely.com/remote-jobs/example-qa-engineer</link>
+          <guid>https://weworkremotely.com/remote-jobs/example-qa-engineer</guid>
+          <description>Software QA role.</description>
+        </item></channel></rss>"""
+
+        jobs = WeWorkRemotelyJobScraper().parse_feed(xml)
+
+        assert jobs[0]["workplace_type"] == "unclear"
+        assert jobs[0]["location"] == "Remote (scope not stated)"
 
     def test_parse_feed_malformed_xml(self):
         scraper = WeWorkRemotelyJobScraper()
