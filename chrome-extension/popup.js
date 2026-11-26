@@ -1,21 +1,28 @@
 // Popup script for Job Apply AI Assistant
 
-const DEFAULT_PROFILE = `Имя: Олег Кривокобыльский (Oleg Kryvokobylskyi)
-Локация: Cahersiveen, Co. Kerry, Ireland (Full Right to Work in Ireland / No Sponsorship Required)
-Контакты: +353 83 395 9693 | pegasovich@gmail.com
-Роль: Senior QA Engineer / QA Automation Engineer (SDET)
-Опыт: 15+ лет коммерческого опыта в Quality Assurance & Test Automation (Web, Desktop, API, Cloud Distributed Systems).
-Компании: EPAM Systems (2017 – 2025, Senior Test Automation Engineer / QA Lead), GlobalLogic (2012 – 2017, Senior QA / Automation).
+const DEFAULT_PROFILE = `Name: Oleg Kryvokobylskyi
+Role: QA Automation Engineer / SDET | Python & Cloud Automation (15+ years)
+Location: Cahersiveen, Co. Kerry, Ireland | +353 83 395 9693 | pegasovich@gmail.com
+Work Authorization: Stamp 4 / EU Work Rights (No Sponsorship Needed); PAYE & B2B Contracting (Umbrella / Ltd); 100% Remote (Worldwide / EMEA / Ireland) or Hybrid (Munster / Kerry Area)
+Links: LinkedIn: oleg-kryvokobylskyi | GitHub: pegasovich
 
-Ключевые навыки и стек:
-- Языки & Фреймворки автоматизации: Python (Playwright, PyTest), C# (.NET, SpecFlow, Selenium WebDriver, NUnit).
-- Тестирование API: REST API, Postman, Swagger, Fiddler, GraphQL.
-- Базы данных & Инфраструктура: SQL (PostgreSQL, MS SQL, MySQL, Azure SQL), Docker, Kubernetes, Linux (Ubuntu, bash), Windows Server.
-- CI/CD & Репозитории: GitHub Actions, Jenkins, Azure DevOps, Git.
-- Процессы и домены: FinTech (Investment Banking), Media Technology, Cloud Virtualization, Distributed Systems Testing.
-- Образование: Высшее техническое (Bachelor of Engineering in Computer Science, НТУУ 'КПИ' / NTUU KPI, 1995–2001, диплом с отличием / GPA 4.8 из 5.0).
-- Английский язык: Professional Working Proficiency (C1 / Full professional communication).
-- Готовность к командировкам: Полная готовность к международным командировкам (2-4 недели в год).`;
+SUMMARY:
+15+ years of international experience designing, architecting, and scaling end-to-end QA and test automation across Web, Cloud, Distributed Systems, Desktop, and APIs using Python (Playwright, PyTest, Requests) and C# (.NET Core, SpecFlow BDD, Selenium WebDriver, NUnit, XUnit), plus CI/CD (GitHub Actions, Azure DevOps), API validation (REST, GraphQL, Postman, Swagger/OpenAPI), SQL (PostgreSQL, MS SQL, MySQL, Azure SQL, SQLite), and AI-augmented testing (LLM-assisted API test generation, AI log triage/RCA, synthetic GDPR-compliant test data, self-healing locators).
+
+EXPERIENCE:
+- Software Testing Engineer (Manual & Automation) — EPAM Systems (Mar 2023 – Sep 2025) | Project: Unified UI (UUI) Framework: Led E2E functional, regression, accessibility, and cross-browser testing for an enterprise open-source UI Design Library; built Python automation/validation scripts for data consistency, component contracts, and GraphQL APIs; mobile web & multi-device cloud farm testing; Agile (30+ devs, 12 QAs).
+- Software Testing Engineer (Automation & BDD Focus) — EPAM Systems (Nov 2020 – Mar 2023) | Client: WPP Digital: Architected scalable UI & API automation in C#, .NET Core 3.1, SpecFlow (BDD), Selenium WebDriver; Azure DevOps CI/CD stages; test plans, Gherkin scenarios, REST API testing (Postman, Swagger).
+- QA Engineer — EPAM Systems (Feb 2020 – Sep 2020) | Client: Wolters Kluwer: QA migration strategy from VB6 (32-bit) to VB.NET (64-bit), 64-bit MS Office compatibility, MS SQL Server integrity validation suites.
+- Software Testing Engineer — EPAM Systems (Sep 2017 – Jan 2020) | Client: Barclays Capital (Tier-1 Investment Banking): APAC Regional Electronic Trading Platforms (Bloomberg, TradeWeb, Yensai); low-latency order execution, Windows Desktop trading terminals, Python & TestComplete server-side verification scripts for real-time market data feeds and algorithmic order flows.
+- QA Engineer — GlobalLogic (Feb 2012 – Jun 2017) | Client: Avid Technology: Avid NEXIS enterprise shared storage for broadcast media; Linux (Debian), macOS, Windows Server test labs; Cisco/Force10 10GbE, Fibre Channel, SAN/NAS failover/performance; Python node verification scripts.
+- QA Engineer — Quest Software / Vizioncore Inc. (Feb 2008 – Oct 2011): System/functional QA for vOptimizer & VM Backup & Replication; VMware ESXi, vCenter, stress/load testing, Jira, TestRail.
+
+FEATURED PROJECT:
+- Automated Job Intelligence & Real-Time Alerting Engine (github.com/pegasovich/job-tracker, Sep 2025 – Present): Python 3.12/3.13, PyTest (mocked APIs, 90%+ coverage), SQLite, GitHub Actions CI/CD, Telegram Bot API, HTTP 429 backoff, multi-stage filtering.
+
+EDUCATION & LANGUAGES:
+- B.E. in Computer Science, National Technical University of Ukraine "KPI" (1995 – 2001).
+- Languages: English (Professional Working Proficiency), Ukrainian / Russian (Native).`;
 
 const DEFAULT_DEGREE_RESULT = `Bachelor of Engineering (B.E.) in Computer Science, National Technical University of Ukraine "Kyiv Polytechnic Institute" (NTUU KPI). Degree result: 4.8 out of 5.0 (Grading system: 5-point scale where 5 is Excellent / Equivalent to First-Class Honours / Top 5% of class).`;
 

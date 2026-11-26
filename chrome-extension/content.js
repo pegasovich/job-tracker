@@ -265,8 +265,17 @@
     } else if (hostname.includes("dou.ua")) {
       title = document.querySelector(".b-vacancy h1.g-h2, h1.g-h2, h1")?.innerText?.trim() || "";
       company = document.querySelector(".b-vacancy .info .l-n a, .company a")?.innerText?.trim() || "";
-      const descEl = document.querySelector(".b-typo.vacancy-section, .vacancy-section, .b-vacancy");
-      description = descEl ? descEl.innerText.trim() : "";
+      const primaryDescEl = document.querySelector(".b-typo.vacancy-section, .vacancy-section");
+      if (primaryDescEl) {
+        description = primaryDescEl.innerText.trim();
+      } else {
+        const wrapperEl = document.querySelector(".b-vacancy");
+        if (wrapperEl) {
+          const clone = wrapperEl.cloneNode(true);
+          clone.querySelectorAll("form, .reply, #reply-form, #apply, .b-similar, .similar-vacancies").forEach(el => el.remove());
+          description = clone.innerText.trim();
+        }
+      }
     } else if (hostname.includes("djinni.co")) {
       title = document.querySelector("h1")?.innerText?.trim() || "";
       company = document.querySelector(".job-details--title, .company-name")?.innerText?.trim() || "";
@@ -275,16 +284,23 @@
       title = document.querySelector(".job-details-jobs-unified-top-card__job-title, h1")?.innerText?.trim() || "";
       company = document.querySelector(".job-details-jobs-unified-top-card__company-name")?.innerText?.trim() || "";
       description = document.querySelector(".jobs-description, #job-details")?.innerText?.trim() || "";
+    } else if (hostname.includes("lever.co")) {
+      title = document.querySelector(".posting-headline h2, h1")?.innerText?.trim() || "";
+      company = document.title.split("-")[0]?.trim() || "";
+      const descEl = document.querySelector('[data-qa="job-description"], .posting-page .content, .section-wrapper');
+      description = descEl ? descEl.innerText.trim() : "";
     } else {
       title = document.querySelector("h1")?.innerText?.trim() || document.title || "";
-      const main = document.querySelector("main, article, #content") || document.body;
-      description = main.innerText.substring(0, 3500);
+      const descEl = document.querySelector('[data-qa="job-description"], [class*="job-description"], [class*="vacancy"], main, article, #content') || document.body;
+      const clone = descEl.cloneNode(true);
+      clone.querySelectorAll("nav, header, footer, aside").forEach(el => el.remove());
+      description = clone.innerText.trim().substring(0, 6000);
     }
 
     return {
       title: title.replace(/\s+/g, " "),
       company: company.replace(/\s+/g, " "),
-      description: description.substring(0, 4000)
+      description: description.substring(0, 6000)
     };
   }
 
